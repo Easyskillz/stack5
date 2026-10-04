@@ -244,24 +244,90 @@ const Stack5 = (() => {
   }
 
   async function home(){
+    const features=[
+      ['🛡️','Trusted player identity','Create a STACK5 account, verify your email and build a player profile linked to your public Steam profile.'],
+      ['⭐','Reputation, not just Elo','Keep skill separate from reliability, teamplay, communication and conduct signals.'],
+      ['🎯','Team-based matchmaking','Build your five, enter the queue and find another complete team at a comparable level.'],
+      ['🔎','Verification layers','Start with email and public Steam identity. Stronger verification can be added as STACK5 evolves.'],
+      ['🌍','Regional matchmaking','A global regional structure designed to connect players and teams with competitive matches worldwide.'],
+      ['🔐','Steam-safe by design','STACK5 never needs your Steam password, Steam Guard code, trade URL or inventory access.']
+    ];
+    const steps=[
+      ['Create account','STACK5 username, email and password.'],
+      ['Complete profile','Steam public URL, country, region, level, role and language.'],
+      ['Build your five','Invite friends or find missing players.'],
+      ['Find your match','Enter the 5v5 queue and meet a comparable team.'],
+      ['Ready & play','Both teams confirm before the match.']
+    ];
     layout('Build. Match. Play.',`
       <section class="hero">
-        <div class="eyebrow">CS2 TEAM MATCHMAKING</div>
-        <h1>Find your five.<br><span style="color:var(--green)">Find your match.</span></h1>
-        <p class="subtitle">A trusted matchmaking layer for players who want better teammates, better opponents and a reputation that actually means something.</p>
+        <div class="eyebrow">CS2 TEAM MATCHMAKING · PRIVATE BETA</div>
+        <h1>Tired of cheaters?<br><span>Find a trusted five.</span></h1>
+        <p class="subtitle">STACK5 is built for CS2 players who want a more trusted 5v5 experience — with player identity, reputation and team-based matchmaking at the core.</p>
         <div class="actions">
-          <a class="btn btn-green" href="/play">${tr('play')}</a>
+          <a class="btn btn-green" href="/register" data-guest-cta>Create your account</a>
+          <a class="btn btn-dark" href="#how">How STACK5 works</a>
           <a class="btn btn-dark" href="/teams">${tr('teams')}</a>
-          <a class="btn btn-dark" href="/players">${tr('players')}</a>
         </div>
+        <div class="notice">⚠️ <strong>STACK5 is currently in BETA.</strong> Features, verification layers, data sources and matchmaking rules may change during testing.</div>
       </section>
-      <div class="container">
-        <div class="grid">
-          <div class="card"><div class="eyebrow">01</div><h2 style="margin-top:10px">Build</h2><p class="muted">Create your five, find missing players and build a team you trust.</p></div>
-          <div class="card"><div class="eyebrow">02</div><h2 style="margin-top:10px">Match</h2><p class="muted">Discover compatible teams or let STACK5 find the best opponent.</p></div>
-          <div class="card"><div class="eyebrow">03</div><h2 style="margin-top:10px">Play</h2><p class="muted">Skill matters. Reliability, communication and teamplay matter too.</p></div>
+
+      <div class="container" style="padding-top:10px">
+        <div class="problem">
+          <div>
+            <h2>Built around the problem players actually feel.</h2>
+            <p>Random opponents, anonymous profiles and unreliable teammates can ruin a 5v5 session. STACK5 is designed to put more context around the people and teams you play with.</p>
+            <p class="security-note"><strong>Important:</strong> STACK5 is not an anti-cheat and does not claim to guarantee that a player is cheat-free. It is a trusted matchmaking and reputation layer.</p>
+          </div>
+          <div class="pill-list">
+            <div class="pill">🛡️ <b>Identity</b> — real STACK5 account + player profile</div>
+            <div class="pill">⭐ <b>Reputation</b> — reliability and teamplay tracked separately from skill</div>
+            <div class="pill">⚔️ <b>Teams first</b> — complete five vs complete five</div>
+            <div class="pill">🔐 <b>Steam-safe</b> — never ask for your Steam password</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>The STACK5 difference</h2>
+          <div class="section-lead">The platform is designed around trust without pretending that one number can tell you everything about a player.</div>
+          <div class="grid">${features.map(([icon,title,text])=>`
+            <div class="card"><div class="feature-icon">${icon}</div><h3>${title}</h3><p>${text}</p></div>`).join('')}
+          </div>
+        </div>
+
+        <div class="section" id="how">
+          <h2>From account to match</h2>
+          <div class="steps" style="margin-top:20px">${steps.map(([title,text],i)=>`
+            <div class="step"><div class="step-num">0${i+1}</div><h3>${title}</h3><p>${text}</p></div>`).join('')}
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>STACK5 regions</h2>
+          <div class="section-lead">A global regional matchmaking structure designed to connect players and teams worldwide.</div>
+          <div id="home-regions" class="region-grid"></div>
+        </div>
+
+        <div class="section">
+          <div class="cta">
+            <h2>Your five is waiting.</h2>
+            <p>Build your identity. Find your team. Find your match.</p>
+            <div class="actions"><a class="btn btn-green" href="/register" data-guest-cta>Create your STACK5 account</a></div>
+          </div>
         </div>
       </div>`);
+
+    catalog().then(cat=>{
+      const box=document.getElementById('home-regions');
+      if(box) box.innerHTML=cat.regions.map(r=>`
+        <div class="region${r.id==='NAFR'?' featured':''}"><span style="font-size:22px">${r.flag}</span><strong>${esc(r.name)}</strong><small class="muted">${r.id==='NAFR'?'STACK5 custom region':'Matchmaking region'}</small></div>`).join('');
+    }).catch(()=>{});
+
+    // Signed-in visitors get "Go to Play" instead of sign-up buttons.
+    fetch('/api/me',{credentials:'include'}).then(r=>{
+      if(!r.ok) return;
+      document.querySelectorAll('[data-guest-cta]').forEach(a=>{ a.href='/play'; a.textContent='Go to Play'; });
+    }).catch(()=>{});
   }
 
   // ---------- API helpers ----------

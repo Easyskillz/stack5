@@ -91,6 +91,33 @@ h3{margin:0}
 .empty{padding:50px;text-align:center;border:1px dashed #2a372f;border-radius:12px;color:var(--muted)}
 .hidden{display:none!important}
 
+/* Homepage */
+.hero h1 span{color:var(--green)}
+html{scroll-behavior:smooth}
+#how{scroll-margin-top:90px}
+.notice{margin-top:28px;max-width:680px;padding:13px 16px;border:1px solid #3a3420;background:#17150c;border-radius:10px;color:#e6dcb5;font-size:13px;line-height:1.55}
+.section-lead{color:var(--muted);font-size:16px;line-height:1.6;max-width:680px;margin-bottom:24px}
+.problem{display:grid;grid-template-columns:1.2fr 1fr;gap:36px;align-items:center;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:34px}
+.problem p{color:var(--muted);line-height:1.65}
+.security-note{border-left:3px solid var(--green);padding-left:14px;font-size:14px}
+.security-note strong{color:var(--text)}
+.pill-list{display:grid;gap:10px}
+.pill{background:#0c110e;border:1px solid var(--border);border-radius:10px;padding:14px 16px;font-size:14px;color:#cfd8d3}
+.pill b{color:var(--text)}
+.feature-icon{font-size:24px;margin-bottom:12px}
+.card p{color:var(--muted);line-height:1.6;font-size:14px;margin:8px 0 0}
+.steps{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.step{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px}
+.step-num{color:var(--green);font-weight:800;font-size:13px;letter-spacing:.1em;margin-bottom:12px}
+.step h3{font-size:16px}
+.step p{color:var(--muted);font-size:13px;line-height:1.55;margin:8px 0 0}
+.region-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.region{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:4px}
+.region.featured{border-color:#38533f}
+.cta{text-align:center;background:linear-gradient(180deg,#122016,var(--panel));border:1px solid #38533f;border-radius:18px;padding:50px 24px}
+.cta p{color:var(--muted);font-size:17px}
+.cta .actions{justify-content:center}
+
 /* Play hub */
 .panel-grid{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:16px}
 .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:22px}
@@ -119,11 +146,18 @@ h3{margin:0}
 
 footer{border-top:1px solid #18211c;margin-top:70px;padding:30px 24px;color:#68756d;font-size:12px}
 
+@media(max-width:1100px){
+  .steps{grid-template-columns:repeat(3,1fr)}
+  .region-grid{grid-template-columns:repeat(3,1fr)}
+}
+
 @media(max-width:850px){
   .header{padding:10px 15px;height:auto;flex-wrap:wrap}.logo{margin-right:12px}
   .nav{order:3;width:100%;overflow-x:auto;height:auto;padding-top:6px}
   .nav a{white-space:nowrap}
-  .grid,.panel-grid,.form-grid,.versus{grid-template-columns:1fr}
+  .grid,.panel-grid,.form-grid,.versus,.problem,.steps{grid-template-columns:1fr}
+  .region-grid{grid-template-columns:repeat(2,1fr)}
+  .problem{padding:22px}
   .stat-grid{grid-template-columns:1fr}
   .detail-grid{grid-template-columns:1fr}
   h1{font-size:40px}
