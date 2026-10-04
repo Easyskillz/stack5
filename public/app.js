@@ -100,7 +100,7 @@ const Stack5 = (() => {
 
 
   function footer(){
-    return `<footer><div style="max-width:1180px;margin:auto">STACK5 · Build. Match. Play.</div></footer>`;
+    return `<footer><div style="max-width:1180px;margin:auto">STACK5 · Build. Match. Play. · <a href="/privacy">Privacy</a></div></footer>`;
   }
 
   function layout(title,content,active=''){

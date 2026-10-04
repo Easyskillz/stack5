@@ -866,6 +866,7 @@ app.get("/api/discover/teams", (_, res) => {
 });
 
 app.get("/login", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/login.html")));
+app.get("/privacy", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/privacy.html")));
 app.get("/forgot-password", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/forgot-password.html")));
 app.get("/register", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/register.html")));
 app.get("/", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
