@@ -45,38 +45,57 @@ export function compatibility(aId, bId) {
 
 export function runMatchmaking() {
   const queued = db.prepare(`
-    SELECT q.team_id
-    FROM queue q
-    JOIN teams t ON t.id=q.team_id
-    WHERE t.status='READY'
-    ORDER BY q.queued_at ASC
+    SELECT team_id
+    FROM queue
+    ORDER BY queued_at
   `).all();
 
-  let created = [];
+  const created = [];
 
   for (let i = 0; i < queued.length; i++) {
     const aId = queued[i].team_id;
     const a = getTeam(aId);
+
     if (!a || a.count !== 5) continue;
 
     let best = null;
+    let bestIndex = -1;
+
     for (let j = i + 1; j < queued.length; j++) {
       const bId = queued[j].team_id;
       const b = getTeam(bId);
+
       if (!b || b.count !== 5 || b.region !== a.region) continue;
 
       const score = compatibility(aId, bId);
-      if (!best || score > best.score) best = { bId, score };
+
+      if (!best || score > best.score) {
+        best = { bId, score };
+        bestIndex = j;
+      }
     }
 
     if (best) {
       const match = db.prepare(`
         INSERT INTO matches(team_a_id, team_b_id, compatibility, scheduled_at)
         VALUES(?,?,?,?)
-      `).run(aId, best.bId, best.score, a.scheduled_at || null);
+      `).run(
+        aId,
+        best.bId,
+        best.score,
+        a.scheduled_at || null
+      );
 
-      db.prepare(`DELETE FROM queue WHERE team_id IN (?,?)`).run(aId, best.bId);
-      db.prepare(`UPDATE teams SET status='MATCHED' WHERE id IN (?,?)`).run(aId, best.bId);
+      db.prepare(`
+        DELETE FROM queue
+        WHERE team_id IN (?,?)
+      `).run(aId, best.bId);
+
+      db.prepare(`
+        UPDATE teams
+        SET status='MATCHED'
+        WHERE id IN (?,?)
+      `).run(aId, best.bId);
 
       created.push({
         matchId: match.lastInsertRowid,
@@ -85,8 +104,7 @@ export function runMatchmaking() {
         compatibility: best.score
       });
 
-      queued.splice(j, 1);
-      j--;
+      queued.splice(bestIndex, 1);
     }
   }
 

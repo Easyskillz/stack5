@@ -20,7 +20,7 @@ const VERIFY_HOURS = 24;
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: "100kb" }));
 app.use(morgan("combined"));
-app.use(express.static(path.join(__dirname, "../public")));
+app.use(express.static(path.join(__dirname, "../public"), { index: false }));
 
 const attempts = new Map();
 function rateLimit(req, res, next) {
@@ -512,7 +512,8 @@ app.post("/api/auth/logout", auth, csrf, (req, res) => {
 
 app.get("/api/me", auth, (req, res) => {
   const player = req.account.player_id ? db.prepare("SELECT * FROM players WHERE id=?").get(req.account.player_id) : null;
-  res.json({ account: { id:req.account.account_id, username:req.account.username, email:req.account.email, email_verified:!!req.account.email_verified }, player });
+  res.json({
+    csrf_token: req.account.csrf_token, account: { id:req.account.account_id, username:req.account.username, email:req.account.email, email_verified:!!req.account.email_verified }, player });
 });
 
 app.post("/api/profile", auth, csrf, async (req, res) => {
@@ -623,5 +624,40 @@ app.post("/api/matches/:id/accept", auth, csrf, profileRequired, (req,res)=>{if(
 
 app.post("/api/trust", auth, csrf, profileRequired, (req,res)=>{if(!requireBody(req,res,["to_player_id","rating"]))return;const rating=Math.max(1,Math.min(5,Number(req.body.rating)));if(Number(req.body.to_player_id)===req.account.player_id)return res.status(400).json({error:"You cannot rate yourself"});db.prepare(`INSERT INTO trust_ratings(from_player_id,to_player_id,rating,tags) VALUES(?,?,?,?) ON CONFLICT(from_player_id,to_player_id) DO UPDATE SET rating=excluded.rating,tags=excluded.tags`).run(req.account.player_id,req.body.to_player_id,rating,req.body.tags||"");const avgRow=db.prepare("SELECT AVG(rating) avg_rating FROM trust_ratings WHERE to_player_id=?").get(req.body.to_player_id);const score=Math.round((avgRow.avg_rating||3)*20);db.prepare("UPDATE players SET trust_score=? WHERE id=?").run(score,req.body.to_player_id);res.json({ok:true,trust_score:score});});
 
-app.get("*splat", (_,res)=>res.sendFile(path.join(__dirname,"../public/index.html")));
+
+app.use("/assets", express.static(path.join(__dirname, "../public")));
+
+app.get("/api/discover/teams", (_, res) => {
+  const teams = db.prepare(`
+    SELECT
+      t.id,
+      t.name,
+      t.region,
+      t.min_level,
+      t.max_level,
+      t.status,
+      COUNT(tm.player_id) AS count
+    FROM teams t
+    LEFT JOIN team_members tm ON tm.team_id=t.id
+    WHERE t.status='OPEN'
+    GROUP BY t.id
+    HAVING count < 5
+    ORDER BY t.created_at DESC
+  `).all();
+
+  res.json(teams);
+});
+
+app.get("/login", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/login.html")));
+app.get("/register", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/register.html")));
+app.get("/", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
+app.get("/play", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
+app.get("/teams", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
+app.get("/players", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
+app.get("/matches", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
+app.get("/rankings", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
+app.get("/player/:username", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
+app.get("/team/:id", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
+
+app.get("*splat", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
 const port=Number(process.env.PORT||3000);app.listen(port,"0.0.0.0",()=>console.log(`STACK5 listening on ${port}`));

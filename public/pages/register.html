@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Create account · STACK5</title>
+<link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+<header class="header">
+<a class="logo" href="/">STACK<span>5</span></a>
+<div class="header-right"><a class="btn btn-dark btn-small" href="/login">Login</a></div>
+</header>
+<main class="container" style="max-width:460px">
+<div class="eyebrow">STACK5</div>
+<h1 style="font-size:40px">Create your account.</h1>
+<p class="subtitle">Build your profile, find your five and start playing.</p>
+<div class="card" style="margin-top:25px">
+<form onsubmit="registerUser(event)">
+<input id="email" type="email" placeholder="Email" required style="width:100%;padding:13px;margin-bottom:10px;background:#0b100d;border:1px solid #28352e;color:#fff;border-radius:7px">
+<input id="password" type="password" placeholder="Password" required style="width:100%;padding:13px;margin-bottom:15px;background:#0b100d;border:1px solid #28352e;color:#fff;border-radius:7px">
+<button class="btn btn-green" style="width:100%">Create account</button>
+<div id="error" class="muted" style="margin-top:12px"></div>
+</form>
+</div>
+</main>
+<script>\nasync function registerUser(e){e.preventDefault();const r=await fetch("/api/auth/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:email.value.split("@")[0],email:email.value,password:password.value,accept_terms:true})});const j=await r.json();if(!r.ok){error.textContent=j.error||"Registration failed";return}location.href="/";}\n
+async function login(e){
+ e.preventDefault();
+ const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email.value,password:password.value})});
+ const j=await r.json();
+ if(!r.ok){error.textContent=j.error||'Login failed';return}
+ location.href='/';
+}
+</script>
+</body>
+</html>

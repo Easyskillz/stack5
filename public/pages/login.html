@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login · STACK5</title>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+
+<body>
+
+<header class="header">
+  <div class="logo">
+    <a href="/" style="text-decoration:none;color:inherit">STACK5</a>
+  </div>
+
+  <nav class="nav">
+    <a href="/">PLAY</a>
+    <a href="/teams">FIND A TEAM</a>
+    <a href="/players">FIND PLAYERS</a>
+    <a href="/matches">MATCHES</a>
+    <a href="/rankings">RANKINGS</a>
+  </nav>
+
+  <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+    <a class="btn btn-dark btn-small" href="/login">
+      Login
+    </a>
+
+    <a class="btn btn-green btn-small" href="/register">
+      Create account
+    </a>
+  </div>
+</header>
+
+<main class="container" style="max-width:460px">
+
+  <div class="eyebrow">STACK5</div>
+
+  <h1 style="font-size:40px">
+    Welcome back.
+  </h1>
+
+  <p class="subtitle">
+    Log in to your STACK5 account.
+  </p>
+
+  <div class="card" style="margin-top:25px">
+
+    <form onsubmit="login(event)">
+
+      <input
+        id="email"
+        type="email"
+        placeholder="Email"
+        autocomplete="email"
+        required
+        style="width:100%;padding:13px;margin-bottom:10px;background:#0b100d;border:1px solid #28352e;color:#fff;border-radius:7px"
+      >
+
+      <input
+        id="password"
+        type="password"
+        placeholder="Password"
+        autocomplete="current-password"
+        required
+        style="width:100%;padding:13px;margin-bottom:15px;background:#0b100d;border:1px solid #28352e;color:#fff;border-radius:7px"
+      >
+
+      <button
+        type="submit"
+        class="btn btn-green"
+        style="width:100%"
+      >
+        Login
+      </button>
+
+      <div
+        id="error"
+        class="muted"
+        style="margin-top:12px"
+      ></div>
+
+    </form>
+
+    <div style="margin-top:18px;text-align:center">
+      <a href="/forgot-password" class="muted">
+        Forgot your password?
+      </a>
+    </div>
+
+  </div>
+
+</main>
+
+<script>
+async function login(e) {
+  e.preventDefault();
+
+  const emailInput = document.getElementById('email');
+  const passwordInput = document.getElementById('password');
+  const errorBox = document.getElementById('error');
+  const button = e.target.querySelector('button');
+
+  errorBox.textContent = '';
+  errorBox.style.color = '#ff6b6b';
+
+  button.disabled = true;
+  button.textContent = 'Logging in...';
+
+  console.log('[STACK5 LOGIN] Starting login');
+  console.log('[STACK5 LOGIN] Email:', emailInput.value);
+
+  try {
+
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+
+      headers: {
+        'Content-Type': 'application/json'
+      },
+
+      credentials: 'include',
+
+      body: JSON.stringify({
+        email: emailInput.value.trim(),
+        password: passwordInput.value
+      })
+    });
+
+    console.log(
+      '[STACK5 LOGIN] HTTP status:',
+      response.status
+    );
+
+    console.log(
+      '[STACK5 LOGIN] Content-Type:',
+      response.headers.get('content-type')
+    );
+
+    const text = await response.text();
+
+    console.log(
+      '[STACK5 LOGIN] Raw response:',
+      text
+    );
+
+    let data;
+
+    try {
+
+      data = JSON.parse(text);
+
+    } catch (parseError) {
+
+      console.error(
+        '[STACK5 LOGIN] JSON parse error:',
+        parseError
+      );
+
+      errorBox.textContent =
+        'Server returned an invalid response. HTTP ' +
+        response.status;
+
+      return;
+    }
+
+    if (!response.ok) {
+
+      console.error(
+        '[STACK5 LOGIN] Login rejected:',
+        data
+      );
+
+      errorBox.textContent =
+        data.error ||
+        'Login failed. HTTP ' +
+        response.status;
+
+      return;
+    }
+
+    console.log(
+      '[STACK5 LOGIN] Login successful:',
+      data
+    );
+
+    window.location.href = '/';
+
+  } catch (error) {
+
+    console.error(
+      '[STACK5 LOGIN] Network / JavaScript error:',
+      error
+    );
+
+    errorBox.textContent =
+      'Unable to connect to STACK5. Please try again.';
+
+  } finally {
+
+    button.disabled = false;
+    button.textContent = 'Login';
+
+  }
+}
+</script>
+
+</body>
+</html>
