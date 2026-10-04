@@ -1,0 +1,16 @@
+[Unit]
+Description=STACK5 BETA
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/stack5/stack5-beta
+Environment=NODE_ENV=production
+Environment=PORT=3000
+ExecStart=/usr/bin/node src/server.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
