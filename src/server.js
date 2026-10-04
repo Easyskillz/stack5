@@ -621,9 +621,67 @@ app.post("/api/team-invites/:id/decline", auth, csrf, profileRequired, (req,res)
   res.json({ok:true});
 });
 
-app.post("/api/teams/:id/join", auth, csrf, profileRequired, (req,res)=>{const team=getTeam(req.params.id);const player=db.prepare("SELECT * FROM players WHERE id=?").get(req.account.player_id);if(!team||!player)return res.status(404).json({error:"Team or player not found"});if(activeTeamForPlayer(player.id))return res.status(409).json({error:"You are already in an active team."});if(team.count>=5)return res.status(409).json({error:"Team is full"});if(team.members.some(x=>x.id===player.id))return res.status(409).json({error:"Already in team"});if(team.status!=="OPEN")return res.status(409).json({error:"Team is no longer open"});db.prepare("INSERT INTO team_members(team_id,player_id) VALUES(?,?)").run(team.id,player.id);res.json(getTeam(team.id));});
-app.post("/api/teams/:id/leave", auth, csrf, profileRequired, (req,res)=>{const team=getTeam(req.params.id);if(!team)return res.status(404).json({error:"Team not found"});if(team.captain_id===req.account.player_id)return res.status(400).json({error:"Captain cannot leave; transfer captain or delete team."});db.prepare("DELETE FROM team_members WHERE team_id=? AND player_id=?").run(team.id,req.account.player_id);res.json(getTeam(team.id));});
-app.post("/api/teams/:id/remove", auth, csrf, profileRequired, (req,res)=>{const team=getTeam(req.params.id);if(!team)return res.status(404).json({error:"Team not found"});if(team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain can remove players."});const pid=Number(req.body.player_id);if(pid===team.captain_id)return res.status(400).json({error:"The captain cannot be removed."});db.prepare("DELETE FROM team_members WHERE team_id=? AND player_id=?").run(team.id,pid);res.json(getTeam(team.id));});
+// Teams are invite-only: players join through /api/team-invites/:id/accept.
+app.post("/api/teams/:id/join", auth, csrf, profileRequired, (req,res)=>res.status(403).json({error:"Teams are invite-only. Ask the captain to invite you."}));
+
+// Roster changes are only allowed before a match is found. A READY/queued team that
+// loses a player drops back to OPEN and leaves the queue.
+const ROSTER_EDITABLE = ["OPEN","READY"];
+function removeFromRoster(team, playerId) {
+  db.transaction(() => {
+    db.prepare("DELETE FROM team_members WHERE team_id=? AND player_id=?").run(team.id, playerId);
+    if (team.status === "READY") {
+      db.prepare("UPDATE teams SET status='OPEN' WHERE id=?").run(team.id);
+      db.prepare("DELETE FROM queue WHERE team_id=?").run(team.id);
+    }
+  })();
+}
+
+app.post("/api/teams/:id/leave", auth, csrf, profileRequired, (req,res)=>{
+  const team=getTeam(req.params.id);
+  if(!team) return res.status(404).json({error:"Team not found"});
+  if(!team.members.some(m=>m.id===req.account.player_id)) return res.status(400).json({error:"You are not in this team."});
+  if(team.captain_id===req.account.player_id) return res.status(400).json({error:"Captain cannot leave; transfer captain or disband the team."});
+  if(!ROSTER_EDITABLE.includes(team.status)) return res.status(409).json({error:"You cannot leave after a match has been found."});
+  removeFromRoster(team, req.account.player_id);
+  res.json(getTeam(team.id));
+});
+
+app.post("/api/teams/:id/remove", auth, csrf, profileRequired, (req,res)=>{
+  const team=getTeam(req.params.id);
+  if(!team) return res.status(404).json({error:"Team not found"});
+  if(team.captain_id!==req.account.player_id) return res.status(403).json({error:"Only the captain can remove players."});
+  const pid=Number(req.body.player_id);
+  if(pid===team.captain_id) return res.status(400).json({error:"The captain cannot be removed."});
+  if(!team.members.some(m=>m.id===pid)) return res.status(404).json({error:"That player is not in the team."});
+  if(!ROSTER_EDITABLE.includes(team.status)) return res.status(409).json({error:"Players cannot be removed after a match has been found."});
+  removeFromRoster(team, pid);
+  res.json(getTeam(team.id));
+});
+
+app.post("/api/teams/:id/transfer", auth, csrf, profileRequired, (req,res)=>{
+  if(!requireBody(req,res,["player_id"])) return;
+  const team=getTeam(req.params.id);
+  if(!team) return res.status(404).json({error:"Team not found"});
+  if(team.captain_id!==req.account.player_id) return res.status(403).json({error:"Only the captain can transfer captaincy."});
+  const pid=Number(req.body.player_id);
+  if(pid===team.captain_id || !team.members.some(m=>m.id===pid)) return res.status(400).json({error:"Choose another member of the team."});
+  db.prepare("UPDATE teams SET captain_id=? WHERE id=?").run(pid, team.id);
+  res.json(getTeam(team.id));
+});
+
+app.post("/api/teams/:id/disband", auth, csrf, profileRequired, (req,res)=>{
+  const team=getTeam(req.params.id);
+  if(!team) return res.status(404).json({error:"Team not found"});
+  if(team.captain_id!==req.account.player_id) return res.status(403).json({error:"Only the captain can disband the team."});
+  if(!ROSTER_EDITABLE.includes(team.status)) return res.status(409).json({error:"A team cannot be disbanded after a match has been found."});
+  db.transaction(() => {
+    db.prepare("UPDATE teams SET status='CANCELLED' WHERE id=?").run(team.id);
+    db.prepare("DELETE FROM queue WHERE team_id=?").run(team.id);
+    db.prepare("UPDATE team_invites SET status='CANCELLED',responded_at=CURRENT_TIMESTAMP WHERE team_id=? AND status='PENDING'").run(team.id);
+  })();
+  res.json({ok:true});
+});
 app.post("/api/teams/:id/ready", auth, csrf, profileRequired, (req,res)=>{const team=getTeam(req.params.id);if(!team)return res.status(404).json({error:"Team not found"});if(team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain can ready the team"});if(team.count!==5)return res.status(400).json({error:"Team must have 5 players"});db.prepare("UPDATE teams SET status='READY' WHERE id=?").run(team.id);res.json(getTeam(team.id));});
 app.post("/api/teams/:id/queue", auth, csrf, profileRequired, (req,res)=>{const team=getTeam(req.params.id);if(!team)return res.status(404).json({error:"Team not found"});if(team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain can queue the team"});if(team.count!==5)return res.status(400).json({error:"Team must have 5 players"});db.prepare("UPDATE teams SET status='READY' WHERE id=?").run(team.id);db.prepare("INSERT OR IGNORE INTO queue(team_id) VALUES(?)").run(team.id);res.json({queued:true,team:getTeam(team.id)});});
 app.get("/api/queue", (_,res)=>res.json(db.prepare(`SELECT t.id,t.name,t.region,t.min_level,t.max_level,COUNT(tm.player_id) count FROM queue q JOIN teams t ON t.id=q.team_id LEFT JOIN team_members tm ON tm.team_id=t.id GROUP BY t.id ORDER BY q.queued_at`).all()));
@@ -631,7 +689,16 @@ app.post("/api/matchmaking/run", auth, adminRequired, csrf, (_,res)=>res.json({m
 app.get("/api/matches/:id", (req,res)=>{const m=db.prepare("SELECT * FROM matches WHERE id=?").get(req.params.id);if(!m)return res.status(404).json({error:"Match not found"});res.json({...m,team_a:getTeam(m.team_a_id),team_b:getTeam(m.team_b_id)});});
 app.post("/api/matches/:id/accept", auth, csrf, profileRequired, (req,res)=>{if(!requireBody(req,res,["team_id"]))return;const m=db.prepare("SELECT * FROM matches WHERE id=?").get(req.params.id);if(!m)return res.status(404).json({error:"Match not found"});const teamId=Number(req.body.team_id);const team=getTeam(teamId);if(!team||team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain of the matched team can accept"});if(teamId===m.team_a_id)db.prepare("UPDATE matches SET accepted_a=1 WHERE id=?").run(m.id);else if(teamId===m.team_b_id)db.prepare("UPDATE matches SET accepted_b=1 WHERE id=?").run(m.id);else return res.status(403).json({error:"Team is not part of this match"});const updated=db.prepare("SELECT * FROM matches WHERE id=?").get(m.id);if(updated.accepted_a&&updated.accepted_b){db.prepare("UPDATE matches SET status='CONFIRMED' WHERE id=?").run(m.id);db.prepare("UPDATE teams SET status='MATCH_CONFIRMED' WHERE id IN (?,?)").run(m.team_a_id,m.team_b_id);}res.json(db.prepare("SELECT * FROM matches WHERE id=?").get(m.id));});
 
-app.post("/api/trust", auth, csrf, profileRequired, (req,res)=>{if(!requireBody(req,res,["to_player_id","rating"]))return;const rating=Math.max(1,Math.min(5,Number(req.body.rating)));if(Number(req.body.to_player_id)===req.account.player_id)return res.status(400).json({error:"You cannot rate yourself"});db.prepare(`INSERT INTO trust_ratings(from_player_id,to_player_id,rating,tags) VALUES(?,?,?,?) ON CONFLICT(from_player_id,to_player_id) DO UPDATE SET rating=excluded.rating,tags=excluded.tags`).run(req.account.player_id,req.body.to_player_id,rating,req.body.tags||"");const avgRow=db.prepare("SELECT AVG(rating) avg_rating FROM trust_ratings WHERE to_player_id=?").get(req.body.to_player_id);const score=Math.round((avgRow.avg_rating||3)*20);db.prepare("UPDATE players SET trust_score=? WHERE id=?").run(score,req.body.to_player_id);res.json({ok:true,trust_score:score});});
+// True if both players were on either side of the same confirmed match.
+function playedTogether(aId, bId) {
+  return !!db.prepare(`
+    SELECT 1 FROM matches m
+    JOIN team_members x ON x.team_id IN (m.team_a_id, m.team_b_id) AND x.player_id=?
+    JOIN team_members y ON y.team_id IN (m.team_a_id, m.team_b_id) AND y.player_id=?
+    WHERE m.status='CONFIRMED' LIMIT 1`).get(aId, bId);
+}
+
+app.post("/api/trust", auth, csrf, profileRequired, (req,res)=>{if(!requireBody(req,res,["to_player_id","rating"]))return;const rating=Math.max(1,Math.min(5,Math.round(Number(req.body.rating))||0));req.body.to_player_id=Number(req.body.to_player_id);if(req.body.to_player_id===req.account.player_id)return res.status(400).json({error:"You cannot rate yourself"});if(!playedTogether(req.account.player_id,req.body.to_player_id))return res.status(403).json({error:"You can only rate players you have played a confirmed match with."});db.prepare(`INSERT INTO trust_ratings(from_player_id,to_player_id,rating,tags) VALUES(?,?,?,?) ON CONFLICT(from_player_id,to_player_id) DO UPDATE SET rating=excluded.rating,tags=excluded.tags`).run(req.account.player_id,req.body.to_player_id,rating,req.body.tags||"");const avgRow=db.prepare("SELECT AVG(rating) avg_rating FROM trust_ratings WHERE to_player_id=?").get(req.body.to_player_id);const score=Math.round((avgRow.avg_rating||3)*20);db.prepare("UPDATE players SET trust_score=? WHERE id=?").run(score,req.body.to_player_id);res.json({ok:true,trust_score:score});});
 
 
 app.use("/assets", express.static(path.join(__dirname, "../public")));
