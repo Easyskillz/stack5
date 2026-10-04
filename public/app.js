@@ -71,6 +71,7 @@ const Stack5 = (() => {
       if(!data.account) return;
 
       window.Stack5CurrentAccount = data.account;
+      state.csrf = data.csrf_token;
 
       headerRight.innerHTML = `
         <button class="lang" onclick="Stack5.toggleLang()">
@@ -147,7 +148,7 @@ const Stack5 = (() => {
           </div>
           <div class="meta">
             <span>FACEIT ${t.min_level}–${t.max_level}</span>
-            <span>${t.language||'—'}</span>
+            <span>${esc(t.language||'—')}</span>
           </div>
           <div class="card-actions">
             <a class="btn btn-dark btn-small" href="/team/${t.id}">${tr('view')}</a>
@@ -187,7 +188,7 @@ const Stack5 = (() => {
       document.getElementById('results').innerHTML=rows.length?rows.map(p=>`
         <article class="card">
           <div class="profile-head">
-            <img class="avatar" src="${p.avatar_url||''}" onerror="this.style.display='none'">
+            <img class="avatar" src="${esc(p.avatar_url||'')}" onerror="this.style.display='none'">
             <div>
               <h3>${esc(p.display_name||'Player')}</h3>
               <div class="muted small">${countryFlag(p.country)} ${esc(p.country||'')} · ${esc(p.region||'')}</div>
@@ -219,7 +220,7 @@ const Stack5 = (() => {
       <div class="container">
         <div class="player-card">
           <div class="profile-head">
-            <img class="avatar" src="${p.avatar_url||''}" onerror="this.style.display='none'">
+            <img class="avatar" src="${esc(p.avatar_url||'')}" onerror="this.style.display='none'">
             <div>
               <div class="eyebrow">STACK5 PLAYER</div>
               <h1 style="font-size:38px;margin:5px 0">${esc(p.display_name)}</h1>
@@ -302,7 +303,8 @@ const Stack5 = (() => {
     try {
       await fetch('/api/auth/logout', {
         method: 'POST',
-        credentials: 'include'
+        credentials: 'include',
+        headers: state.csrf ? { 'X-CSRF-Token': state.csrf } : {}
       });
     } catch(error) {
       console.error('[STACK5 LOGOUT]', error);
@@ -320,4 +322,3 @@ const Stack5 = (() => {
 })();
 
 Stack5.route();
-refreshHeaderAuth();

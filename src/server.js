@@ -16,7 +16,10 @@ const app = express();
 const isProduction = process.env.NODE_ENV === "production";
 const SESSION_DAYS = 30;
 const VERIFY_HOURS = 24;
+const BASE_URL = (process.env.PUBLIC_BASE_URL || process.env.BASE_URL || "http://localhost:3000").replace(/\/$/, "");
 
+// Behind nginx: trust one proxy hop so req.ip is the real client IP, not 127.0.0.1.
+app.set("trust proxy", Number(process.env.TRUST_PROXY ?? 1));
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: "100kb" }));
 app.use(morgan("combined"));
@@ -33,6 +36,10 @@ function rateLimit(req, res, next) {
   if (hit.count > 40) return res.status(429).json({ error: "Too many requests. Try again shortly." });
   next();
 }
+setInterval(() => {
+  const cutoff = Date.now() - 60_000;
+  for (const [key, hit] of attempts) if (hit.at < cutoff) attempts.delete(key);
+}, 5 * 60_000).unref();
 app.use("/api", rateLimit);
 
 function requireBody(req, res, fields) {
@@ -52,6 +59,10 @@ async function verifyPassword(password, salt, expected) {
   const actual = await scrypt(password, salt);
   return crypto.timingSafeEqual(Buffer.from(actual, "hex"), Buffer.from(expected, "hex"));
 }
+function safeAvatarUrl(value) {
+  if (!value) return null;
+  try { const u = new URL(String(value)); return u.protocol === "https:" ? u.toString().slice(0, 500) : null; } catch { return null; }
+}
 function emailValid(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
 function cookieOptions(maxAge) { return `HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}${isProduction ? "; Secure" : ""}`; }
 function getCookie(req, name) {
@@ -61,8 +72,7 @@ function getCookie(req, name) {
 }
 
 async function sendVerificationEmail(account, rawToken) {
-  const base = process.env.BASE_URL || "http://localhost:3000";
-  const url = `${base}/verify-email?token=${rawToken}`;
+  const url = `${BASE_URL}/verify-email?token=${rawToken}`;
   if (!process.env.SMTP_HOST) {
     console.log(`[STACK5 DEV] Email verification link for ${account.email}: ${url}`);
     if (isProduction) throw new Error("Email delivery is not configured yet. Set SMTP_HOST/SMTP_USER/SMTP_PASS and restart STACK5.");
@@ -274,8 +284,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
     WHERE id=?
   `).run(tokenHash, expiresAt, account.id);
 
-  const base = process.env.BASE_URL || "http://localhost:3000";
-  const url = `${base}/reset-password?token=${token}`;
+  const url = `${BASE_URL}/reset-password?token=${token}`;
 
   try {
     const transporter = nodemailer.createTransport({
@@ -530,7 +539,7 @@ app.post("/api/profile", auth, csrf, async (req, res) => {
     const result = db.transaction(() => {
       const existing = db.prepare("SELECT id FROM players WHERE steam_url=?").get(steamUrl);
       if (existing) throw new Error("This Steam profile is already linked to a STACK5 player.");
-      const r = db.prepare(`INSERT INTO players(steam_url,display_name,avatar_url,faceit_level,faceit_elo,region,country,language,role) VALUES(?,?,?,?,?,?,?,?,?)`).run(steamUrl,name,req.body.avatar_url||null,Number(req.body.faceit_level),Number(req.body.faceit_elo||0),region.id,country[0],String(req.body.language).slice(0,10),String(req.body.role).slice(0,20));
+      const r = db.prepare(`INSERT INTO players(steam_url,display_name,avatar_url,faceit_level,faceit_elo,region,country,language,role) VALUES(?,?,?,?,?,?,?,?,?)`).run(steamUrl,name,safeAvatarUrl(req.body.avatar_url),Number(req.body.faceit_level),Number(req.body.faceit_elo||0),region.id,country[0],String(req.body.language).slice(0,10),String(req.body.role).slice(0,20));
       db.prepare("UPDATE accounts SET player_id=? WHERE id=?").run(r.lastInsertRowid, req.account.account_id);
       return r.lastInsertRowid;
     })();
@@ -618,7 +627,7 @@ app.post("/api/teams/:id/remove", auth, csrf, profileRequired, (req,res)=>{const
 app.post("/api/teams/:id/ready", auth, csrf, profileRequired, (req,res)=>{const team=getTeam(req.params.id);if(!team)return res.status(404).json({error:"Team not found"});if(team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain can ready the team"});if(team.count!==5)return res.status(400).json({error:"Team must have 5 players"});db.prepare("UPDATE teams SET status='READY' WHERE id=?").run(team.id);res.json(getTeam(team.id));});
 app.post("/api/teams/:id/queue", auth, csrf, profileRequired, (req,res)=>{const team=getTeam(req.params.id);if(!team)return res.status(404).json({error:"Team not found"});if(team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain can queue the team"});if(team.count!==5)return res.status(400).json({error:"Team must have 5 players"});db.prepare("UPDATE teams SET status='READY' WHERE id=?").run(team.id);db.prepare("INSERT OR IGNORE INTO queue(team_id) VALUES(?)").run(team.id);res.json({queued:true,team:getTeam(team.id)});});
 app.get("/api/queue", (_,res)=>res.json(db.prepare(`SELECT t.id,t.name,t.region,t.min_level,t.max_level,COUNT(tm.player_id) count FROM queue q JOIN teams t ON t.id=q.team_id LEFT JOIN team_members tm ON tm.team_id=t.id GROUP BY t.id ORDER BY q.queued_at`).all()));
-app.post("/api/matchmaking/run", auth, csrf, profileRequired, (_,res)=>res.json({matches:runMatchmaking()}));
+app.post("/api/matchmaking/run", auth, adminRequired, csrf, (_,res)=>res.json({matches:runMatchmaking()}));
 app.get("/api/matches/:id", (req,res)=>{const m=db.prepare("SELECT * FROM matches WHERE id=?").get(req.params.id);if(!m)return res.status(404).json({error:"Match not found"});res.json({...m,team_a:getTeam(m.team_a_id),team_b:getTeam(m.team_b_id)});});
 app.post("/api/matches/:id/accept", auth, csrf, profileRequired, (req,res)=>{if(!requireBody(req,res,["team_id"]))return;const m=db.prepare("SELECT * FROM matches WHERE id=?").get(req.params.id);if(!m)return res.status(404).json({error:"Match not found"});const teamId=Number(req.body.team_id);const team=getTeam(teamId);if(!team||team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain of the matched team can accept"});if(teamId===m.team_a_id)db.prepare("UPDATE matches SET accepted_a=1 WHERE id=?").run(m.id);else if(teamId===m.team_b_id)db.prepare("UPDATE matches SET accepted_b=1 WHERE id=?").run(m.id);else return res.status(403).json({error:"Team is not part of this match"});const updated=db.prepare("SELECT * FROM matches WHERE id=?").get(m.id);if(updated.accepted_a&&updated.accepted_b){db.prepare("UPDATE matches SET status='CONFIRMED' WHERE id=?").run(m.id);db.prepare("UPDATE teams SET status='MATCH_CONFIRMED' WHERE id IN (?,?)").run(m.team_a_id,m.team_b_id);}res.json(db.prepare("SELECT * FROM matches WHERE id=?").get(m.id));});
 
@@ -649,6 +658,7 @@ app.get("/api/discover/teams", (_, res) => {
 });
 
 app.get("/login", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/login.html")));
+app.get("/forgot-password", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/forgot-password.html")));
 app.get("/register", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/register.html")));
 app.get("/", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
 app.get("/play", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));

@@ -76,26 +76,30 @@ export function runMatchmaking() {
     }
 
     if (best) {
-      const match = db.prepare(`
-        INSERT INTO matches(team_a_id, team_b_id, compatibility, scheduled_at)
-        VALUES(?,?,?,?)
-      `).run(
-        aId,
-        best.bId,
-        best.score,
-        a.scheduled_at || null
-      );
+      const match = db.transaction(() => {
+        const r = db.prepare(`
+          INSERT INTO matches(team_a_id, team_b_id, compatibility, scheduled_at)
+          VALUES(?,?,?,?)
+        `).run(
+          aId,
+          best.bId,
+          best.score,
+          a.scheduled_at || null
+        );
 
-      db.prepare(`
-        DELETE FROM queue
-        WHERE team_id IN (?,?)
-      `).run(aId, best.bId);
+        db.prepare(`
+          DELETE FROM queue
+          WHERE team_id IN (?,?)
+        `).run(aId, best.bId);
 
-      db.prepare(`
-        UPDATE teams
-        SET status='MATCHED'
-        WHERE id IN (?,?)
-      `).run(aId, best.bId);
+        db.prepare(`
+          UPDATE teams
+          SET status='MATCHED'
+          WHERE id IN (?,?)
+        `).run(aId, best.bId);
+
+        return r;
+      })();
 
       created.push({
         matchId: match.lastInsertRowid,

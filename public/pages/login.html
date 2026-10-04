@@ -108,9 +108,6 @@ async function login(e) {
   button.disabled = true;
   button.textContent = 'Logging in...';
 
-  console.log('[STACK5 LOGIN] Starting login');
-  console.log('[STACK5 LOGIN] Email:', emailInput.value);
-
   try {
 
     const response = await fetch('/api/auth/login', {
@@ -128,22 +125,7 @@ async function login(e) {
       })
     });
 
-    console.log(
-      '[STACK5 LOGIN] HTTP status:',
-      response.status
-    );
-
-    console.log(
-      '[STACK5 LOGIN] Content-Type:',
-      response.headers.get('content-type')
-    );
-
     const text = await response.text();
-
-    console.log(
-      '[STACK5 LOGIN] Raw response:',
-      text
-    );
 
     let data;
 
@@ -179,11 +161,6 @@ async function login(e) {
 
       return;
     }
-
-    console.log(
-      '[STACK5 LOGIN] Login successful:',
-      data
-    );
 
     window.location.href = '/';
 
