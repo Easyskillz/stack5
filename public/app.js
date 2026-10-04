@@ -100,7 +100,7 @@ const Stack5 = (() => {
 
 
   function footer(){
-    return `<footer><div style="max-width:1180px;margin:auto">STACK5 · Build. Match. Play. · <a href="/privacy">Privacy</a></div></footer>`;
+    return `<footer><div style="max-width:1180px;margin:auto">STACK5 · Build. Match. Play. · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></div></footer>`;
   }
 
   function layout(title,content,active=''){
@@ -202,6 +202,7 @@ const Stack5 = (() => {
             <span>${tr('trust')} <strong>${p.trust_score??'—'}</strong>${p.trust_confidence==='NEW'?' <span class="muted">(new)</span>':''}</span>
             <span>${tr('reliability')} ${p.reliability_score??'—'}</span>
             ${p.faceit_verified?'<span class="status green">FACEIT ✓</span>':''}
+            ${p.eligible?'<span class="status green">VERIFIED</span>':'<span class="status">Not verified</span>'}
           </div>
           <div class="card-actions">
             <a class="btn btn-dark btn-small" href="/player/${encodeURIComponent(p.display_name)}">${tr('view')}</a>
@@ -443,17 +444,54 @@ const Stack5 = (() => {
     }
     const d=await r.json();
     if(!d.player) return renderSetup(box,d);
+    state.clockSkew=(d.now||Date.now())-Date.now();
 
+    const blocked=d.eligibility && !d.eligibility.eligible;
     box.innerHTML=matchPanel(d)+`
       <div class="panel-grid">
-        <div>${teamPanel(d)}</div>
+        <div>${blocked && !d.team ? eligibilityPanel(d.eligibility) : (blocked ? eligibilityPanel(d.eligibility,true) : '') + teamPanel(d)}</div>
         <div>${sidePanel(d)}</div>
       </div>`;
+    startCountdowns();
 
     // Keep the page live while waiting on the queue or the other captain (no text inputs are shown then).
     const waiting=(d.team && d.team.status==='READY') || (d.match && d.match.status==='PENDING');
     if(waiting) pollTimer=setTimeout(renderPlay,8000);
   }
+
+  // ---------- Eligibility + countdowns ----------
+  function eligibilityPanel(e, inTeam=false){
+    const rows=(e.checks||[]).map(c=>`
+      <div class="row"><div><strong>${c.ok?'✅':'❌'} ${esc(c.label)}</strong><div class="muted small">${esc(c.detail||'')}</div></div></div>`).join('');
+    return `<div class="panel" style="border-color:#4a3a1e">
+      <h2>${inTeam?'Your account no longer meets the requirements':'Verify your Steam account to play'}</h2>
+      <p class="muted" style="margin-top:0">To keep new and throwaway accounts out of matches, STACK5 needs a Steam account with real CS2 history. We check public Steam data only. We never need your password.</p>
+      <div style="margin-top:10px">${rows}</div>
+      <p class="muted small" style="margin-top:14px">Made your profile or game details public? Steam can take a few minutes to update, then check again.
+        <a href="https://steamcommunity.com/my/edit/settings" target="_blank" rel="noopener" style="color:var(--green)">Open Steam privacy settings</a></p>
+      <div class="actions" style="margin-top:12px">${btn('Check again','recheck','btn-green')}</div>
+    </div>${inTeam?'<div style="height:16px"></div>':''}`;
+  }
+
+  function fmtLeft(ms){
+    if(ms<=0) return '0:00';
+    const s=Math.floor(ms/1000), h=Math.floor(s/3600), m=Math.floor(s%3600/60), sec=s%60;
+    return h?`${h}h ${String(m).padStart(2,'0')}m`:`${m}:${String(sec).padStart(2,'0')}`;
+  }
+  let countdownTimer=null;
+  function startCountdowns(){
+    clearInterval(countdownTimer);
+    const tick=()=>{
+      const els=document.querySelectorAll('[data-deadline]');
+      if(!els.length){ clearInterval(countdownTimer); return; }
+      const now=Date.now()+(state.clockSkew||0);
+      let expired=false;
+      els.forEach(el=>{ const left=Number(el.dataset.deadline)-now; el.textContent=fmtLeft(left); if(left<=0) expired=true; });
+      if(expired){ clearInterval(countdownTimer); setTimeout(renderPlay,3000); }   // server timers run every 30s
+    };
+    tick(); countdownTimer=setInterval(tick,1000);
+  }
+  const countdown=ts=>ts?`<strong data-deadline="${Number(ts)}"></strong>`:'';
 
   function matchPanel(d){
     const m=d.match;
@@ -475,9 +513,11 @@ const Stack5 = (() => {
     let head, actions='';
     if(m.status==='PENDING'){
       head=`<div class="eyebrow">MATCH FOUND · ${m.compatibility}% COMPATIBLE</div><h2 style="margin-top:8px">${esc(mine?.name)} vs ${esc(other?.name)}</h2>`;
-      if(isCaptain && !myAccepted) actions=`<div class="actions" style="margin-top:16px">${btn('Accept match','accept-match','btn-green',{id:m.id,arg:m.my_team_id})}${btn('Decline','decline-match','btn-danger',{id:m.id,confirm:'Decline this match? Your team will leave the queue.'})}</div>`;
-      else if(myAccepted) actions=`<p class="muted" style="margin-top:14px">Your team accepted. Waiting for the other captain…</p>`;
-      else actions=`<p class="muted" style="margin-top:14px">Waiting for your captain to accept…</p>`;
+      const timer=m.expires_at?`<p class="muted" style="margin-top:14px">Both captains must accept within ${countdown(m.expires_at)}. If time runs out, a team that didn't accept goes back to recruiting.</p>`:'';
+      actions=timer;
+      if(isCaptain && !myAccepted) actions+=`<div class="actions" style="margin-top:12px">${btn('Accept match','accept-match','btn-green',{id:m.id,arg:m.my_team_id})}${btn('Decline','decline-match','btn-danger',{id:m.id,confirm:'Decline this match? Your team will leave the queue.'})}</div>`;
+      else if(myAccepted) actions+=`<p class="muted" style="margin-top:14px">Your team accepted. Waiting for the other captain…</p>`;
+      else actions+=`<p class="muted" style="margin-top:14px">Waiting for your captain to accept…</p>`;
     } else {
       head=`<div class="eyebrow">MATCH CONFIRMED</div><h2 style="margin-top:8px">${esc(mine?.name)} vs ${esc(other?.name)}</h2>
         <p class="muted">Both teams are in. Captains: add each other on Steam (links below) and set up the server. After the game, rate the players you played with.</p>`;
@@ -521,6 +561,9 @@ const Stack5 = (() => {
     const empty=Array.from({length:5-t.count},()=>`<div class="row"><span class="muted">Open slot</span></div>`).join('');
 
     let controls='';
+    if(t.status==='OPEN' && t.expires_at){
+      controls+=`<p class="muted small" style="margin-top:12px">⏳ ${t.count<5?'Disbands in':'Queue within'} ${countdown(t.expires_at)} ${t.count<5?'unless a new player joins':'or the team is disbanded'}.</p>`;
+    }
     if(captain && t.status==='OPEN'){
       controls+= t.count<5
         ? `<form data-form="invite" data-id="${t.id}" class="inline-form"><input class="input" name="username" placeholder="Invite by STACK5 username" required><button class="btn btn-green btn-small">Invite</button></form>
@@ -529,6 +572,7 @@ const Stack5 = (() => {
     }
     if(t.status==='READY'){
       controls+=`<p style="margin-top:16px"><strong>Searching for an opponent…</strong> <span class="muted">Teams in your region are matched automatically.</span></p>`;
+      if(t.queue_expires_at) controls+=`<p class="muted small">⏳ Leaves the queue in ${countdown(t.queue_expires_at)} if no match is found.</p>`;
       if(captain) controls+=`<div class="actions" style="margin-top:10px">${btn('Leave queue','unqueue','btn-dark',{id:t.id})}</div>`;
     }
     if(editable){
@@ -561,7 +605,8 @@ const Stack5 = (() => {
     }
     html+=`<div class="panel"><h2>Your profile</h2>
       <div class="muted small">${countryFlag(d.player.country)} ${esc(d.player.region)} · FACEIT ${d.player.faceit_level} · ${esc(d.player.role)}</div>
-      <div class="actions" style="margin-top:12px"><a class="btn btn-small btn-dark" href="/player/${encodeURIComponent(d.player.display_name)}">View public profile</a></div></div>`;
+      <div class="muted small" style="margin-top:6px">${d.eligibility?.eligible?'<span class="status green">VERIFIED</span> Meets STACK5 requirements':'<span class="status amber">NOT VERIFIED</span>'}</div>
+      <div class="actions" style="margin-top:12px"><a class="btn btn-small btn-dark" href="/player/${encodeURIComponent(d.player.display_name)}">View public profile</a><a class="btn btn-small btn-outline" href="/account">Account</a></div></div>`;
     return html;
   }
 
@@ -610,6 +655,10 @@ const Stack5 = (() => {
     'transfer':   (id,arg)=>post(`/api/teams/${id}/transfer`,{player_id:Number(arg)}),
     'accept-match':(id,arg)=>post(`/api/matches/${id}/accept`,{team_id:Number(arg)}),
     'decline-match':  id=>post(`/api/matches/${id}/decline`),
+    'recheck': async ()=>{
+      const e=await post('/api/me/eligibility/recheck');
+      return {message:e.eligible?'All checks passed. You can play!':'Still missing some requirements.'};
+    },
     'rate': async id=>{
       const rating=Number(document.querySelector(`.rate-select[data-player="${id}"]`).value);
       await post('/api/trust',{to_player_id:Number(id),rating});
@@ -663,6 +712,44 @@ const Stack5 = (() => {
     });
   }).observe(document.documentElement,{childList:true,subtree:true});
 
+  // ---------- Account page (self-service deletion) ----------
+  async function account(){
+    layout('Account',`<div class="container" style="max-width:720px"><div class="eyebrow">ACCOUNT</div><h1>Your account</h1><div id="account"><div class="empty">Loading...</div></div></div>`);
+    const box=document.getElementById('account');
+    const r=await fetch('/api/me',{credentials:'include'});
+    if(!r.ok){ box.innerHTML=`<div class="panel"><p class="muted" style="margin:0">Please <a href="/login" style="color:var(--green)">log in</a> first.</p></div>`; return; }
+    const me=await r.json();
+    state.csrf=me.csrf_token;
+    box.innerHTML=`
+      <div class="panel">
+        <h2>Details</h2>
+        <div class="row"><span class="muted">Username</span><strong>${esc(me.account.username)}</strong></div>
+        <div class="row"><span class="muted">Email</span><strong>${esc(me.account.email)}</strong></div>
+        <div class="row"><span class="muted">Player profile</span>${me.player?`<a href="/player/${encodeURIComponent(me.player.display_name)}" style="color:var(--green)">${esc(me.player.display_name)}</a>`:'<span class="muted">Not set up</span>'}</div>
+        <p class="muted small" style="margin-bottom:0">Want to change something or get a copy of your data? Email <a href="mailto:contact@stack5cs.com" style="color:var(--green)">contact@stack5cs.com</a>. See our <a href="/privacy" style="color:var(--green)">Privacy Policy</a> and <a href="/terms" style="color:var(--green)">Terms</a>.</p>
+      </div>
+      <div class="panel" style="border-color:#4a2a2e">
+        <h2 style="color:#ffb3b9">Delete account</h2>
+        <p class="muted" style="margin-top:0">This permanently deletes your account, email, ratings, Steam data and reliability history. Your public profile is replaced by an anonymous "Deleted player" in past teams and matches. If you captain a team, it is disbanded. This can't be undone.</p>
+        <form id="deleteForm" class="form-grid">
+          <div><label>Password</label><input class="input" name="password" type="password" autocomplete="current-password" required></div>
+          <div><label>Type DELETE to confirm</label><input class="input" name="confirm" autocomplete="off" required pattern="DELETE"></div>
+          <div class="full"><button class="btn btn-danger">Delete my account permanently</button></div>
+        </form>
+      </div>`;
+    const form=document.getElementById('deleteForm');
+    form.onsubmit=async e=>{
+      e.preventDefault();
+      if(!confirm('Delete your STACK5 account permanently?')) return;
+      const b=form.querySelector('button'); b.disabled=true;
+      try{
+        await post('/api/account/delete',Object.fromEntries(new FormData(form)));
+        box.innerHTML=`<div class="panel"><h2>Your account has been deleted.</h2><p class="muted">Thanks for trying STACK5.</p><a class="btn btn-dark" href="/">Back to home</a></div>`;
+        window.Stack5CurrentAccount=null;
+      }catch(err){ toast(err.message,true); b.disabled=false; }
+    };
+  }
+
   // ---------- Marketplace buttons ----------
   async function requestJoin(teamId, b){
     if(!window.Stack5CurrentAccount){ location.href='/login'; return; }
@@ -693,6 +780,7 @@ const Stack5 = (() => {
     if(p==='/players') return players();
     if(p.startsWith('/player/')) return playerProfile(decodeURIComponent(p.split('/')[2]));
     if(p==='/play') return play();
+    if(p==='/account') return account();
     if(p==='/matches') return layout('Matches',`<div class="container"><div class="eyebrow">MATCHES</div><h1>My matches</h1><div class="empty">Your matches will appear here.</div></div>`,'matches');
     if(p==='/rankings') return layout('Rankings',`<div class="container"><div class="eyebrow">RANKINGS</div><h1>Rankings</h1><div class="empty">Rankings coming next.</div></div>`,'rankings');
     if(p.startsWith('/team/')) return teamProfile(p.split('/')[2]);

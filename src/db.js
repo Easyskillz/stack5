@@ -187,6 +187,14 @@ for (const col of [
   "trust_updated_at INTEGER",
   "faceit_verified INTEGER DEFAULT 0"
 ]) { try { db.exec(`ALTER TABLE players ADD COLUMN ${col}`); } catch {} }
+for (const col of [
+  "eligible INTEGER DEFAULT 0",
+  "eligibility TEXT",
+  "eligibility_checked_at INTEGER",
+  "eligibility_override INTEGER",      // NULL = automatic, 1 = admin-approved, 0 = admin-blocked
+  "deleted_at INTEGER"                 // set when the owner deletes their account (row is anonymised)
+]) { try { db.exec(`ALTER TABLE players ADD COLUMN ${col}`); } catch {} }
+try { db.exec("ALTER TABLE teams ADD COLUMN last_activity_at INTEGER"); } catch {}
 try { db.exec("ALTER TABLE trust_ratings ADD COLUMN match_id INTEGER"); } catch {}
 try { db.exec("ALTER TABLE matches ADD COLUMN declined_by_team_id INTEGER"); } catch {}
 try { db.exec("ALTER TABLE accounts ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0"); } catch {}

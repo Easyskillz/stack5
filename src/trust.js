@@ -157,7 +157,7 @@ export function recordEvent(playerId, type, refId = null) {
 }
 
 export function recomputeAll() {
-  const ids = db.prepare("SELECT id FROM players").all().map(r => r.id);
+  const ids = db.prepare("SELECT id FROM players WHERE deleted_at IS NULL").all().map(r => r.id);
   for (const id of ids) computeTrust(id);
   return ids.length;
 }

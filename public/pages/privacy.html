@@ -40,7 +40,7 @@
 <li>Your player profile and STACK5 Trust Score are <strong>public</strong>. Your email address and password are never shown to anyone.</li>
 <li>We never ask for your Steam password, Steam Guard code, trade URL or inventory access.</li>
 <li>We don't sell your data, show ads or use tracking/analytics cookies.</li>
-<li>You can ask us to see, correct or delete your data at any time: <a href="mailto:contact@stack5cs.com">contact@stack5cs.com</a>.</li>
+<li>You can delete your account yourself at any time from your <a href="/account">account page</a>, or ask us to see, correct or delete your data: <a href="mailto:contact@stack5cs.com">contact@stack5cs.com</a>.</li>
 </ul>
 </div>
 
@@ -64,7 +64,7 @@
 <tr><th>Data</th><th>Why</th></tr>
 <tr><td>Teams you create or join, invitations, join requests, queue entries, matches found, accepted, declined and confirmed</td><td>To run team building and matchmaking.</td></tr>
 <tr><td>Ratings you give to and receive from players you played a confirmed match with</td><td>To calculate peer reputation in the STACK5 Trust Score.</td></tr>
-<tr><td>Reliability events: declining a found match (as captain) and leaving a team while it is queued</td><td>To calculate the reliability part of the Trust Score.</td></tr>
+<tr><td>Reliability events: declining a found match or letting it expire (as captain), and leaving a team while it is queued</td><td>To calculate the reliability part of the Trust Score.</td></tr>
 <tr><td>Your STACK5 Trust Score, its breakdown and confidence level</td><td>Shown on your profile and used in matchmaking (see section 4).</td></tr>
 </table></div>
 
@@ -76,7 +76,7 @@
 <li>your Steam level and your CS2 playtime (only if your game details are public);</li>
 <li>the number of VAC bans and game bans on the account, days since the last ban, and whether the account has a Steam community ban.</li>
 </ul>
-<p>We store these values to calculate your Trust Score. If you make parts of your Steam profile private, we simply don't receive them.</p>
+<p>We store these values to calculate your Trust Score and to check the <a href="/terms">requirements to play</a> (account age, CS2 hours, no recent bans). If you make parts of your Steam profile private, we simply don't receive them, but then we can't verify that you meet the requirements.</p>
 
 <h3>Information shown from Leetify</h3>
 <p>Your profile page shows CS2 statistics from Leetify's public API (for example Leetify Rating, Premier rating, aim and utility). These are requested live from Leetify when someone opens your profile, kept in server memory for at most 5 minutes, and <strong>not stored</strong> in our database. They are shown only if your Leetify privacy settings allow it, and they are <strong>not</strong> used in the STACK5 Trust Score.</p>
@@ -130,7 +130,7 @@
 
 <h2>8. How long we keep data</h2>
 <ul>
-<li><strong>Account, profile, teams, matches, ratings, Trust Score:</strong> for as long as your account exists. When you delete your account, we delete or anonymise this data within 30 days.</li>
+<li><strong>Account, profile, teams, matches, ratings, Trust Score:</strong> for as long as your account exists. When you delete your account (from your <a href="/account">account page</a>), we immediately delete your account, email, ratings, Steam data and reliability history, and replace your player profile with an anonymous "Deleted player" placeholder so past team and match records stay consistent. Copies in backups disappear when those backups are deleted (within 30 days).</li>
 <li><strong>Steam data:</strong> refreshed about weekly; deleted with your account.</li>
 <li><strong>Login sessions:</strong> up to 30 days, or until you log out.</li>
 <li><strong>Email verification links:</strong> 24 hours. <strong>Password-reset links:</strong> 1 hour, single use.</li>
@@ -147,7 +147,7 @@
 <li>restrict or object to certain processing, including the Trust Score;</li>
 <li>have a person review your Trust Score.</li>
 </ul>
-<p>Email <a href="mailto:contact@stack5cs.com">contact@stack5cs.com</a> from the address on your account. We'll reply within 30 days. You can also complain to your data protection authority, for example the CNDP in Morocco or the authority in your EU country.</p>
+<p>You can delete your account yourself on your <a href="/account">account page</a>. For anything else, email <a href="mailto:contact@stack5cs.com">contact@stack5cs.com</a> from the address on your account. We'll reply within 30 days. You can also complain to your data protection authority, for example the CNDP in Morocco or the authority in your EU country.</p>
 
 <h2>10. Security</h2>
 <p>We hash passwords with scrypt, store only hashes of session and email tokens, use HttpOnly cookies, CSRF protection, HTTPS and rate limiting, and limit server access. No system is perfectly secure. If a breach affects your data, we'll notify you as required by law.</p>
@@ -160,6 +160,6 @@
 
 <p style="margin-top:40px"><a href="/">← Back to STACK5</a></p>
 </main>
-<footer><div style="max-width:1180px;margin:auto">STACK5 · Build. Match. Play. · <a href="/privacy">Privacy</a></div></footer>
+<footer><div style="max-width:1180px;margin:auto">STACK5 · Build. Match. Play. · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></div></footer>
 </body>
 </html>
