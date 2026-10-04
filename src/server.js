@@ -7,7 +7,9 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import nodemailer from "nodemailer";
 import { db, getTeam, getTeamMembers } from "./db.js";
-import { normalizeSteamUrl, lookupCSST } from "./csst.js";
+import { normalizeSteamUrl } from "./csst.js";
+import { resolveSteamId64, refreshExternal, leetifyProfile } from "./external.js";
+import { computeTrust, recomputeAll, recordEvent } from "./trust.js";
 import { runMatchmaking } from "./matchmaking.js";
 import { REGION_CATALOG, COUNTRY_CATALOG } from "./regions.js";
 
@@ -532,23 +534,47 @@ app.post("/api/profile", auth, csrf, async (req, res) => {
   const region = REGION_CATALOG.find(x => x.id === req.body.region);
   if (!country || !region) return res.status(400).json({ error: "Invalid country or region." });
   if (country[2] !== region.id) return res.status(400).json({ error: "Country and matchmaking region do not match." });
+  if (req.account.player_id) return res.status(409).json({ error: "Your player profile already exists." });
   try {
     const steamUrl = normalizeSteamUrl(req.body.steam_url);
-    const data = await lookupCSST(steamUrl);
+    // Resolve to SteamID64 so /id/name and /profiles/<id> links to the same account can't both be used.
+    let steamId = null;
+    try { steamId = await resolveSteamId64(steamUrl); } catch {}
+    if (process.env.STEAM_API_KEY && steamUrl.includes("/id/") && !steamId) throw new Error("We couldn't find that Steam profile. Check the URL.");
     const name = String(req.body.display_name || req.account.username).slice(0,40);
     const result = db.transaction(() => {
-      const existing = db.prepare("SELECT id FROM players WHERE steam_url=?").get(steamUrl);
+      const existing = db.prepare("SELECT id FROM players WHERE steam_url=? OR (steam_id IS NOT NULL AND steam_id=?)").get(steamUrl, steamId);
       if (existing) throw new Error("This Steam profile is already linked to a STACK5 player.");
-      const r = db.prepare(`INSERT INTO players(steam_url,display_name,avatar_url,faceit_level,faceit_elo,region,country,language,role) VALUES(?,?,?,?,?,?,?,?,?)`).run(steamUrl,name,safeAvatarUrl(req.body.avatar_url),Number(req.body.faceit_level),Number(req.body.faceit_elo||0),region.id,country[0],String(req.body.language).slice(0,10),String(req.body.role).slice(0,20));
+      const r = db.prepare(`INSERT INTO players(steam_url,steam_id,display_name,avatar_url,faceit_level,faceit_elo,region,country,language,role) VALUES(?,?,?,?,?,?,?,?,?,?)`).run(steamUrl,steamId,name,safeAvatarUrl(req.body.avatar_url),Number(req.body.faceit_level),Number(req.body.faceit_elo||0),region.id,country[0],String(req.body.language).slice(0,10),String(req.body.role).slice(0,20));
       db.prepare("UPDATE accounts SET player_id=? WHERE id=?").run(r.lastInsertRowid, req.account.account_id);
       return r.lastInsertRowid;
     })();
-    res.status(201).json({ player: db.prepare("SELECT * FROM players WHERE id=?").get(result), source:data });
+    computeTrust(result);
+    // Pull Steam/FACEIT data in the background, then rescore.
+    refreshExternal(result).then(() => computeTrust(result)).catch(e => console.error("[STACK5] external refresh failed:", e.message));
+    res.status(201).json({ player: db.prepare("SELECT * FROM players WHERE id=?").get(result) });
   } catch(e) { res.status(400).json({ error:e.message }); }
 });
 
-app.get("/api/players", (_, res) => res.json(db.prepare(`SELECT id,steam_url,display_name,avatar_url,faceit_level,faceit_elo,region,country,language,role,trust_score,reliability_score,teamplay_score FROM players ORDER BY id DESC`).all()));
-app.get("/api/players/:id", (req,res) => { const p=db.prepare("SELECT * FROM players WHERE id=?").get(req.params.id); if(!p) return res.status(404).json({error:"Player not found"}); res.json(p); });
+const PUBLIC_PLAYER_COLS = "id,steam_url,display_name,avatar_url,faceit_level,faceit_elo,faceit_verified,region,country,language,role,trust_score,reliability_score,teamplay_score,trust_confidence";
+app.get("/api/players", (_, res) => res.json(db.prepare(`SELECT ${PUBLIC_PLAYER_COLS} FROM players ORDER BY id DESC`).all()));
+app.get("/api/players/:id", (req,res) => { const p=db.prepare(`SELECT ${PUBLIC_PLAYER_COLS},created_at FROM players WHERE id=?`).get(req.params.id); if(!p) return res.status(404).json({error:"Player not found"}); res.json(p); });
+
+// Trust breakdown shown on profiles (why the score is what it is).
+app.get("/api/players/:id/trust", (req,res) => {
+  const p=db.prepare("SELECT id,trust_breakdown,trust_updated_at FROM players WHERE id=?").get(req.params.id);
+  if(!p) return res.status(404).json({error:"Player not found"});
+  res.json(p.trust_breakdown ? JSON.parse(p.trust_breakdown) : computeTrust(p.id));
+});
+
+// Live Leetify stats (proxied, not stored, per Leetify's developer guidelines).
+app.get("/api/players/:id/leetify", async (req,res) => {
+  const p=db.prepare("SELECT steam_id FROM players WHERE id=?").get(req.params.id);
+  if(!p) return res.status(404).json({error:"Player not found"});
+  if(!p.steam_id) return res.json({ available:false });
+  try { const data=await leetifyProfile(p.steam_id); res.json(data ? { available:true, ...data } : { available:false }); }
+  catch { res.json({ available:false }); }
+});
 
 function activeTeamForPlayer(playerId) {
   return db.prepare(`SELECT t.* FROM teams t JOIN team_members tm ON tm.team_id=t.id
@@ -649,6 +675,7 @@ app.post("/api/teams/:id/leave", auth, csrf, profileRequired, (req,res)=>{
   if(team.captain_id===req.account.player_id) return res.status(400).json({error:"Captain cannot leave; transfer captain or disband the team."});
   if(!ROSTER_EDITABLE.includes(team.status)) return res.status(409).json({error:"You cannot leave after a match has been found."});
   removeFromRoster(team, req.account.player_id);
+  if (team.status === "READY") { recordEvent(req.account.player_id, "LEFT_QUEUED_TEAM", team.id); computeTrust(req.account.player_id); }
   res.json(getTeam(team.id));
 });
 
@@ -692,7 +719,7 @@ app.post("/api/teams/:id/queue", auth, csrf, profileRequired, (req,res)=>{const 
 app.get("/api/queue", (_,res)=>res.json(db.prepare(`SELECT t.id,t.name,t.region,t.min_level,t.max_level,COUNT(tm.player_id) count FROM queue q JOIN teams t ON t.id=q.team_id LEFT JOIN team_members tm ON tm.team_id=t.id GROUP BY t.id ORDER BY q.queued_at`).all()));
 app.post("/api/matchmaking/run", auth, adminRequired, csrf, (_,res)=>res.json({matches:runMatchmaking()}));
 app.get("/api/matches/:id", (req,res)=>{const m=db.prepare("SELECT * FROM matches WHERE id=?").get(req.params.id);if(!m)return res.status(404).json({error:"Match not found"});res.json({...m,team_a:getTeam(m.team_a_id),team_b:getTeam(m.team_b_id)});});
-app.post("/api/matches/:id/accept", auth, csrf, profileRequired, (req,res)=>{if(!requireBody(req,res,["team_id"]))return;const m=db.prepare("SELECT * FROM matches WHERE id=?").get(req.params.id);if(!m)return res.status(404).json({error:"Match not found"});if(m.status!=="PENDING")return res.status(409).json({error:"This match is no longer pending."});const teamId=Number(req.body.team_id);const team=getTeam(teamId);if(!team||team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain of the matched team can accept"});if(teamId===m.team_a_id)db.prepare("UPDATE matches SET accepted_a=1 WHERE id=?").run(m.id);else if(teamId===m.team_b_id)db.prepare("UPDATE matches SET accepted_b=1 WHERE id=?").run(m.id);else return res.status(403).json({error:"Team is not part of this match"});const updated=db.prepare("SELECT * FROM matches WHERE id=?").get(m.id);if(updated.accepted_a&&updated.accepted_b){db.prepare("UPDATE matches SET status='CONFIRMED' WHERE id=?").run(m.id);db.prepare("UPDATE teams SET status='MATCH_CONFIRMED' WHERE id IN (?,?)").run(m.team_a_id,m.team_b_id);}res.json(db.prepare("SELECT * FROM matches WHERE id=?").get(m.id));});
+app.post("/api/matches/:id/accept", auth, csrf, profileRequired, (req,res)=>{if(!requireBody(req,res,["team_id"]))return;const m=db.prepare("SELECT * FROM matches WHERE id=?").get(req.params.id);if(!m)return res.status(404).json({error:"Match not found"});if(m.status!=="PENDING")return res.status(409).json({error:"This match is no longer pending."});const teamId=Number(req.body.team_id);const team=getTeam(teamId);if(!team||team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain of the matched team can accept"});if(teamId===m.team_a_id)db.prepare("UPDATE matches SET accepted_a=1 WHERE id=?").run(m.id);else if(teamId===m.team_b_id)db.prepare("UPDATE matches SET accepted_b=1 WHERE id=?").run(m.id);else return res.status(403).json({error:"Team is not part of this match"});const updated=db.prepare("SELECT * FROM matches WHERE id=?").get(m.id);if(updated.accepted_a&&updated.accepted_b){db.prepare("UPDATE matches SET status='CONFIRMED' WHERE id=?").run(m.id);db.prepare("UPDATE teams SET status='MATCH_CONFIRMED' WHERE id IN (?,?)").run(m.team_a_id,m.team_b_id);for(const p of [...getTeamMembers(m.team_a_id),...getTeamMembers(m.team_b_id)])computeTrust(p.id);}res.json(db.prepare("SELECT * FROM matches WHERE id=?").get(m.id));});
 
 // True if both players were on either side of the same confirmed match.
 function playedTogether(aId, bId) {
@@ -703,7 +730,7 @@ function playedTogether(aId, bId) {
     WHERE m.status='CONFIRMED' LIMIT 1`).get(aId, bId);
 }
 
-app.post("/api/trust", auth, csrf, profileRequired, (req,res)=>{if(!requireBody(req,res,["to_player_id","rating"]))return;const rating=Math.max(1,Math.min(5,Math.round(Number(req.body.rating))||0));req.body.to_player_id=Number(req.body.to_player_id);if(req.body.to_player_id===req.account.player_id)return res.status(400).json({error:"You cannot rate yourself"});if(!playedTogether(req.account.player_id,req.body.to_player_id))return res.status(403).json({error:"You can only rate players you have played a confirmed match with."});db.prepare(`INSERT INTO trust_ratings(from_player_id,to_player_id,rating,tags) VALUES(?,?,?,?) ON CONFLICT(from_player_id,to_player_id) DO UPDATE SET rating=excluded.rating,tags=excluded.tags`).run(req.account.player_id,req.body.to_player_id,rating,req.body.tags||"");const avgRow=db.prepare("SELECT AVG(rating) avg_rating FROM trust_ratings WHERE to_player_id=?").get(req.body.to_player_id);const score=Math.round((avgRow.avg_rating||3)*20);db.prepare("UPDATE players SET trust_score=? WHERE id=?").run(score,req.body.to_player_id);res.json({ok:true,trust_score:score});});
+app.post("/api/trust", auth, csrf, profileRequired, (req,res)=>{if(!requireBody(req,res,["to_player_id","rating"]))return;const rating=Math.max(1,Math.min(5,Math.round(Number(req.body.rating))||0));req.body.to_player_id=Number(req.body.to_player_id);if(req.body.to_player_id===req.account.player_id)return res.status(400).json({error:"You cannot rate yourself"});if(!playedTogether(req.account.player_id,req.body.to_player_id))return res.status(403).json({error:"You can only rate players you have played a confirmed match with."});db.prepare(`INSERT INTO trust_ratings(from_player_id,to_player_id,rating,tags) VALUES(?,?,?,?) ON CONFLICT(from_player_id,to_player_id) DO UPDATE SET rating=excluded.rating,tags=excluded.tags`).run(req.account.player_id,req.body.to_player_id,rating,req.body.tags||"");const t=computeTrust(req.body.to_player_id);res.json({ok:true,trust_score:t?.total});});
 
 
 // ---- Join requests: a player asks to join an OPEN team; the captain accepts or declines.
@@ -773,11 +800,14 @@ app.post("/api/matches/:id/decline", auth, csrf, profileRequired, (req,res)=>{
   if(!mine) return res.status(403).json({error:"Only a captain of this match can decline it."});
   const otherId=mine.id===m.team_a_id?m.team_b_id:m.team_a_id;
   db.transaction(()=>{
-    db.prepare("UPDATE matches SET status='DECLINED' WHERE id=?").run(m.id);
+    db.prepare("UPDATE matches SET status='DECLINED', declined_by_team_id=? WHERE id=?").run(mine.id, m.id);
     db.prepare("UPDATE teams SET status='OPEN' WHERE id=?").run(mine.id);
     db.prepare("UPDATE teams SET status='READY' WHERE id=?").run(otherId);
     db.prepare("INSERT OR IGNORE INTO queue(team_id) VALUES(?)").run(otherId);
   })();
+  // Declining is the captain's call, so it counts against the captain only.
+  recordEvent(req.account.player_id, "MATCH_DECLINED", m.id);
+  computeTrust(req.account.player_id);
   res.json({ok:true});
 });
 
@@ -854,5 +884,22 @@ if(mmEvery>0) setInterval(()=>{
   try { const m=runMatchmaking(); if(m.length) console.log(`[STACK5] matchmaking created ${m.length} match(es)`); }
   catch(e){ console.error("[STACK5] matchmaking failed:", e); }
 }, mmEvery*1000).unref();
+
+// Trust upkeep: refresh Steam/FACEIT data older than 7 days (a small batch at a time, so the
+// APIs are never hammered), then rescore everyone. Runs shortly after start and every 6 hours.
+async function trustUpkeep(){
+  const stale=db.prepare(`SELECT p.id FROM players p LEFT JOIN player_external e ON e.player_id=p.id
+    WHERE e.steam_fetched_at IS NULL OR e.steam_fetched_at < ? ORDER BY e.steam_fetched_at IS NOT NULL, e.steam_fetched_at LIMIT 100`).all(Date.now()-7*86_400_000);
+  if(process.env.STEAM_API_KEY || process.env.FACEIT_API_KEY){
+    for(const {id} of stale){ await refreshExternal(id).catch(()=>{}); await new Promise(r=>setTimeout(r,300)); }
+  }
+  const n=recomputeAll();
+  console.log(`[STACK5] trust upkeep: refreshed ${process.env.STEAM_API_KEY ? stale.length : 0}, rescored ${n}`);
+}
+if(process.env.NODE_ENV!=="test"){
+  setTimeout(()=>trustUpkeep().catch(e=>console.error("[STACK5] trust upkeep failed:",e)),5000).unref();
+  setInterval(()=>trustUpkeep().catch(e=>console.error("[STACK5] trust upkeep failed:",e)),6*3600_000).unref();
+}
+app.post("/api/admin/trust/recompute", auth, adminRequired, csrf, async (_,res)=>{ await trustUpkeep(); res.json({ok:true}); });
 
 const port=Number(process.env.PORT||3000);app.listen(port,"0.0.0.0",()=>console.log(`STACK5 listening on ${port}`));

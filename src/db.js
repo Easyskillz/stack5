@@ -141,7 +141,54 @@ CREATE TABLE IF NOT EXISTS team_join_requests (
 );
 `);
 
+db.exec(`
+-- Identity data pulled from Steam / FACEIT (refreshed periodically).
+CREATE TABLE IF NOT EXISTS player_external (
+  player_id INTEGER PRIMARY KEY,
+  steam_id64 TEXT,
+  steam_visibility INTEGER,
+  steam_created_at INTEGER,
+  steam_level INTEGER,
+  cs2_minutes INTEGER,
+  vac_bans INTEGER,
+  game_bans INTEGER,
+  days_since_last_ban INTEGER,
+  community_banned INTEGER,
+  steam_fetched_at INTEGER,
+  steam_error TEXT,
+  faceit_id TEXT,
+  faceit_nickname TEXT,
+  faceit_level INTEGER,
+  faceit_elo INTEGER,
+  faceit_matches INTEGER,
+  faceit_activated_at INTEGER,
+  faceit_bans TEXT,
+  faceit_fetched_at INTEGER,
+  faceit_error TEXT,
+  FOREIGN KEY(player_id) REFERENCES players(id) ON DELETE CASCADE
+);
+
+-- Behaviour log used by the reliability part of the trust score.
+CREATE TABLE IF NOT EXISTS player_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  player_id INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  ref_id INTEGER,
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY(player_id) REFERENCES players(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_player_events_player ON player_events(player_id);
+`);
+
 // Lightweight migrations for existing beta databases.
+for (const col of [
+  "trust_confidence TEXT DEFAULT 'NEW'",
+  "trust_breakdown TEXT",
+  "trust_updated_at INTEGER",
+  "faceit_verified INTEGER DEFAULT 0"
+]) { try { db.exec(`ALTER TABLE players ADD COLUMN ${col}`); } catch {} }
+try { db.exec("ALTER TABLE trust_ratings ADD COLUMN match_id INTEGER"); } catch {}
+try { db.exec("ALTER TABLE matches ADD COLUMN declined_by_team_id INTEGER"); } catch {}
 try { db.exec("ALTER TABLE accounts ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0"); } catch {}
 try { db.exec("ALTER TABLE accounts ADD COLUMN reset_token_hash TEXT"); } catch {}
 try { db.exec("ALTER TABLE accounts ADD COLUMN reset_expires_at INTEGER"); } catch {}

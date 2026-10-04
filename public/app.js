@@ -199,8 +199,9 @@ const Stack5 = (() => {
             <span>${esc(p.role||'—')}</span>
           </div>
           <div class="meta">
-            <span>${tr('trust')} ${p.trust_score??'—'}</span>
+            <span>${tr('trust')} <strong>${p.trust_score??'—'}</strong>${p.trust_confidence==='NEW'?' <span class="muted">(new)</span>':''}</span>
             <span>${tr('reliability')} ${p.reliability_score??'—'}</span>
+            ${p.faceit_verified?'<span class="status green">FACEIT ✓</span>':''}
           </div>
           <div class="card-actions">
             <a class="btn btn-dark btn-small" href="/player/${encodeURIComponent(p.display_name)}">${tr('view')}</a>
@@ -227,20 +228,62 @@ const Stack5 = (() => {
               <div class="muted">${countryFlag(p.country)} ${esc(p.country||'')} · ${esc(p.region||'')} · ${esc(p.role||'')}</div>
             </div>
           </div>
-          <div class="stat-grid">
-            <div class="stat"><div class="stat-label">${tr('trust')}</div><div class="stat-value">${p.trust_score??'—'}</div></div>
-            <div class="stat"><div class="stat-label">${tr('reliability')}</div><div class="stat-value">${p.reliability_score??'—'}</div></div>
-            <div class="stat"><div class="stat-label">${tr('teamplay')}</div><div class="stat-value">${p.teamplay_score??'—'}</div></div>
-          </div>
+          <div id="trust-box"><div class="empty">Loading trust score…</div></div>
           <div class="detail-grid">
-            <div class="detail"><label>FACEIT Level</label><strong>${p.faceit_level??'—'}</strong></div>
-            <div class="detail"><label>FACEIT ELO</label><strong>${p.faceit_elo??'—'}</strong></div>
+            <div class="detail"><label>FACEIT Level ${p.faceit_verified?'<span class="status green">VERIFIED</span>':'<span class="muted small">(self-reported)</span>'}</label><strong>${p.faceit_level??'—'}</strong></div>
+            <div class="detail"><label>FACEIT ELO</label><strong>${p.faceit_elo||'—'}</strong></div>
             <div class="detail"><label>Role</label><strong>${esc(p.role||'—')}</strong></div>
             <div class="detail"><label>Language</label><strong>${esc(p.language||'—')}</strong></div>
           </div>
           ${p.steam_url?`<div class="actions"><a class="btn btn-dark" href="${esc(p.steam_url)}" target="_blank" rel="noopener">View Steam profile</a></div>`:''}
+          <div id="leetify-box"></div>
         </div>
       </div>`);
+
+    get(`/api/players/${p.id}/trust`).then(t=>{
+      const box=document.getElementById('trust-box'); if(box) box.innerHTML=trustPanel(t);
+    }).catch(()=>{ const box=document.getElementById('trust-box'); if(box) box.innerHTML=''; });
+    get(`/api/players/${p.id}/leetify`).then(l=>{
+      const box=document.getElementById('leetify-box'); if(box && l.available) box.innerHTML=leetifyPanel(l);
+    }).catch(()=>{});
+  }
+
+  const CONFIDENCE={NEW:['New player','Not much data yet — this score will settle as they play.'],BUILDING:['Building','Some history on record.'],ESTABLISHED:['Established','Backed by solid history.']};
+  const PART_LABELS={identity:['Identity','Steam & FACEIT account history'],peer:['Peer reputation','Ratings from players they actually played with'],reliability:['Reliability','Accepting matches, not abandoning teams'],record:['Track record','Confirmed matches on STACK5']};
+
+  function trustPanel(t){
+    const [confLabel,confText]=CONFIDENCE[t.confidence]||CONFIDENCE.NEW;
+    const color=t.total>=70?'var(--green)':t.total>=40?'#f2c94c':'var(--danger)';
+    const part=(key)=>{
+      const v=t.parts[key], [label,desc]=PART_LABELS[key];
+      const detail=key==='identity'?(v.notes||[]).join(' · '):key==='peer'?(v.ratings?`${v.ratings} rating${v.ratings>1?'s':''}, avg ${v.avg}★`:'No ratings yet'):key==='reliability'?(v.incidents?`${v.incidents} recent incident(s)`:'No incidents'):`${v.matches} match${v.matches===1?'':'es'}`;
+      return `<div class="trust-part">
+        <div class="trust-part-head"><span><strong>${label}</strong> <span class="muted small">${Math.round(v.weight*100)}%</span></span><strong>${v.score}</strong></div>
+        <div class="bar"><span style="width:${Math.max(2,v.score)}%"></span></div>
+        <div class="muted small" title="${esc(desc)}">${esc(detail||desc)}</div>
+      </div>`;
+    };
+    return `<div class="trust-panel">
+      <div class="trust-head">
+        <div><div class="stat-label">STACK5 Trust Score</div><div class="trust-total" style="color:${color}">${t.total}</div></div>
+        <div style="text-align:right"><span class="status ${t.confidence==='ESTABLISHED'?'green':t.confidence==='BUILDING'?'amber':''}">${confLabel}</span><div class="muted small" style="margin-top:6px;max-width:260px">${confText}</div></div>
+      </div>
+      ${t.flags?.length?`<div class="trust-flags">${t.flags.map(f=>`<div>⚠️ ${esc(f)}</div>`).join('')}</div>`:''}
+      <div class="trust-parts">${['identity','peer','reliability','record'].map(part).join('')}</div>
+      <p class="muted small" style="margin:14px 0 0">STACK5 is a reputation layer, not an anti-cheat. Scores combine public Steam/FACEIT data with STACK5 match history and ratings.</p>
+    </div>`;
+  }
+
+  // Leetify's guidelines: show their metrics unmodified, with "Data Provided by Leetify" and a link back.
+  function leetifyPanel(l){
+    const fmt=(v,d=0)=>v==null?'—':Number(v).toFixed(d);
+    const cells=[['Leetify Rating',l.leetify_rating==null?'—':(l.leetify_rating>0?'+':'')+fmt(l.leetify_rating,2)],['Premier',l.premier?Number(l.premier).toLocaleString():'—'],['Aim',fmt(l.aim)],['Positioning',fmt(l.positioning)],['Utility',fmt(l.utility)],['Matches',l.total_matches??'—']];
+    return `<div class="leetify-panel">
+      <div class="trust-head"><h3 style="margin:0">CS2 stats</h3>
+        <a class="leetify-attr" href="https://leetify.com/" target="_blank" rel="noopener">Data Provided by Leetify</a></div>
+      <div class="detail-grid" style="grid-template-columns:repeat(3,1fr)">${cells.map(([k,v])=>`<div class="detail"><label>${k}</label><strong>${v}</strong></div>`).join('')}</div>
+      <a class="leetify-link" href="${esc(l.url)}" target="_blank" rel="noopener">View on Leetify</a>
+    </div>`;
   }
 
   async function home(){
