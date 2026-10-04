@@ -501,7 +501,7 @@ app.get("/verify-email", (req, res) => {
   const account = db.prepare("SELECT id FROM accounts WHERE verification_token_hash=? AND verification_expires_at>? AND email_verified=0").get(hash(token), Date.now());
   if (!account) return res.status(400).send("This verification link is invalid or expired.");
   db.prepare("UPDATE accounts SET email_verified=1, verification_token_hash=NULL, verification_expires_at=NULL WHERE id=?").run(account.id);
-  res.redirect("/?verified=1");
+  res.redirect("/login?verified=1");
 });
 
 app.post("/api/auth/login", async (req, res) => {
@@ -584,20 +584,24 @@ app.post("/api/teams", auth, csrf, profileRequired, (req,res) => {
 app.get("/api/teams/:id", (req,res)=>{const team=getTeam(req.params.id);if(!team)return res.status(404).json({error:"Team not found"});res.json(team);});
 
 app.post("/api/teams/:id/invite", auth, csrf, profileRequired, (req,res)=>{
-  if(!requireBody(req,res,["username"])) return;
+  if(!req.body?.username && !req.body?.player_id) return res.status(400).json({error:"username or player_id is required"});
   const team=getTeam(req.params.id);
   if(!team) return res.status(404).json({error:"Team not found"});
   if(team.captain_id!==req.account.player_id) return res.status(403).json({error:"Only the captain can invite players."});
   if(team.count>=5) return res.status(409).json({error:"Team is already full."});
   if(team.status!=="OPEN") return res.status(409).json({error:"Team is no longer open."});
-  const target=db.prepare("SELECT p.* FROM players p JOIN accounts a ON a.player_id=p.id WHERE lower(a.username)=lower(?)").get(String(req.body.username).trim());
+  const target=req.body.player_id
+    ? db.prepare("SELECT * FROM players WHERE id=?").get(Number(req.body.player_id))
+    : db.prepare("SELECT p.* FROM players p JOIN accounts a ON a.player_id=p.id WHERE lower(a.username)=lower(?)").get(String(req.body.username).trim());
   if(!target) return res.status(404).json({error:"STACK5 player not found."});
   if(target.id===req.account.player_id) return res.status(400).json({error:"You cannot invite yourself."});
   if(team.members.some(x=>x.id===target.id)) return res.status(409).json({error:"That player is already in the team."});
   if(activeTeamForPlayer(target.id)) return res.status(409).json({error:"That player is already in an active team."});
   const existing=db.prepare("SELECT id FROM team_invites WHERE team_id=? AND invited_player_id=? AND status='PENDING'").get(team.id,target.id);
   if(existing) return res.status(409).json({error:"An invitation is already pending."});
-  db.prepare(`INSERT INTO team_invites(team_id,invited_player_id,invited_by_player_id) VALUES(?,?,?)`).run(team.id,target.id,req.account.player_id);
+  // One row per (team, player): re-inviting after a decline reopens the old invite.
+  db.prepare(`INSERT INTO team_invites(team_id,invited_player_id,invited_by_player_id) VALUES(?,?,?)
+    ON CONFLICT(team_id,invited_player_id) DO UPDATE SET status='PENDING',invited_by_player_id=excluded.invited_by_player_id,created_at=CURRENT_TIMESTAMP,responded_at=NULL`).run(team.id,target.id,req.account.player_id);
   res.status(201).json({ok:true,message:`Invitation sent to ${target.display_name}.`});
 });
 
@@ -611,6 +615,7 @@ app.post("/api/team-invites/:id/accept", auth, csrf, profileRequired, (req,res)=
     db.prepare("INSERT INTO team_members(team_id,player_id) VALUES(?,?)").run(team.id,req.account.player_id);
     db.prepare("UPDATE team_invites SET status='ACCEPTED',responded_at=CURRENT_TIMESTAMP WHERE id=?").run(invite.id);
     db.prepare("UPDATE team_invites SET status='DECLINED',responded_at=CURRENT_TIMESTAMP WHERE invited_player_id=? AND status='PENDING' AND id<>?").run(req.account.player_id,invite.id);
+    db.prepare("UPDATE team_join_requests SET status='EXPIRED',responded_at=CURRENT_TIMESTAMP WHERE player_id=? AND status='PENDING'").run(req.account.player_id);
   });
   tx(); res.json(getTeam(team.id));
 });
@@ -687,7 +692,7 @@ app.post("/api/teams/:id/queue", auth, csrf, profileRequired, (req,res)=>{const 
 app.get("/api/queue", (_,res)=>res.json(db.prepare(`SELECT t.id,t.name,t.region,t.min_level,t.max_level,COUNT(tm.player_id) count FROM queue q JOIN teams t ON t.id=q.team_id LEFT JOIN team_members tm ON tm.team_id=t.id GROUP BY t.id ORDER BY q.queued_at`).all()));
 app.post("/api/matchmaking/run", auth, adminRequired, csrf, (_,res)=>res.json({matches:runMatchmaking()}));
 app.get("/api/matches/:id", (req,res)=>{const m=db.prepare("SELECT * FROM matches WHERE id=?").get(req.params.id);if(!m)return res.status(404).json({error:"Match not found"});res.json({...m,team_a:getTeam(m.team_a_id),team_b:getTeam(m.team_b_id)});});
-app.post("/api/matches/:id/accept", auth, csrf, profileRequired, (req,res)=>{if(!requireBody(req,res,["team_id"]))return;const m=db.prepare("SELECT * FROM matches WHERE id=?").get(req.params.id);if(!m)return res.status(404).json({error:"Match not found"});const teamId=Number(req.body.team_id);const team=getTeam(teamId);if(!team||team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain of the matched team can accept"});if(teamId===m.team_a_id)db.prepare("UPDATE matches SET accepted_a=1 WHERE id=?").run(m.id);else if(teamId===m.team_b_id)db.prepare("UPDATE matches SET accepted_b=1 WHERE id=?").run(m.id);else return res.status(403).json({error:"Team is not part of this match"});const updated=db.prepare("SELECT * FROM matches WHERE id=?").get(m.id);if(updated.accepted_a&&updated.accepted_b){db.prepare("UPDATE matches SET status='CONFIRMED' WHERE id=?").run(m.id);db.prepare("UPDATE teams SET status='MATCH_CONFIRMED' WHERE id IN (?,?)").run(m.team_a_id,m.team_b_id);}res.json(db.prepare("SELECT * FROM matches WHERE id=?").get(m.id));});
+app.post("/api/matches/:id/accept", auth, csrf, profileRequired, (req,res)=>{if(!requireBody(req,res,["team_id"]))return;const m=db.prepare("SELECT * FROM matches WHERE id=?").get(req.params.id);if(!m)return res.status(404).json({error:"Match not found"});if(m.status!=="PENDING")return res.status(409).json({error:"This match is no longer pending."});const teamId=Number(req.body.team_id);const team=getTeam(teamId);if(!team||team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain of the matched team can accept"});if(teamId===m.team_a_id)db.prepare("UPDATE matches SET accepted_a=1 WHERE id=?").run(m.id);else if(teamId===m.team_b_id)db.prepare("UPDATE matches SET accepted_b=1 WHERE id=?").run(m.id);else return res.status(403).json({error:"Team is not part of this match"});const updated=db.prepare("SELECT * FROM matches WHERE id=?").get(m.id);if(updated.accepted_a&&updated.accepted_b){db.prepare("UPDATE matches SET status='CONFIRMED' WHERE id=?").run(m.id);db.prepare("UPDATE teams SET status='MATCH_CONFIRMED' WHERE id IN (?,?)").run(m.team_a_id,m.team_b_id);}res.json(db.prepare("SELECT * FROM matches WHERE id=?").get(m.id));});
 
 // True if both players were on either side of the same confirmed match.
 function playedTogether(aId, bId) {
@@ -700,6 +705,112 @@ function playedTogether(aId, bId) {
 
 app.post("/api/trust", auth, csrf, profileRequired, (req,res)=>{if(!requireBody(req,res,["to_player_id","rating"]))return;const rating=Math.max(1,Math.min(5,Math.round(Number(req.body.rating))||0));req.body.to_player_id=Number(req.body.to_player_id);if(req.body.to_player_id===req.account.player_id)return res.status(400).json({error:"You cannot rate yourself"});if(!playedTogether(req.account.player_id,req.body.to_player_id))return res.status(403).json({error:"You can only rate players you have played a confirmed match with."});db.prepare(`INSERT INTO trust_ratings(from_player_id,to_player_id,rating,tags) VALUES(?,?,?,?) ON CONFLICT(from_player_id,to_player_id) DO UPDATE SET rating=excluded.rating,tags=excluded.tags`).run(req.account.player_id,req.body.to_player_id,rating,req.body.tags||"");const avgRow=db.prepare("SELECT AVG(rating) avg_rating FROM trust_ratings WHERE to_player_id=?").get(req.body.to_player_id);const score=Math.round((avgRow.avg_rating||3)*20);db.prepare("UPDATE players SET trust_score=? WHERE id=?").run(score,req.body.to_player_id);res.json({ok:true,trust_score:score});});
 
+
+// ---- Join requests: a player asks to join an OPEN team; the captain accepts or declines.
+app.post("/api/teams/:id/request-join", auth, csrf, profileRequired, (req,res)=>{
+  const team=getTeam(req.params.id);
+  if(!team) return res.status(404).json({error:"Team not found"});
+  if(team.status!=="OPEN" || team.count>=5) return res.status(409).json({error:"This team is not accepting players."});
+  if(team.members.some(m=>m.id===req.account.player_id)) return res.status(409).json({error:"You are already in this team."});
+  if(activeTeamForPlayer(req.account.player_id)) return res.status(409).json({error:"Leave your current team before requesting to join another."});
+  const existing=db.prepare("SELECT status FROM team_join_requests WHERE team_id=? AND player_id=?").get(team.id,req.account.player_id);
+  if(existing?.status==="PENDING") return res.status(409).json({error:"Your request is already pending."});
+  db.prepare(`INSERT INTO team_join_requests(team_id,player_id) VALUES(?,?)
+    ON CONFLICT(team_id,player_id) DO UPDATE SET status='PENDING',created_at=CURRENT_TIMESTAMP,responded_at=NULL`).run(team.id,req.account.player_id);
+  res.status(201).json({ok:true,message:`Request sent to ${team.name}.`});
+});
+
+function joinRequestForCaptain(req,res){
+  const jr=db.prepare("SELECT * FROM team_join_requests WHERE id=? AND status='PENDING'").get(req.params.id);
+  if(!jr){ res.status(404).json({error:"Request not found or already handled."}); return null; }
+  const team=getTeam(jr.team_id);
+  if(!team || team.captain_id!==req.account.player_id){ res.status(403).json({error:"Only the captain can answer join requests."}); return null; }
+  return {jr,team};
+}
+
+app.post("/api/join-requests/:id/accept", auth, csrf, profileRequired, (req,res)=>{
+  const found=joinRequestForCaptain(req,res); if(!found) return;
+  const {jr,team}=found;
+  if(team.status!=="OPEN" || team.count>=5) return res.status(409).json({error:"Your team is not accepting players."});
+  if(activeTeamForPlayer(jr.player_id)) {
+    db.prepare("UPDATE team_join_requests SET status='EXPIRED',responded_at=CURRENT_TIMESTAMP WHERE id=?").run(jr.id);
+    return res.status(409).json({error:"That player has already joined another team."});
+  }
+  db.transaction(()=>{
+    db.prepare("INSERT INTO team_members(team_id,player_id) VALUES(?,?)").run(team.id,jr.player_id);
+    db.prepare("UPDATE team_join_requests SET status='ACCEPTED',responded_at=CURRENT_TIMESTAMP WHERE id=?").run(jr.id);
+    db.prepare("UPDATE team_join_requests SET status='EXPIRED',responded_at=CURRENT_TIMESTAMP WHERE player_id=? AND status='PENDING'").run(jr.player_id);
+    db.prepare("UPDATE team_invites SET status='DECLINED',responded_at=CURRENT_TIMESTAMP WHERE invited_player_id=? AND status='PENDING'").run(jr.player_id);
+  })();
+  res.json(getTeam(team.id));
+});
+
+app.post("/api/join-requests/:id/decline", auth, csrf, profileRequired, (req,res)=>{
+  const found=joinRequestForCaptain(req,res); if(!found) return;
+  db.prepare("UPDATE team_join_requests SET status='DECLINED',responded_at=CURRENT_TIMESTAMP WHERE id=?").run(found.jr.id);
+  res.json({ok:true});
+});
+
+// ---- Queue / match lifecycle
+app.post("/api/teams/:id/unqueue", auth, csrf, profileRequired, (req,res)=>{
+  const team=getTeam(req.params.id);
+  if(!team) return res.status(404).json({error:"Team not found"});
+  if(team.captain_id!==req.account.player_id) return res.status(403).json({error:"Only the captain can leave the queue."});
+  if(team.status!=="READY") return res.status(409).json({error:"Team is not in the queue."});
+  db.transaction(()=>{
+    db.prepare("DELETE FROM queue WHERE team_id=?").run(team.id);
+    db.prepare("UPDATE teams SET status='OPEN' WHERE id=?").run(team.id);
+  })();
+  res.json(getTeam(team.id));
+});
+
+// Declining a pending match: the declining team leaves the queue, the other team is re-queued.
+app.post("/api/matches/:id/decline", auth, csrf, profileRequired, (req,res)=>{
+  const m=db.prepare("SELECT * FROM matches WHERE id=?").get(req.params.id);
+  if(!m) return res.status(404).json({error:"Match not found"});
+  if(m.status!=="PENDING") return res.status(409).json({error:"This match can no longer be declined."});
+  const mine=[m.team_a_id,m.team_b_id].map(id=>getTeam(id)).find(t=>t && t.captain_id===req.account.player_id);
+  if(!mine) return res.status(403).json({error:"Only a captain of this match can decline it."});
+  const otherId=mine.id===m.team_a_id?m.team_b_id:m.team_a_id;
+  db.transaction(()=>{
+    db.prepare("UPDATE matches SET status='DECLINED' WHERE id=?").run(m.id);
+    db.prepare("UPDATE teams SET status='OPEN' WHERE id=?").run(mine.id);
+    db.prepare("UPDATE teams SET status='READY' WHERE id=?").run(otherId);
+    db.prepare("INSERT OR IGNORE INTO queue(team_id) VALUES(?)").run(otherId);
+  })();
+  res.json({ok:true});
+});
+
+// Everything the Play page needs in one call.
+app.get("/api/my/dashboard", auth, (req,res)=>{
+  const pid=req.account.player_id;
+  const player=pid ? db.prepare("SELECT * FROM players WHERE id=?").get(pid) : null;
+  const out={ account:{ username:req.account.username, email_verified:!!req.account.email_verified }, player, team:null, invites:[], joinRequests:[], myRequests:[], match:null };
+  if(!player) return res.json(out);
+  const active=activeTeamForPlayer(pid);
+  out.team=active ? getTeam(active.id) : null;
+  out.invites=db.prepare(`SELECT i.id,i.team_id,t.name AS team_name,t.region,p.display_name AS invited_by,
+      (SELECT COUNT(*) FROM team_members tm WHERE tm.team_id=t.id) AS count
+    FROM team_invites i JOIN teams t ON t.id=i.team_id JOIN players p ON p.id=i.invited_by_player_id
+    WHERE i.invited_player_id=? AND i.status='PENDING' AND t.status='OPEN' ORDER BY i.id DESC`).all(pid);
+  out.myRequests=db.prepare(`SELECT r.id,r.team_id,t.name AS team_name FROM team_join_requests r JOIN teams t ON t.id=r.team_id
+    WHERE r.player_id=? AND r.status='PENDING' AND t.status='OPEN'`).all(pid);
+  if(out.team && out.team.captain_id===pid){
+    out.joinRequests=db.prepare(`SELECT r.id,p.id AS player_id,p.display_name,p.faceit_level,p.role,p.country,p.region,p.trust_score
+      FROM team_join_requests r JOIN players p ON p.id=r.player_id WHERE r.team_id=? AND r.status='PENDING' ORDER BY r.id`).all(out.team.id);
+  }
+  // Latest pending/confirmed match for the active team, or for the most recent confirmed team.
+  const teamIds=db.prepare("SELECT team_id FROM team_members WHERE player_id=?").all(pid).map(r=>r.team_id);
+  if(teamIds.length){
+    const ph=teamIds.map(()=>"?").join(",");
+    const m=db.prepare(`SELECT * FROM matches WHERE status IN ('PENDING','CONFIRMED') AND (team_a_id IN (${ph}) OR team_b_id IN (${ph})) ORDER BY id DESC LIMIT 1`).get(...teamIds,...teamIds);
+    if(m){
+      const myTeamId=teamIds.includes(m.team_a_id)?m.team_a_id:m.team_b_id;
+      out.match={...m, my_team_id:myTeamId, team_a:getTeam(m.team_a_id), team_b:getTeam(m.team_b_id)};
+    }
+  }
+  res.json(out);
+});
 
 app.use("/assets", express.static(path.join(__dirname, "../public")));
 
@@ -737,4 +848,11 @@ app.get("/player/:username", (_,res)=>res.sendFile(path.join(__dirname,"../publi
 app.get("/team/:id", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
 
 app.get("*splat", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
+// Automatic matchmaking. Set MATCHMAKING_INTERVAL_SECONDS=0 to disable (admin can still run it manually).
+const mmEvery=Number(process.env.MATCHMAKING_INTERVAL_SECONDS ?? 30);
+if(mmEvery>0) setInterval(()=>{
+  try { const m=runMatchmaking(); if(m.length) console.log(`[STACK5] matchmaking created ${m.length} match(es)`); }
+  catch(e){ console.error("[STACK5] matchmaking failed:", e); }
+}, mmEvery*1000).unref();
+
 const port=Number(process.env.PORT||3000);app.listen(port,"0.0.0.0",()=>console.log(`STACK5 listening on ${port}`));

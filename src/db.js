@@ -127,6 +127,20 @@ CREATE TABLE IF NOT EXISTS team_invites (
 );
 `);
 
+db.exec(`
+CREATE TABLE IF NOT EXISTS team_join_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  team_id INTEGER NOT NULL,
+  player_id INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'PENDING',
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  responded_at TEXT,
+  UNIQUE(team_id, player_id),
+  FOREIGN KEY(team_id) REFERENCES teams(id) ON DELETE CASCADE,
+  FOREIGN KEY(player_id) REFERENCES players(id) ON DELETE CASCADE
+);
+`);
+
 // Lightweight migrations for existing beta databases.
 try { db.exec("ALTER TABLE accounts ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0"); } catch {}
 try { db.exec("ALTER TABLE accounts ADD COLUMN reset_token_hash TEXT"); } catch {}

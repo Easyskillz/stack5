@@ -94,6 +94,12 @@
 </main>
 
 <script>
+if (new URLSearchParams(location.search).get('verified') === '1') {
+  const box = document.getElementById('error');
+  box.style.color = '#55e36b';
+  box.textContent = 'Email verified ✓ Log in to set up your player profile.';
+}
+
 async function login(e) {
   e.preventDefault();
 
@@ -162,7 +168,7 @@ async function login(e) {
       return;
     }
 
-    window.location.href = '/';
+    window.location.href = '/play';
 
   } catch (error) {
 
