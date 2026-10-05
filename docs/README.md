@@ -27,7 +27,7 @@ How every part of CleanLobby works: what players see, the rules behind it, and w
 
 ## Marketing
 
-- **Beta invite video:** https://stack5cs.com/media/stack5-beta-invite.mp4, source in `marketing/beta-video/` (31 s vertical MP4 made from the site's look and the guide screenshots; see its README to change the text and re-render). Not deployed. The hosted file still shows the STACK5 name; the source already says CleanLobby, so re-render and upload it as `cleanlobby-beta-invite.mp4` at the domain switch.
+- **Beta invite video:** https://cleanlobby.com/media/stack5-beta-invite.mp4 (old stack5cs.com links redirect there), source in `marketing/beta-video/` (31 s vertical MP4 made from the site's look and the guide screenshots; see its README to change the text and re-render). Not deployed. The hosted file still shows the STACK5 name; the source already says CleanLobby, so re-render and upload it as `cleanlobby-beta-invite.mp4` at the domain switch.
 
 ## Known gaps
 
@@ -36,7 +36,7 @@ How every part of CleanLobby works: what players see, the rules behind it, and w
 
 ## Changelog
 
-- **2026-10-05 (branch `rename-cleanlobby`, not live yet):** STACK5 renamed **CleanLobby**, new domain cleanlobby.com (stack5cs.com will redirect to it). All visible text, the wiki, the guide screenshots, the link-preview image and the icons (now "CL") use the new name; the images regenerate with `scripts/brand-images.mjs`. Terms and Privacy say "formerly STACK5". Internal names (the `stack5_session` cookie, `STACK5_ELIGIBILITY`, the `stack5` service, server paths) are unchanged so nobody is logged out. Goes live with the [domain switch](operations.md#domain-switch-to-cleanlobbycom).
+- **2026-10-05:** STACK5 renamed **CleanLobby**, new domain cleanlobby.com (stack5cs.com will redirect to it). All visible text, the wiki, the guide screenshots, the link-preview image and the icons (now "CL") use the new name; the images regenerate with `scripts/brand-images.mjs`. Terms and Privacy say "formerly STACK5". Internal names (the `stack5_session` cookie, `STACK5_ELIGIBILITY`, the `stack5` service, server paths) are unchanged so nobody is logged out. Live since the [domain switch](operations.md#domain-switch-to-cleanlobbycom) on 5 Oct 08:09 UTC: stack5cs.com redirects (301) to the same page on cleanlobby.com, and the site emails from contact@cleanlobby.com.
 - **2026-10-05:** Beta invite video (`marketing/beta-video/`).
 - **2026-10-05:** Player guide (`/guide`, "How it works" in the menu and footer) with 10 screenshots and an FAQ; screenshots regenerate with `scripts/guide-screenshots.mjs`. Optional team Discord voice link in the match room, visible only to that team. Website email now sent from the contact@ mailbox.
 - **2026-10-05:** Contact page (`/contact`) with the email address and a form that emails contact@cleanlobby.com; Contact link in every footer; Privacy Policy covers the form.

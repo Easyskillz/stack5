@@ -27,13 +27,13 @@ Every setting is listed with a comment in `.env.example`. The server's real `.en
 
 ## Email
 
-- Hostinger Email, one mailbox: **contact@stack5cs.com** today (read in Outlook), with **no-reply@** as an alias that delivers to it. At the [domain switch](#domain-switch-to-cleanlobbycom) this becomes **contact@cleanlobby.com** (the examples below use the new address).
+- Hostinger Email: the site uses the **contact@cleanlobby.com** mailbox (since 5 Oct 2026). The old **contact@stack5cs.com** mailbox still exists and receives mail sent to the old address.
 - The site logs in as contact@ (`SMTP_USER`) and sends everything (email verification, Contact-page messages) from `"CleanLobby <contact@cleanlobby.com>"`. Hostinger refuses to send from an alias ("553 Sender address rejected: not owned by user"), so `SMTP_FROM` must be the mailbox address.
 - `SMTP_PASS` is wrapped in single quotes in the server `.env` because it contains `#`. When the mailbox password changes, update it there and restart `stack5`.
 
 ## Domain switch to cleanlobby.com
 
-The rename to CleanLobby (branch `rename-cleanlobby`) must not go live before the new domain works: canonical URLs, the sitemap, the contact address and the Steam sign-in return address all use it. On switch day, in order:
+**Done 5 Oct 2026, 08:09 UTC** (backups: `/root/nginx-backup-2026-10-05-080912`, `/root/env.backup-2026-10-05-080912`, `/root/stack5-backup-2026-10-05-080925`). Kept here as a record and for any future domain change. The nginx config on the server: `sites-available/cleanlobby` serves the site (certificate from certbot); `sites-available/stack5` only redirects, and keeps its own certificate so old `https://` links still work. Steps, in order:
 
 1. Buy **cleanlobby.com** and point its DNS (`@` and `www` A records) to the VPS.
 2. In nginx, serve cleanlobby.com and redirect stack5cs.com with a **301** to the same path (template: `deploy/nginx.conf`). Get the certificate for both names: `certbot --nginx -d cleanlobby.com -d www.cleanlobby.com` (the stack5cs.com certificate must stay valid for the redirect to work over HTTPS).
