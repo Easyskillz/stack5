@@ -817,7 +817,7 @@ app.post("/api/contact", async (req, res) => {
   } else {
     try {
       await mailTransport().sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to: CONTACT_EMAIL, replyTo: email || undefined,
-        subject: `[STACK5 contact] ${topic}${who ? ` · ${who.username}` : ""}`, text });
+        subject: `[CleanLobby contact] ${topic}${who ? ` · ${who.username}` : ""}`, text });
     } catch (e) {
       console.error("[STACK5] contact email failed:", e.message);
       return res.status(502).json({ error: `Your message couldn't be sent. Email ${CONTACT_EMAIL} instead.` });
