@@ -1,12 +1,12 @@
-# STACK5 BETA — V2
+# CleanLobby BETA — V2
 
 CS2 team matchmaking/community MVP.
 
 ## V2
-- "Sign in through Steam" is the only way to sign in (no STACK5 passwords). First sign-in picks a username and accepts the Terms; email is optional.
+- "Sign in through Steam" is the only way to sign in (no CleanLobby passwords). First sign-in picks a username and accepts the Terms; email is optional.
 - HTTP-only SameSite session cookie + CSRF token.
 - Player profile required before teams/queue/matchmaking.
-- STACK5 never sees a Steam password and has no inventory or trade access.
+- CleanLobby never sees a Steam password and has no inventory or trade access.
 - Full docs: [docs/README.md](docs/README.md).
 - FACEIT-style regions plus dedicated North Africa (`NAFR`).
 - Existing SQLite database is migration-compatible.

@@ -1,5 +1,5 @@
 // Regenerates the player-guide screenshots (public/img/guide/*.webp): plays one full match on a
-// throwaway local STACK5 with fictional example players and captures each step.
+// throwaway local CleanLobby with fictional example players and captures each step.
 // usage: node scripts/guide-screenshots.mjs   (needs Google Chrome; uses scripts/fake-steam.js)
 import { spawn } from "node:child_process";
 import fs from "node:fs";

@@ -27,13 +27,24 @@ Every setting is listed with a comment in `.env.example`. The server's real `.en
 
 ## Email
 
-- Hostinger Email, one mailbox: **contact@stack5cs.com** (read in Outlook). **no-reply@stack5cs.com** is an alias that delivers to it.
-- The site logs in as contact@ (`SMTP_USER`) and sends everything (email verification, Contact-page messages) from `"STACK5 <contact@stack5cs.com>"`. Hostinger refuses to send from an alias ("553 Sender address rejected: not owned by user"), so `SMTP_FROM` must be the mailbox address.
+- Hostinger Email, one mailbox: **contact@stack5cs.com** today (read in Outlook), with **no-reply@** as an alias that delivers to it. At the [domain switch](#domain-switch-to-cleanlobbycom) this becomes **contact@cleanlobby.com** (the examples below use the new address).
+- The site logs in as contact@ (`SMTP_USER`) and sends everything (email verification, Contact-page messages) from `"CleanLobby <contact@cleanlobby.com>"`. Hostinger refuses to send from an alias ("553 Sender address rejected: not owned by user"), so `SMTP_FROM` must be the mailbox address.
 - `SMTP_PASS` is wrapped in single quotes in the server `.env` because it contains `#`. When the mailbox password changes, update it there and restart `stack5`.
+
+## Domain switch to cleanlobby.com
+
+The rename to CleanLobby (branch `rename-cleanlobby`) must not go live before the new domain works: canonical URLs, the sitemap, the contact address and the Steam sign-in return address all use it. On switch day, in order:
+
+1. Buy **cleanlobby.com** and point its DNS (`@` and `www` A records) to the VPS.
+2. In nginx, serve cleanlobby.com and redirect stack5cs.com with a **301** to the same path (template: `deploy/nginx.conf`). Get the certificate for both names: `certbot --nginx -d cleanlobby.com -d www.cleanlobby.com` (the stack5cs.com certificate must stay valid for the redirect to work over HTTPS).
+3. Create the **contact@cleanlobby.com** mailbox (plus the no-reply@ alias) in Hostinger. In the server `.env`, set `PUBLIC_BASE_URL=https://cleanlobby.com`, `SMTP_USER` and `SMTP_PASS` for the new mailbox, `SMTP_FROM="CleanLobby <contact@cleanlobby.com>"` and `CONTACT_EMAIL=contact@cleanlobby.com`. Keep the old mailbox for a while to catch mail sent to the old address.
+4. Merge `rename-cleanlobby` into `main` and deploy as usual (the deploy ships the new og.png, icons and guide screenshots).
+5. Test: sign in through Steam on cleanlobby.com (Steam's page should name cleanlobby.com), send a Contact-page message, check that `https://stack5cs.com/guide` redirects to `https://cleanlobby.com/guide` and that link previews show the new image.
+6. In Google Search Console, add cleanlobby.com and use **Change of address** from stack5cs.com; submit the new sitemap. Re-render and upload the beta video.
 
 ## Media files (not in git)
 
-`public/media/` on the server holds uploaded files that are not part of the code, served at `https://stack5cs.com/media/...`. Deploys never touch them, and they are included in each deploy backup (`code.tar.gz`). Currently: `stack5-beta-invite.mp4` (beta invite video, source in `marketing/beta-video/`). To replace one, re-upload it with `scp` to the same path.
+`public/media/` on the server holds uploaded files that are not part of the code, served at `https://cleanlobby.com/media/...`. Deploys never touch them, and they are included in each deploy backup (`code.tar.gz`). Currently: `stack5-beta-invite.mp4` (beta invite video, source in `marketing/beta-video/`). To replace one, re-upload it with `scp` to the same path.
 
 ## Deploying
 

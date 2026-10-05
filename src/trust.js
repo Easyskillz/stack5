@@ -1,11 +1,11 @@
 /**
- * STACK5 Trust Score (0-100).
+ * CleanLobby Trust Score (0-100).
  *
  *   identity    35%  Steam account age, CS2 hours, Steam level (FACEIT share held neutral: API terms).
  *                    Only counts once the player proved the Steam account is theirs (Sign in through Steam).
  *   peer        30%  ratings from players you shared a confirmed match with
  *   reliability 25%  accepting matches vs declining / abandoning queued teams
- *   record      10%  matches played on STACK5 with an agreed result (COMPLETED)
+ *   record      10%  matches played on CleanLobby with an agreed result (COMPLETED)
  *
  * Hard caps: recent VAC/game ban -> max 20.
  * Missing data counts as neutral (0.5); hidden-but-requested data as slightly below (0.35),

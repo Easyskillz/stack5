@@ -1,6 +1,6 @@
 # Player eligibility
 
-New and throwaway Steam accounts are the main way cheaters come back, so STACK5 only lets players with real, verifiable history play.
+New and throwaway Steam accounts are the main way cheaters come back, so CleanLobby only lets players with real, verifiable history play.
 
 ## Requirements
 
@@ -9,7 +9,7 @@ To **create, join or queue a team**, a player must pass every check:
 | Check | Requirement |
 |---|---|
 | Steam account verified as yours | Signed in through Steam (see [Steam verification](steam-verification.md)) |
-| Steam profile found | STACK5 could load the Steam profile |
+| Steam profile found | CleanLobby could load the Steam profile |
 | Steam profile is public | Steam privacy: "My profile" set to Public |
 | Account age | Steam account at least **2 years** old |
 | CS2 hours | At least **500 hours** of CS2 (Steam privacy: "Game details" set to Public) |

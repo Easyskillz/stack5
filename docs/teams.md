@@ -1,6 +1,6 @@
 # Teams
 
-STACK5 is built around full 5-player teams ("5-stacks"). Everything happens on the Play page (`/play`).
+CleanLobby is built around full 5-player teams ("5-stacks"). Everything happens on the Play page (`/play`).
 
 ## Creating a team
 

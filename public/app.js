@@ -43,7 +43,7 @@ const Stack5 = (() => {
   function header(active=''){
     return `
       <header class="header">
-        <a class="logo" href="/">STACK<span>5</span></a>
+        <a class="logo" href="/">Clean<span>Lobby</span></a>
 
         <nav class="nav">
           <a class="${active==='play'?'active':''}" href="/play">${tr('play')}</a>
@@ -102,11 +102,11 @@ const Stack5 = (() => {
 
 
   function footer(){
-    return `<footer><div style="max-width:1180px;margin:auto">STACK5 · Build. Match. Play. · <a href="/guide">How it works</a> · <a href="/contact">Contact</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></div></footer>`;
+    return `<footer><div style="max-width:1180px;margin:auto">CleanLobby · Build. Match. Play. · <a href="/guide">How it works</a> · <a href="/contact">Contact</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></div></footer>`;
   }
 
   function layout(title,content,active=''){
-    document.title=`${title} · STACK5`;
+    document.title=`${title} · CleanLobby`;
     document.body.innerHTML=header(active)+`<main>${content}</main>`+footer();
     refreshHeaderAuth();
   }
@@ -114,7 +114,7 @@ const Stack5 = (() => {
   async function teams(){
     layout(tr('teams'),`
       <div class="container">
-        <div class="eyebrow">STACK5 MARKETPLACE</div>
+        <div class="eyebrow">CleanLobby MARKETPLACE</div>
         <h1>${tr('teams')}</h1>
         <p class="subtitle">Browse teams looking for players and choose the one that fits you.</p>
         <div class="filters">
@@ -159,7 +159,7 @@ const Stack5 = (() => {
   async function players(){
     layout(tr('players'),`
       <div class="container">
-        <div class="eyebrow">STACK5 MARKETPLACE</div>
+        <div class="eyebrow">CleanLobby MARKETPLACE</div>
         <h1>${tr('players')}</h1>
         <p class="subtitle">Browse available players and discover teammates based on role, level and reputation.</p>
         <div class="filters">
@@ -220,7 +220,7 @@ const Stack5 = (() => {
           <div class="profile-head">
             <img class="avatar" src="${esc(p.avatar_url||'')}" onerror="this.style.display='none'">
             <div>
-              <div class="eyebrow">STACK5 PLAYER</div>
+              <div class="eyebrow">CleanLobby PLAYER</div>
               <h1 style="font-size:38px;margin:5px 0">${esc(p.display_name)}</h1>
               <div class="muted">${countryFlag(p.country)} ${esc(p.country||'')} · ${esc(p.region||'')} · ${esc(p.role||'')}</div>
               <div class="meta">${p.steam_verified?'<span class="status green">STEAM VERIFIED</span>':'<span class="status">Steam not verified</span>'}${p.eligible?'<span class="status green">MEETS REQUIREMENTS</span>':''}</div>
@@ -251,7 +251,7 @@ const Stack5 = (() => {
   }
 
   const CONFIDENCE={NEW:['New player','Not much data yet — this score will settle as they play.'],BUILDING:['Building','Some history on record.'],ESTABLISHED:['Established','Backed by solid history.']};
-  const PART_LABELS={identity:['Identity','Steam account history'],peer:['Peer reputation','Ratings from players they actually played with'],reliability:['Reliability','Accepting matches, not abandoning teams'],record:['Track record','Confirmed matches on STACK5']};
+  const PART_LABELS={identity:['Identity','Steam account history'],peer:['Peer reputation','Ratings from players they actually played with'],reliability:['Reliability','Accepting matches, not abandoning teams'],record:['Track record','Confirmed matches on CleanLobby']};
 
   function trustPanel(t){
     const [confLabel,confText]=CONFIDENCE[t.confidence]||CONFIDENCE.NEW;
@@ -267,12 +267,12 @@ const Stack5 = (() => {
     };
     return `<div class="trust-panel">
       <div class="trust-head">
-        <div><div class="stat-label">STACK5 Trust Score</div><div class="trust-total" style="color:${color}">${t.total}</div></div>
+        <div><div class="stat-label">CleanLobby Trust Score</div><div class="trust-total" style="color:${color}">${t.total}</div></div>
         <div style="text-align:right"><span class="status ${t.confidence==='ESTABLISHED'?'green':t.confidence==='BUILDING'?'amber':''}">${confLabel}</span><div class="muted small" style="margin-top:6px;max-width:260px">${confText}</div></div>
       </div>
       ${t.flags?.length?`<div class="trust-flags">${t.flags.map(f=>`<div>⚠️ ${esc(f)}</div>`).join('')}</div>`:''}
       <div class="trust-parts">${['identity','peer','reliability','record'].map(part).join('')}</div>
-      <p class="muted small" style="margin:14px 0 0">STACK5 is a reputation layer, not an anti-cheat. Scores combine public Steam data with STACK5 match history and ratings.</p>
+      <p class="muted small" style="margin:14px 0 0">CleanLobby is a reputation layer, not an anti-cheat. Scores combine public Steam data with CleanLobby match history and ratings.</p>
     </div>`;
   }
 
@@ -309,7 +309,7 @@ const Stack5 = (() => {
       ['🎯','Team-based matchmaking','Build your five, enter the queue and find another complete team at a comparable level.'],
       ['🔎','Verification layers','Steam ownership, account age, CS2 hours and ban checks before anyone can queue.'],
       ['🌍','Regional matchmaking','A global regional structure designed to connect players and teams with competitive matches worldwide.'],
-      ['🔐','Steam-safe by design','STACK5 never needs your Steam password, Steam Guard code, trade URL or inventory access.']
+      ['🔐','Steam-safe by design','CleanLobby never needs your Steam password, Steam Guard code, trade URL or inventory access.']
     ];
     const steps=[
       ['Sign in with Steam','On Steam’s own website, then pick a username.'],
@@ -322,25 +322,25 @@ const Stack5 = (() => {
       <section class="hero">
         <div class="eyebrow">CS2 TEAM MATCHMAKING · PRIVATE BETA</div>
         <h1>Tired of cheaters?<br><span>Find a trusted five.</span></h1>
-        <p class="subtitle">STACK5 is built for CS2 players who want a more trusted 5v5 experience — with player identity, reputation and team-based matchmaking at the core.</p>
+        <p class="subtitle">CleanLobby is built for CS2 players who want a more trusted 5v5 experience — with player identity, reputation and team-based matchmaking at the core.</p>
         <div class="actions">
           <a class="btn btn-green" href="/login" data-guest-cta>Sign in with Steam</a>
-          <a class="btn btn-dark" href="/guide">How STACK5 works</a>
+          <a class="btn btn-dark" href="/guide">How CleanLobby works</a>
           <a class="btn btn-dark" href="/teams">${tr('teams')}</a>
         </div>
         ${liveStatsBox()}
-        <div class="notice">⚠️ <strong>STACK5 is currently in BETA.</strong> Features, verification layers, data sources and matchmaking rules may change during testing.</div>
+        <div class="notice">⚠️ <strong>CleanLobby is currently in BETA.</strong> Features, verification layers, data sources and matchmaking rules may change during testing.</div>
       </section>
 
       <div class="container" style="padding-top:10px">
         <div class="problem">
           <div>
             <h2>Built around the problem players actually feel.</h2>
-            <p>Random opponents, anonymous profiles and unreliable teammates can ruin a 5v5 session. STACK5 is designed to put more context around the people and teams you play with.</p>
-            <p class="security-note"><strong>Important:</strong> STACK5 is not an anti-cheat and does not claim to guarantee that a player is cheat-free. It is a trusted matchmaking and reputation layer.</p>
+            <p>Random opponents, anonymous profiles and unreliable teammates can ruin a 5v5 session. CleanLobby is designed to put more context around the people and teams you play with.</p>
+            <p class="security-note"><strong>Important:</strong> CleanLobby is not an anti-cheat and does not claim to guarantee that a player is cheat-free. It is a trusted matchmaking and reputation layer.</p>
           </div>
           <div class="pill-list">
-            <div class="pill">🛡️ <b>Identity</b> — real STACK5 account + player profile</div>
+            <div class="pill">🛡️ <b>Identity</b> — real CleanLobby account + player profile</div>
             <div class="pill">⭐ <b>Reputation</b> — reliability and teamplay tracked separately from skill</div>
             <div class="pill">⚔️ <b>Teams first</b> — complete five vs complete five</div>
             <div class="pill">🔐 <b>Steam-safe</b> — never ask for your Steam password</div>
@@ -348,7 +348,7 @@ const Stack5 = (() => {
         </div>
 
         <div class="section">
-          <h2>The STACK5 difference</h2>
+          <h2>The CleanLobby difference</h2>
           <div class="section-lead">The platform is designed around trust without pretending that one number can tell you everything about a player.</div>
           <div class="grid">${features.map(([icon,title,text])=>`
             <div class="card"><div class="feature-icon">${icon}</div><h3>${title}</h3><p>${text}</p></div>`).join('')}
@@ -363,7 +363,7 @@ const Stack5 = (() => {
         </div>
 
         <div class="section">
-          <h2>STACK5 regions</h2>
+          <h2>CleanLobby regions</h2>
           <div class="section-lead">A global regional matchmaking structure designed to connect players and teams worldwide.</div>
           <div id="home-regions" class="region-grid"></div>
         </div>
@@ -381,7 +381,7 @@ const Stack5 = (() => {
     catalog().then(cat=>{
       const box=document.getElementById('home-regions');
       if(box) box.innerHTML=cat.regions.map(r=>`
-        <div class="region${r.id==='NAFR'?' featured':''}"><span style="font-size:22px">${r.flag}</span><strong>${esc(r.name)}</strong><small class="muted">${r.id==='NAFR'?'STACK5 custom region':'Matchmaking region'}</small></div>`).join('');
+        <div class="region${r.id==='NAFR'?' featured':''}"><span style="font-size:22px">${r.flag}</span><strong>${esc(r.name)}</strong><small class="muted">${r.id==='NAFR'?'CleanLobby custom region':'Matchmaking region'}</small></div>`).join('');
     }).catch(()=>{});
 
     // Signed-in visitors get "Go to Play" instead of sign-up buttons.
@@ -405,33 +405,33 @@ const Stack5 = (() => {
 
   // ---------- Player guide ----------
   const GUIDE_STEPS=[
-    ['1-sign-in',496,434,'Sign in with Steam','Click <strong>Sign in with Steam</strong>. You log in on Steam’s own website: check the address bar says <code>steamcommunity.com</code>. STACK5 only receives your public SteamID. It never sees your password and can’t touch your inventory or trades.'],
-    ['2-pick-username',436,366,'Pick your username','First time only: choose a STACK5 username. Email is optional (for match notifications). Confirm you’re 16 or older and accept the Terms.'],
+    ['1-sign-in',496,434,'Sign in with Steam','Click <strong>Sign in with Steam</strong>. You log in on Steam’s own website: check the address bar says <code>steamcommunity.com</code>. CleanLobby only receives your public SteamID. It never sees your password and can’t touch your inventory or trades.'],
+    ['2-pick-username',436,366,'Pick your username','First time only: choose a CleanLobby username. Email is optional (for match notifications). Confirm you’re 16 or older and accept the Terms.'],
     ['3-profile-setup',784,686,'Set up your player profile','Country (this sets your matchmaking region), FACEIT level, main role and language. Teams see this when they look for players.'],
-    ['4-build-team',1076,540,'Build your five','Create a team and invite players by their STACK5 username, or find them on <a href="/players">Find Players</a>. Prefer joining a team? Browse <a href="/teams">Find a Team</a> and ask to join. An open team disbands after 6 hours without a new player.'],
-    ['5-full-team-queue',715,538,'Five players? Find a match','When your team has 5 players, the captain clicks <strong>Find match</strong>. Everyone must meet the STACK5 requirements: Steam account at least 2 years old, 500+ hours of CS2, no recent VAC or game ban.'],
-    ['6-searching',705,576,'Searching for an opponent','STACK5 looks for another full team in your region at a similar level. This runs every 30 seconds. After 2 hours without a match, your team leaves the queue.'],
+    ['4-build-team',1076,540,'Build your five','Create a team and invite players by their CleanLobby username, or find them on <a href="/players">Find Players</a>. Prefer joining a team? Browse <a href="/teams">Find a Team</a> and ask to join. An open team disbands after 6 hours without a new player.'],
+    ['5-full-team-queue',715,538,'Five players? Find a match','When your team has 5 players, the captain clicks <strong>Find match</strong>. Everyone must meet the CleanLobby requirements: Steam account at least 2 years old, 500+ hours of CS2, no recent VAC or game ban.'],
+    ['6-searching',705,576,'Searching for an opponent','CleanLobby looks for another full team in your region at a similar level. This runs every 30 seconds. After 2 hours without a match, your team leaves the queue.'],
     ['7-match-found',1061,551,'Match found: captains accept','Both captains have <strong>5 minutes</strong> to accept. Declining or letting the time run out counts against the captain’s reliability.'],
     ['8-match-room',1061,1046,'Play through CS2 Private Matchmaking','Each captain invites their 4 teammates to a <strong>CS2 party</strong> (use the Steam buttons). One captain creates a <em>Private Matchmaking Pool</em> in CS2 and pastes the code here. The other captain enters it with <em>Manually Enter a Code</em>. Both parties press <strong>GO</strong>. Optional: a captain can share a Discord voice channel that only their own team sees.'],
     ['9-result-and-ratings',1061,512,'Report the score, then rate everyone','After the game, both captains report the score. When they match, the result is final and everyone can rate the players they played with, teammates and opponents. Different scores go to an admin.'],
     ['10-trust-score',1076,303,'Build your Trust Score','Your Trust Score (0–100) combines your Steam history, ratings from people you played with, reliability and matches played. It’s public on your profile and helps teams decide who to play with.']
   ];
   const GUIDE_FAQ=[
-    ['Is signing in with Steam safe?','Yes. You sign in on steamcommunity.com, never on STACK5. We only receive your public SteamID. STACK5 will never ask for your Steam Guard code, an API key or your trade link. If a page asks for those, it isn’t us.'],
+    ['Is signing in with Steam safe?','Yes. You sign in on steamcommunity.com, never on CleanLobby. We only receive your public SteamID. CleanLobby will never ask for your Steam Guard code, an API key or your trade link. If a page asks for those, it isn’t us.'],
     ['Why can’t I play yet?','Your Steam profile and game details must be public so we can check the requirements (2+ year old account, 500+ hours of CS2, no VAC or game ban in the last 2 years). The Play page shows which check is missing. After changing your Steam privacy, wait a few minutes and click Check again.'],
-    ['Does it cost anything?','No. STACK5 is free during the beta.'],
-    ['Does a STACK5 match change my CS Rating?','No. CS2 Private Matchmaking is unrated in CS2. STACK5 keeps its own results and Trust Score.'],
+    ['Does it cost anything?','No. CleanLobby is free during the beta.'],
+    ['Does a CleanLobby match change my CS Rating?','No. CS2 Private Matchmaking is unrated in CS2. CleanLobby keeps its own results and Trust Score.'],
     ['What if the other team doesn’t show up, or the captains disagree?','If only one captain reports a score within 6 hours, that score counts. If the scores don’t match, an admin decides. You can also <a href="/contact">contact us</a> with details.'],
-    ['How do I report a cheater?','Use the <a href="/contact">Contact page</a> (topic: Report a player) with their STACK5 name and the match. STACK5 is a reputation layer, not an anti-cheat.']
+    ['How do I report a cheater?','Use the <a href="/contact">Contact page</a> (topic: Report a player) with their CleanLobby name and the match. CleanLobby is a reputation layer, not an anti-cheat.']
   ];
   function guidePage(){
-    layout('How STACK5 works',`<div class="container guide">
-      <div class="eyebrow">PLAYER GUIDE</div><h1>How STACK5 works</h1>
+    layout('How CleanLobby works',`<div class="container guide">
+      <div class="eyebrow">PLAYER GUIDE</div><h1>How CleanLobby works</h1>
       <p class="subtitle">From signing in to your first match, step by step. Getting set up takes about 5 minutes.</p>
       <nav class="guide-toc" aria-label="Steps">${GUIDE_STEPS.map(([,,,t],i)=>`<a href="#step-${i+1}">${i+1}. ${esc(t)}</a>`).join('')}<a href="#faq">Questions</a></nav>
       ${GUIDE_STEPS.map(([id,w,h,t,text],i)=>`<section class="guide-step" id="step-${i+1}">
         <div class="guide-text"><div class="step-num">STEP ${i+1}</div><h2>${esc(t)}</h2><p>${text}</p></div>
-        <figure><img src="/img/guide/${id}.webp" width="${w}" height="${h}" loading="${i<2?'eager':'lazy'}" alt="${esc(t)}: screenshot of STACK5"><figcaption class="muted small">Example players and teams.</figcaption></figure>
+        <figure><img src="/img/guide/${id}.webp" width="${w}" height="${h}" loading="${i<2?'eager':'lazy'}" alt="${esc(t)}: screenshot of CleanLobby"><figcaption class="muted small">Example players and teams.</figcaption></figure>
       </section>`).join('')}
       <section class="panel" id="faq" style="margin-top:28px"><h2>Questions</h2>${GUIDE_FAQ.map(([q,a])=>`<details class="faq"><summary>${esc(q)}</summary><p>${a}</p></details>`).join('')}</section>
       <div class="cta" style="margin-top:24px"><h2>Ready?</h2><p>Sign in, set up your profile and build your five.</p><div class="actions"><a class="btn btn-green" href="/login" data-guest-cta>Sign in with Steam</a></div></div>
@@ -441,13 +441,13 @@ const Stack5 = (() => {
   // ---------- Contact page ----------
   async function contactPage(){
     layout('Contact',`<div class="container" style="max-width:760px">
-      <div class="eyebrow">CONTACT</div><h1>Contact STACK5</h1>
+      <div class="eyebrow">CONTACT</div><h1>Contact CleanLobby</h1>
       <p class="subtitle">Questions, problems or ideas: we read every message.</p>
       <div class="panel">
-        <div class="code-box"><div><div class="muted small">Email us</div><code id="contact-email">contact@stack5cs.com</code></div><button class="btn btn-small btn-green" type="button" id="copy-email">Copy</button></div>
+        <div class="code-box"><div><div class="muted small">Email us</div><code id="contact-email">contact@cleanlobby.com</code></div><button class="btn btn-small btn-green" type="button" id="copy-email">Copy</button></div>
         <ul class="contact-topics">
           <li><strong>Help with your account</strong>: sign-in, profile, Steam checks</li>
-          <li><strong>Report a player</strong>: cheating, smurfing, abuse. Include their STACK5 name and the match.</li>
+          <li><strong>Report a player</strong>: cheating, smurfing, abuse. Include their CleanLobby name and the match.</li>
           <li><strong>Disputed match result</strong>: tell us the match and the real score</li>
           <li><strong>Partnerships and sponsoring</strong>: creators, communities, brands</li>
           <li><strong>Your data</strong>: a copy of it or a correction. You can delete your account yourself on the <a href="/account" style="color:var(--green)">Account page</a>.</li>
@@ -460,7 +460,7 @@ const Stack5 = (() => {
           <div><label for="contact-reply">Your email (to get a reply)</label><input class="input" id="contact-reply" name="email" type="email" placeholder="you@example.com" autocomplete="email"></div>
           <div class="full"><label for="contact-message">Message</label><textarea class="input" id="contact-message" name="message" rows="6" minlength="10" maxlength="4000" required placeholder="What happened, and what can we do?"></textarea></div>
           <div class="hp" aria-hidden="true"><label>Leave this empty<input name="website" tabindex="-1" autocomplete="off"></label></div>
-          <div class="full"><button class="btn btn-green">Send message</button> <span class="muted small" style="margin-left:8px">Signed in? We'll see your STACK5 username, so you don't need to explain who you are.</span></div>
+          <div class="full"><button class="btn btn-green">Send message</button> <span class="muted small" style="margin-left:8px">Signed in? We'll see your CleanLobby username, so you don't need to explain who you are.</span></div>
         </form>
       </div></div>`);
     const info=await get('/api/contact/info').catch(()=>null);
@@ -560,7 +560,7 @@ const Stack5 = (() => {
     if(r.status===401){
       box.innerHTML=`<div class="panel" style="max-width:560px">
         <h2>Sign in to play</h2>
-        <p class="muted">Sign in through Steam, set up your player profile and build your five. New here? Read <a href="/guide" style="color:var(--green)">how STACK5 works</a>.</p>
+        <p class="muted">Sign in through Steam, set up your player profile and build your five. New here? Read <a href="/guide" style="color:var(--green)">how CleanLobby works</a>.</p>
         <div class="actions" style="margin-top:16px"><a class="btn btn-green" href="/login">Sign in with Steam</a></div>
       </div>`;
       return;
@@ -590,7 +590,7 @@ const Stack5 = (() => {
       <div class="row"><div><strong>${c.ok?'✅':'❌'} ${esc(c.label)}</strong><div class="muted small">${esc(c.detail||'')}</div></div></div>`).join('');
     return `<div class="panel" style="border-color:#4a3a1e">
       <h2>${inTeam?'Your account no longer meets the requirements':'Verify your Steam account to play'}</h2>
-      <p class="muted" style="margin-top:0">To keep new and throwaway accounts out of matches, STACK5 needs a Steam account with real CS2 history. We check public Steam data only. We never need your password.</p>
+      <p class="muted" style="margin-top:0">To keep new and throwaway accounts out of matches, CleanLobby needs a Steam account with real CS2 history. We check public Steam data only. We never need your password.</p>
       <div style="margin-top:10px">${rows}</div>
       <p class="muted small" style="margin-top:14px">Made your profile or game details public? Steam can take a few minutes to update, then check again.
         <a href="https://steamcommunity.com/my/edit/settings" target="_blank" rel="noopener" style="color:var(--green)">Open Steam privacy settings</a></p>
@@ -669,7 +669,7 @@ const Stack5 = (() => {
           <li><strong>Each captain:</strong> invite your 4 teammates to your CS2 party (Steam buttons below). Each team must be <strong>one 5-player party</strong>, or CS2 may mix players between teams.</li>
           <li><strong>One captain hosts:</strong> in CS2, open <em>Play → Matchmaking → Private Matchmaking → Create a Private Matchmaking Pool</em>, copy the full code and paste it below.</li>
           <li><strong>The other captain:</strong> <em>Private Matchmaking → Manually Enter a Code</em>, paste the code.</li>
-          <li><strong>Both parties press GO.</strong> The match starts when all 10 players are searching. It's unrated in CS2; STACK5 records the result.</li>
+          <li><strong>Both parties press GO.</strong> The match starts when all 10 players are searching. It's unrated in CS2; CleanLobby records the result.</li>
         </ol>
         <p class="muted small" style="margin-top:0">Optional: each captain can share a Discord voice channel for their team below. Only your own team sees it.</p>`;
       const code=m.lobby_code
@@ -749,7 +749,7 @@ const Stack5 = (() => {
     }
     if(captain && t.status==='OPEN'){
       controls+= t.count<5
-        ? `<form data-form="invite" data-id="${t.id}" class="inline-form"><input class="input" name="username" placeholder="Invite by STACK5 username" required><button class="btn btn-green btn-small">Invite</button></form>
+        ? `<form data-form="invite" data-id="${t.id}" class="inline-form"><input class="input" name="username" placeholder="Invite by CleanLobby username" required><button class="btn btn-green btn-small">Invite</button></form>
            <p class="muted small" style="margin-top:8px">Or find players on <a href="/players" style="color:var(--green)">Find Players</a>. You need 5 players to queue.</p>`
         : `<div class="actions" style="margin-top:16px">${btn('Find match','queue','btn-green',{id:t.id})}</div>`;
     }
@@ -788,7 +788,7 @@ const Stack5 = (() => {
     }
     html+=`<div class="panel"><h2>Your profile</h2>
       <div class="muted small">${countryFlag(d.player.country)} ${esc(d.player.region)} · FACEIT ${d.player.faceit_level} · ${esc(d.player.role)}</div>
-      <div class="muted small" style="margin-top:6px">${d.eligibility?.eligible?'<span class="status green">VERIFIED</span> Meets STACK5 requirements':'<span class="status amber">NOT VERIFIED</span>'}</div>
+      <div class="muted small" style="margin-top:6px">${d.eligibility?.eligible?'<span class="status green">VERIFIED</span> Meets CleanLobby requirements':'<span class="status amber">NOT VERIFIED</span>'}</div>
       <div class="actions" style="margin-top:12px"><a class="btn btn-small btn-dark" href="/player/${encodeURIComponent(d.player.display_name)}">View public profile</a><a class="btn btn-small btn-outline" href="/account">Account</a></div></div>`;
     return html;
   }
@@ -808,7 +808,7 @@ const Stack5 = (() => {
     box.innerHTML=`<div class="panel" style="max-width:760px">
       <div class="eyebrow">LAST STEP</div>
       <h2 style="margin-top:8px">Set up your player profile</h2>
-      <p class="muted" style="margin-top:0">This is what teams see when they look for players. STACK5 never asks for your Steam password.</p>
+      <p class="muted" style="margin-top:0">This is what teams see when they look for players. CleanLobby never asks for your Steam password.</p>
       <form data-form="profile" class="form-grid" style="margin-top:18px">
         ${steamField}
         <div><label>Display name</label><input class="input" name="display_name" maxlength="40" value="${esc(d.account.username)}" required></div>
@@ -885,7 +885,7 @@ const Stack5 = (() => {
       if(form.dataset.form==='profile'){
         data.region=form.region.value;
         if(!data.avatar_url) delete data.avatar_url;
-        await post('/api/profile',data); toast('Profile saved. Welcome to STACK5!');
+        await post('/api/profile',data); toast('Profile saved. Welcome to CleanLobby!');
       }
       await renderPlay();
     }catch(err){ toast(err.message,true); if(button) button.disabled=false; }
@@ -919,7 +919,7 @@ const Stack5 = (() => {
         <div class="row"><span class="muted">Email (optional)</span><span>${emailStatus}</span></div>
         <form id="emailForm" class="inline-form" style="margin:6px 0 10px"><input class="input" name="email" type="email" placeholder="you@example.com" value="${esc(me.account.email||'')}"><button class="btn btn-dark btn-small">Save email</button></form>
         <div class="row"><span class="muted">Player profile</span>${me.player?`<a href="/player/${encodeURIComponent(me.player.display_name)}" style="color:var(--green)">${esc(me.player.display_name)}</a>`:'<span class="muted">Not set up</span>'}</div>
-        <p class="muted small" style="margin-bottom:0">Want to change something or get a copy of your data? Email <a href="mailto:contact@stack5cs.com" style="color:var(--green)">contact@stack5cs.com</a>. See our <a href="/privacy" style="color:var(--green)">Privacy Policy</a> and <a href="/terms" style="color:var(--green)">Terms</a>.</p>
+        <p class="muted small" style="margin-bottom:0">Want to change something or get a copy of your data? Email <a href="mailto:contact@cleanlobby.com" style="color:var(--green)">contact@cleanlobby.com</a>. See our <a href="/privacy" style="color:var(--green)">Privacy Policy</a> and <a href="/terms" style="color:var(--green)">Terms</a>.</p>
       </div>
       <div class="panel" style="border-color:#4a2a2e">
         <h2 style="color:#ffb3b9">Delete account</h2>
@@ -939,11 +939,11 @@ const Stack5 = (() => {
     const form=document.getElementById('deleteForm');
     form.onsubmit=async e=>{
       e.preventDefault();
-      if(!confirm('Delete your STACK5 account permanently?')) return;
+      if(!confirm('Delete your CleanLobby account permanently?')) return;
       const b=form.querySelector('button'); b.disabled=true;
       try{
         await post('/api/account/delete',Object.fromEntries(new FormData(form)));
-        box.innerHTML=`<div class="panel"><h2>Your account has been deleted.</h2><p class="muted">Thanks for trying STACK5.</p><a class="btn btn-dark" href="/">Back to home</a></div>`;
+        box.innerHTML=`<div class="panel"><h2>Your account has been deleted.</h2><p class="muted">Thanks for trying CleanLobby.</p><a class="btn btn-dark" href="/">Back to home</a></div>`;
         window.Stack5CurrentAccount=null;
       }catch(err){ toast(err.message,true); b.disabled=false; }
     };
@@ -992,7 +992,7 @@ const Stack5 = (() => {
     const t=await get('/api/teams/'+id);
     layout(t.name,`
       <div class="container">
-        <div class="eyebrow">STACK5 TEAM</div>
+        <div class="eyebrow">CleanLobby TEAM</div>
         <h1 style="font-size:40px">${esc(t.name)}</h1>
         <p class="subtitle">${esc(t.region)} · ${t.count}/5 players · FACEIT ${t.min_level}–${t.max_level}</p>
         <div class="section">

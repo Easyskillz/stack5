@@ -14,7 +14,7 @@ Players create it on the Play page after verifying their email (and, once deploy
 
 The Steam account is the one they signed in with. It's shown as verified and can't be changed here.
 
-A Steam account can belong to only one STACK5 profile, and each account has one profile.
+A Steam account can belong to only one CleanLobby profile, and each account has one profile.
 
 ## Regions
 

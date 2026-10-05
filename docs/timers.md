@@ -1,6 +1,6 @@
 # Timers
 
-Time limits so nothing on STACK5 stays stuck forever. Players see live countdowns on the Play page.
+Time limits so nothing on CleanLobby stays stuck forever. Players see live countdowns on the Play page.
 
 | Situation | Limit | What happens |
 |---|---|---|

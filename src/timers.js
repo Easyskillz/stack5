@@ -1,5 +1,5 @@
 /**
- * Time limits so nothing on STACK5 stays stuck forever (configurable via env):
+ * Time limits so nothing on CleanLobby stays stuck forever (configurable via env):
  *   - OPEN team with no new member for TEAM_OPEN_HOURS (default 6)  -> disbanded
  *   - team in the queue for QUEUE_HOURS (default 2)                  -> back to OPEN
  *   - found match not accepted within MATCH_ACCEPT_MINUTES (default 5) -> expired;

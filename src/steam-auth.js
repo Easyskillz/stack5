@@ -1,5 +1,5 @@
 /**
- * "Sign in through Steam" (OpenID 2.0) — the only way to sign in to STACK5. It proves the player owns the Steam account.
+ * "Sign in through Steam" (OpenID 2.0) — the only way to sign in to CleanLobby. It proves the player owns the Steam account.
  * The player logs in on steamcommunity.com; Steam sends them back with a signed assertion,
  * which we confirm directly with Steam (check_authentication) before trusting the SteamID.
  * We never see the player's Steam password.

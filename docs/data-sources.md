@@ -1,6 +1,6 @@
 # External data sources
 
-All three sources are free. Each has its own rules, and STACK5 is built around them.
+All three sources are free. Each has its own rules, and CleanLobby is built around them.
 
 | Source | Used for | Stored? | In Trust Score? |
 |---|---|---|---|
@@ -15,9 +15,9 @@ All three sources are free. Each has its own rules, and STACK5 is built around t
 - **FACEIT** (API terms):
   - **Section 5.4:** no permanent copies and no derivative works. So nothing from FACEIT is saved and it is not used in the Trust Score. Any FACEIT data an older version stored is wiped automatically when the server starts.
   - **Section 4.2:** keep the API key confidential. It lives only in the server's `.env` file, never in the code or git.
-  - **Section 6.3:** never suggest FACEIT endorses or partners with STACK5.
+  - **Section 6.3:** never suggest FACEIT endorses or partners with CleanLobby.
   - **Section 3.4:** have a privacy policy (done, see [Legal pages](legal.md)).
-- **Steam:** STACK5 never asks for a Steam password.
+- **Steam:** CleanLobby never asks for a Steam password.
 
 If FACEIT confirms in writing that we may use their data in the score, that can be revisited.
 

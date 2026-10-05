@@ -1,6 +1,6 @@
-# STACK5 Wiki
+# CleanLobby Wiki
 
-How every part of STACK5 works: what players see, the rules behind it, and where it lives in the code.
+How every part of CleanLobby works: what players see, the rules behind it, and where it lives in the code.
 
 **Keep it current:** any change to a feature updates its page in the same commit, and adds a line to the [changelog](#changelog) below.
 
@@ -27,7 +27,7 @@ How every part of STACK5 works: what players see, the rules behind it, and where
 
 ## Marketing
 
-- **Beta invite video:** https://stack5cs.com/media/stack5-beta-invite.mp4, source in `marketing/beta-video/` (31 s vertical MP4 made from the site's look and the guide screenshots; see its README to change the text and re-render). Not deployed.
+- **Beta invite video:** https://stack5cs.com/media/stack5-beta-invite.mp4, source in `marketing/beta-video/` (31 s vertical MP4 made from the site's look and the guide screenshots; see its README to change the text and re-render). Not deployed. The hosted file still shows the STACK5 name; the source already says CleanLobby, so re-render and upload it as `cleanlobby-beta-invite.mp4` at the domain switch.
 
 ## Known gaps
 
@@ -36,9 +36,10 @@ How every part of STACK5 works: what players see, the rules behind it, and where
 
 ## Changelog
 
+- **2026-10-05 (branch `rename-cleanlobby`, not live yet):** STACK5 renamed **CleanLobby**, new domain cleanlobby.com (stack5cs.com will redirect to it). All visible text, the wiki, the guide screenshots, the link-preview image and the icons (now "CL") use the new name; the images regenerate with `scripts/brand-images.mjs`. Terms and Privacy say "formerly STACK5". Internal names (the `stack5_session` cookie, `STACK5_ELIGIBILITY`, the `stack5` service, server paths) are unchanged so nobody is logged out. Goes live with the [domain switch](operations.md#domain-switch-to-cleanlobbycom).
 - **2026-10-05:** Beta invite video (`marketing/beta-video/`).
 - **2026-10-05:** Player guide (`/guide`, "How it works" in the menu and footer) with 10 screenshots and an FAQ; screenshots regenerate with `scripts/guide-screenshots.mjs`. Optional team Discord voice link in the match room, visible only to that team. Website email now sent from the contact@ mailbox.
-- **2026-10-05:** Contact page (`/contact`) with the email address and a form that emails contact@stack5cs.com; Contact link in every footer; Privacy Policy covers the form.
+- **2026-10-05:** Contact page (`/contact`) with the email address and a form that emails contact@cleanlobby.com; Contact link in every footer; Privacy Policy covers the form.
 - **2026-10-05:** Match room: CS2 Private Matchmaking code shared with the 10 players, both captains report the score (disputes go to the admin, 6-hour timeout), ratings and "matches played" only count completed matches, players locked until the match ends. Matches page (live + recent results) and live counters (players online, teams looking for a match). Country and language flags (self-hosted SVGs) next to players and teams. French removed (English only). SEO: per-page titles and descriptions, Open Graph image, structured data, sitemap.xml, robots.txt, llms.txt, crawler-readable page text, real 404s. Mobile layout fixes.
 - **2026-10-05:** "Sign in through Steam" is now the only way to sign in. Passwords, sign-up, password reset and Steam-URL pasting removed (stored passwords deleted). First sign-in picks a username; email is optional and can be managed on the Account page. "Is this safe?" box on the sign-in page. Trust Score only uses verified Steam data. Fake Steam sign-in for local testing (`scripts/fake-steam.js`).
 - **2026-10-05:** Terms · Privacy footer added to the login, forgot-password and sign-up pages. Code backed up to a private GitHub repo; each deploy also copies the database backup to the operator's PC.

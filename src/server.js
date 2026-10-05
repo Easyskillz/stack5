@@ -77,16 +77,16 @@ async function sendVerificationEmail(account, rawToken) {
   const url = `${BASE_URL}/verify-email?token=${rawToken}`;
   if (!process.env.SMTP_HOST) {
     console.log(`[STACK5 DEV] Email verification link for ${account.email}: ${url}`);
-    if (isProduction) throw new Error("Email delivery is not configured yet. Set SMTP_HOST/SMTP_USER/SMTP_PASS and restart STACK5.");
+    if (isProduction) throw new Error("Email delivery is not configured yet. Set SMTP_HOST/SMTP_USER/SMTP_PASS and restart CleanLobby.");
     return url;
   }
-  await mailTransport().sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to: account.email, subject: "Verify your STACK5 account", text: `Verify your STACK5 account: ${url}` });
+  await mailTransport().sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to: account.email, subject: "Verify your CleanLobby account", text: `Verify your CleanLobby account: ${url}` });
   return null;
 }
 function mailTransport() {
   return nodemailer.createTransport({ host: process.env.SMTP_HOST, port: Number(process.env.SMTP_PORT || 587), secure: String(process.env.SMTP_SECURE) === "true", auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
 }
-const CONTACT_EMAIL = process.env.CONTACT_EMAIL || "contact@stack5cs.com";
+const CONTACT_EMAIL = process.env.CONTACT_EMAIL || "contact@cleanlobby.com";
 
 async function createSession(accountId, res) {
   const raw = randomToken(32), csrf = randomToken(24);
@@ -261,7 +261,7 @@ app.get(STEAM_RETURN_PATH, async (req, res) => {
     if (row.account_id) {                       // linking from a signed-in (older) account
       const account = sessionAccount(req);
       if (account?.account_id !== row.account_id) return fail("Steam sign-in expired. Please try again.");
-      if (owner && owner.id !== account.account_id) return fail("This Steam account already has a STACK5 account. Log out and sign in with it instead.");
+      if (owner && owner.id !== account.account_id) return fail("This Steam account already has a CleanLobby account. Log out and sign in with it instead.");
       await linkVerifiedSteam(account, steamId);
       return res.redirect("/play?steam=linked");
     }
@@ -312,12 +312,12 @@ app.post("/api/auth/signup", async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase() || null;
   if (!/^[A-Za-z0-9_]{3,24}$/.test(username)) return res.status(400).json({ error: "Username must be 3–24 characters using letters, numbers or underscore." });
   if (email && !emailValid(email)) return res.status(400).json({ error: "Enter a valid email address, or leave it empty." });
-  if (!(req.body.terms === true || req.body.terms === "true" || req.body.terms === "on")) return res.status(400).json({ error: "You must accept the STACK5 terms." });
+  if (!(req.body.terms === true || req.body.terms === "true" || req.body.terms === "on")) return res.status(400).json({ error: "You must accept the CleanLobby terms." });
   if (usernameTaken(username)) return res.status(409).json({ error: "That username is taken." });
   if (email && db.prepare("SELECT 1 FROM accounts WHERE lower(email)=?").get(email)) return res.status(409).json({ error: "That email is already used by another account." });
   if (db.prepare("SELECT 1 FROM accounts WHERE verified_steam_id=?").get(s.steam_id) ||
       db.prepare("SELECT 1 FROM players WHERE steam_id=? AND steam_verified=1 AND deleted_at IS NULL").get(s.steam_id))
-    return res.status(409).json({ error: "This Steam account already has a STACK5 account. Sign in again to use it." });
+    return res.status(409).json({ error: "This Steam account already has a CleanLobby account. Sign in again to use it." });
   const token = email ? randomToken(32) : null;
   const id = db.prepare(`INSERT INTO accounts(username,email,email_verified,verification_token_hash,verification_expires_at,terms_accepted_at)
     VALUES(?,?,0,?,?,CURRENT_TIMESTAMP)`).run(username, email, token && hash(token), token && Date.now() + VERIFY_HOURS * 3600000).lastInsertRowid;
@@ -330,13 +330,13 @@ app.post("/api/auth/signup", async (req, res) => {
 });
 
 /**
- * Attach a proven SteamID to an account. If another STACK5 player had claimed this Steam account
+ * Attach a proven SteamID to an account. If another CleanLobby player had claimed this Steam account
  * by pasting its URL (without proof), the verified owner wins and that claim is removed.
  */
 async function linkVerifiedSteam(account, steamId) {
   const now = Date.now();
   const claimant = db.prepare("SELECT id, steam_verified FROM players WHERE steam_id=? AND deleted_at IS NULL AND id IS NOT ?").get(steamId, account.player_id ?? null);
-  if (claimant?.steam_verified) throw new Error("This Steam account is already verified by another STACK5 player.");
+  if (claimant?.steam_verified) throw new Error("This Steam account is already verified by another CleanLobby player.");
   db.transaction(() => {
     if (claimant) {
       db.prepare("UPDATE players SET steam_id=NULL, steam_url=?, steam_verified=0 WHERE id=?").run(`unlinked:${claimant.id}`, claimant.id);
@@ -370,7 +370,7 @@ app.post("/api/profile", auth, csrf, async (req, res) => {
     const name = String(req.body.display_name || req.account.username).slice(0,40);
     const result = db.transaction(() => {
       const existing = db.prepare("SELECT id FROM players WHERE steam_url=? OR (steam_id IS NOT NULL AND steam_id=?)").get(steamUrl, steamId);
-      if (existing) throw new Error("This Steam profile is already linked to a STACK5 player.");
+      if (existing) throw new Error("This Steam profile is already linked to a CleanLobby player.");
       const r = db.prepare(`INSERT INTO players(steam_url,steam_id,steam_verified,steam_verified_at,display_name,avatar_url,faceit_level,faceit_elo,region,country,language,role) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`).run(steamUrl,steamId,1,Date.now(),name,safeAvatarUrl(req.body.avatar_url),Number(req.body.faceit_level),Number(req.body.faceit_elo||0),region.id,country[0],String(req.body.language).slice(0,10),String(req.body.role).slice(0,20));
       db.prepare("UPDATE accounts SET player_id=? WHERE id=?").run(r.lastInsertRowid, req.account.account_id);
       return r.lastInsertRowid;
@@ -455,8 +455,8 @@ app.post("/api/teams/:id/invite", auth, csrf, profileRequired, (req,res)=>{
   const target=req.body.player_id
     ? db.prepare("SELECT * FROM players WHERE id=?").get(Number(req.body.player_id))
     : db.prepare("SELECT p.* FROM players p JOIN accounts a ON a.player_id=p.id WHERE lower(a.username)=lower(?)").get(String(req.body.username).trim());
-  if(!target || target.deleted_at) return res.status(404).json({error:"STACK5 player not found."});
-  if(!isEligible(target.id)) return res.status(409).json({error:`${target.display_name} doesn't meet the STACK5 requirements yet, so they can't join a team.`});
+  if(!target || target.deleted_at) return res.status(404).json({error:"CleanLobby player not found."});
+  if(!isEligible(target.id)) return res.status(409).json({error:`${target.display_name} doesn't meet the CleanLobby requirements yet, so they can't join a team.`});
   if(target.id===req.account.player_id) return res.status(400).json({error:"You cannot invite yourself."});
   if(team.members.some(x=>x.id===target.id)) return res.status(409).json({error:"That player is already in the team."});
   if(activeTeamForPlayer(target.id)) return res.status(409).json({error:"That player is already in an active team."});
@@ -553,7 +553,7 @@ app.post("/api/teams/:id/disband", auth, csrf, profileRequired, (req,res)=>{
   res.json({ok:true});
 });
 app.post("/api/teams/:id/ready", auth, csrf, profileRequired, (req,res)=>{const team=getTeam(req.params.id);if(!team)return res.status(404).json({error:"Team not found"});if(team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain can ready the team"});if(team.count!==5)return res.status(400).json({error:"Team must have 5 players"});db.prepare("UPDATE teams SET status='READY' WHERE id=?").run(team.id);res.json(getTeam(team.id));});
-app.post("/api/teams/:id/queue", auth, csrf, profileRequired, eligibleRequired, (req,res)=>{const team=getTeam(req.params.id);if(!team)return res.status(404).json({error:"Team not found"});if(team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain can queue the team"});if(team.count!==5)return res.status(400).json({error:"Team must have 5 players"});const blocked=team.members.filter(m=>!isEligible(m.id));if(blocked.length)return res.status(409).json({error:`${blocked.map(m=>m.display_name).join(", ")} no longer meet${blocked.length>1?"":"s"} the STACK5 requirements. Remove them to queue.`});if(!["OPEN","READY"].includes(team.status))return res.status(409).json({error:"Team cannot be queued right now."});db.prepare("UPDATE teams SET status='READY' WHERE id=?").run(team.id);db.prepare("INSERT OR IGNORE INTO queue(team_id) VALUES(?)").run(team.id);res.json({queued:true,team:getTeam(team.id)});});
+app.post("/api/teams/:id/queue", auth, csrf, profileRequired, eligibleRequired, (req,res)=>{const team=getTeam(req.params.id);if(!team)return res.status(404).json({error:"Team not found"});if(team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain can queue the team"});if(team.count!==5)return res.status(400).json({error:"Team must have 5 players"});const blocked=team.members.filter(m=>!isEligible(m.id));if(blocked.length)return res.status(409).json({error:`${blocked.map(m=>m.display_name).join(", ")} no longer meet${blocked.length>1?"":"s"} the CleanLobby requirements. Remove them to queue.`});if(!["OPEN","READY"].includes(team.status))return res.status(409).json({error:"Team cannot be queued right now."});db.prepare("UPDATE teams SET status='READY' WHERE id=?").run(team.id);db.prepare("INSERT OR IGNORE INTO queue(team_id) VALUES(?)").run(team.id);res.json({queued:true,team:getTeam(team.id)});});
 app.get("/api/queue", (_,res)=>res.json(db.prepare(`SELECT t.id,t.name,t.region,t.min_level,t.max_level,COUNT(tm.player_id) count FROM queue q JOIN teams t ON t.id=q.team_id LEFT JOIN team_members tm ON tm.team_id=t.id GROUP BY t.id ORDER BY q.queued_at`).all()));
 app.post("/api/matchmaking/run", auth, adminRequired, csrf, (_,res)=>res.json({matches:runMatchmaking()}));
 app.get("/api/matches/:id", (req,res)=>{const m=db.prepare("SELECT * FROM matches WHERE id=?").get(req.params.id);if(!m)return res.status(404).json({error:"Match not found"});res.json({...publicMatch(m),team_a:getTeam(m.team_a_id),team_b:getTeam(m.team_b_id)});});
@@ -601,7 +601,7 @@ app.post("/api/join-requests/:id/accept", auth, csrf, profileRequired, (req,res)
     db.prepare("UPDATE team_join_requests SET status='EXPIRED',responded_at=CURRENT_TIMESTAMP WHERE id=?").run(jr.id);
     return res.status(409).json({error:"That player has already joined another team."});
   }
-  if(!isEligible(jr.player_id)) return res.status(409).json({error:"That player doesn't meet the STACK5 requirements anymore."});
+  if(!isEligible(jr.player_id)) return res.status(409).json({error:"That player doesn't meet the CleanLobby requirements anymore."});
   db.transaction(()=>{
     db.prepare("INSERT INTO team_members(team_id,player_id) VALUES(?,?)").run(team.id,jr.player_id);
     touchTeam(team.id);
@@ -810,7 +810,7 @@ app.post("/api/contact", async (req, res) => {
   const now = Date.now(), recent = (contactHits.get(req.ip) || []).filter(t => now - t < 3_600_000);
   if (recent.length >= 3) return res.status(429).json({ error: `You've sent 3 messages in the last hour. Email ${CONTACT_EMAIL} directly if it's urgent.` });
   const who = sessionAccount(req);
-  const text = [`Topic: ${topic}`, `Reply to: ${email || "(no email given)"}`, `STACK5 account: ${who ? who.username : "(not signed in)"}`, "", message].join("\n");
+  const text = [`Topic: ${topic}`, `Reply to: ${email || "(no email given)"}`, `CleanLobby account: ${who ? who.username : "(not signed in)"}`, "", message].join("\n");
   if (!process.env.SMTP_HOST) {
     if (isProduction) return res.status(503).json({ error: `The form isn't available right now. Email ${CONTACT_EMAIL} instead.` });
     console.log(`[STACK5 DEV] Contact message:\n${text}`);
@@ -917,20 +917,20 @@ app.get(["/register","/forgot-password","/reset-password"], (_,res)=>res.redirec
 const APP_SHELL=fs.readFileSync(path.join(__dirname,"../public/pages/app.html"),"utf8");
 const SITE_DESC="Find a trusted five and play CS2 5v5 against complete teams. Steam-verified players, trust scores and team matchmaking for North Africa and worldwide. Free beta.";
 const PAGES={
-  "/":        { title:"STACK5 · Trusted CS2 5v5 team matchmaking", heading:"Tired of cheaters? Find a trusted five.", description:SITE_DESC },
-  "/teams":   { title:"Find a CS2 team · STACK5", heading:"Find a CS2 team", description:"Browse CS2 5-stacks that are recruiting on STACK5 and ask to join. Every player is Steam-verified with a public trust score." },
-  "/players": { title:"Find CS2 players · STACK5", heading:"Find CS2 players", description:"Find Steam-verified CS2 players for your 5-stack by region, level, role and language, with a trust score built from real matches." },
-  "/matches": { title:"CS2 5v5 matches and results · STACK5", heading:"CS2 5v5 matches", description:"Live STACK5 matches and recent results between complete CS2 teams, played through CS2 Private Matchmaking." },
-  "/rankings":{ title:"CS2 team rankings · STACK5", heading:"Rankings", description:"STACK5 rankings for CS2 5v5 teams and players. Coming soon." },
-  "/guide":   { title:"How STACK5 works: CS2 5v5 player guide · STACK5", heading:"How STACK5 works", description:"Step-by-step guide to STACK5: sign in with Steam, build your CS2 5-stack, find a match, play through CS2 Private Matchmaking, report the score and build your Trust Score." },
-  "/contact": { title:"Contact · STACK5", heading:"Contact STACK5", description:"Contact the STACK5 team: help with your account, report a player, a disputed match result, partnerships or privacy requests. Email contact@stack5cs.com." }
+  "/":        { title:"CleanLobby · Trusted CS2 5v5 team matchmaking", heading:"Tired of cheaters? Find a trusted five.", description:SITE_DESC },
+  "/teams":   { title:"Find a CS2 team · CleanLobby", heading:"Find a CS2 team", description:"Browse CS2 5-stacks that are recruiting on CleanLobby and ask to join. Every player is Steam-verified with a public trust score." },
+  "/players": { title:"Find CS2 players · CleanLobby", heading:"Find CS2 players", description:"Find Steam-verified CS2 players for your 5-stack by region, level, role and language, with a trust score built from real matches." },
+  "/matches": { title:"CS2 5v5 matches and results · CleanLobby", heading:"CS2 5v5 matches", description:"Live CleanLobby matches and recent results between complete CS2 teams, played through CS2 Private Matchmaking." },
+  "/rankings":{ title:"CS2 team rankings · CleanLobby", heading:"Rankings", description:"CleanLobby rankings for CS2 5v5 teams and players. Coming soon." },
+  "/guide":   { title:"How CleanLobby works: CS2 5v5 player guide · CleanLobby", heading:"How CleanLobby works", description:"Step-by-step guide to CleanLobby: sign in with Steam, build your CS2 5-stack, find a match, play through CS2 Private Matchmaking, report the score and build your Trust Score." },
+  "/contact": { title:"Contact · CleanLobby", heading:"Contact CleanLobby", description:"Contact the CleanLobby team: help with your account, report a player, a disputed match result, partnerships or privacy requests. Email contact@cleanlobby.com." }
 };
 const htmlAttr=v=>String(v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"})[c]);
 function sendApp(req,res,page,{index=true,status=200}={}){
   const url=BASE_URL+(req.path==="/"?"/":req.path.replace(/\/$/,""));
   const jsonld=JSON.stringify({ "@context":"https://schema.org", "@graph":[
-    { "@type":"WebSite", "@id":BASE_URL+"/#website", name:"STACK5", url:BASE_URL+"/", description:SITE_DESC, inLanguage:"en" },
-    { "@type":"WebApplication", name:"STACK5", url:BASE_URL+"/", applicationCategory:"GameApplication", operatingSystem:"Web",
+    { "@type":"WebSite", "@id":BASE_URL+"/#website", name:"CleanLobby", url:BASE_URL+"/", description:SITE_DESC, inLanguage:"en" },
+    { "@type":"WebApplication", name:"CleanLobby", url:BASE_URL+"/", applicationCategory:"GameApplication", operatingSystem:"Web",
       description:SITE_DESC, offers:{ "@type":"Offer", price:"0", priceCurrency:"USD" }, about:{ "@type":"VideoGame", name:"Counter-Strike 2" } }
   ]});   // fixed text only (no user input), safe inside <script>
   const vals={ title:page.title, description:page.description, heading:page.heading, url, base:BASE_URL, robots:index?"index,follow":"noindex,follow" };
@@ -957,22 +957,22 @@ ${[...Object.keys(PAGES),"/login","/terms","/privacy"].map(p=>`  <url><loc>${BAS
 </urlset>
 `));
 // llms.txt: a plain summary for AI assistants and LLM crawlers (llmstxt.org).
-app.get("/llms.txt",(_,res)=>res.type("text/plain").send(`# STACK5
+app.get("/llms.txt",(_,res)=>res.type("text/plain").send(`# CleanLobby
 
-> STACK5 is a free CS2 (Counter-Strike 2) 5v5 team matchmaking platform focused on trust. Complete teams of five play against other complete teams, every player is a Steam-verified account, and a public Trust Score is built from Steam history, peer ratings, reliability and match record. Strong focus on North Africa (Morocco, Algeria, Tunisia, Libya, Egypt), open worldwide. Currently in beta.
+> CleanLobby is a free CS2 (Counter-Strike 2) 5v5 team matchmaking platform focused on trust. Complete teams of five play against other complete teams, every player is a Steam-verified account, and a public Trust Score is built from Steam history, peer ratings, reliability and match record. Strong focus on North Africa (Morocco, Algeria, Tunisia, Libya, Egypt), open worldwide. Currently in beta.
 
 ## How it works
 
-- Players sign in through Steam (OpenID). STACK5 only receives the public SteamID; it never sees Steam passwords and has no access to inventories, skins or trades.
+- Players sign in through Steam (OpenID). CleanLobby only receives the public SteamID; it never sees Steam passwords and has no access to inventories, skins or trades.
 - To play, a Steam account must be at least 2 years old, have at least 500 hours of CS2 and no VAC or game ban in the last 2 years.
 - A captain creates a team and invites four players. Full teams queue and are matched with a team from the same region at a similar FACEIT level.
-- Matches are played on Valve servers through CS2 Private Matchmaking: one captain creates a private matchmaking pool and shares its code on STACK5, both 5-player parties join with that code.
+- Matches are played on Valve servers through CS2 Private Matchmaking: one captain creates a private matchmaking pool and shares its code on CleanLobby, both 5-player parties join with that code.
 - After the game both captains report the score. Players then rate each other (1-5 stars), which feeds the Trust Score.
-- STACK5 is a reputation layer, not an anti-cheat.
+- CleanLobby is a reputation layer, not an anti-cheat.
 
 ## Pages
 
-- [Home](${BASE_URL}/): what STACK5 is
+- [Home](${BASE_URL}/): what CleanLobby is
 - [Find a team](${BASE_URL}/teams): teams that are recruiting
 - [Find players](${BASE_URL}/players): Steam-verified players with trust scores
 - [Matches](${BASE_URL}/matches): live matches and recent results
@@ -982,12 +982,12 @@ app.get("/llms.txt",(_,res)=>res.type("text/plain").send(`# STACK5
 
 ## Contact
 
-contact@stack5cs.com
+contact@cleanlobby.com
 `));
 for(const [p,page] of Object.entries(PAGES)) app.get(p,(req,res)=>sendApp(req,res,page));
 // Personal and per-player pages work normally but stay out of search results.
 for(const p of ["/play","/account","/player/:username","/team/:id"]) app.get(p,(req,res)=>sendApp(req,res,PAGES["/"],{index:false}));
-app.get("*splat",(req,res)=>sendApp(req,res,{ ...PAGES["/"], title:"Page not found · STACK5", heading:"Page not found" },{index:false,status:404}));
+app.get("*splat",(req,res)=>sendApp(req,res,{ ...PAGES["/"], title:"Page not found · CleanLobby", heading:"Page not found" },{index:false,status:404}));
 // Time limits (idle teams, queue, match accept window). TIMERS_INTERVAL_SECONDS=0 disables.
 const timersEvery=Number(process.env.TIMERS_INTERVAL_SECONDS ?? 30);
 if(timersEvery>0) setInterval(()=>{
@@ -1020,4 +1020,4 @@ if(process.env.NODE_ENV!=="test"){
 }
 app.post("/api/admin/trust/recompute", auth, adminRequired, csrf, async (_,res)=>{ await trustUpkeep(); res.json({ok:true}); });
 
-const port=Number(process.env.PORT||3000);app.listen(port,"0.0.0.0",()=>console.log(`STACK5 listening on ${port}`));
+const port=Number(process.env.PORT||3000);app.listen(port,"0.0.0.0",()=>console.log(`CleanLobby listening on ${port}`));

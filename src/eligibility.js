@@ -1,5 +1,5 @@
 /**
- * Who may play on STACK5. New/throwaway accounts are the main cheater vector, so a player
+ * Who may play on CleanLobby. New/throwaway accounts are the main cheater vector, so a player
  * needs verifiable Steam history before they can create, join or queue a team.
  *
  * Requirements (configurable via env):
@@ -62,4 +62,4 @@ export function isEligible(playerId) {
   return db.prepare("SELECT eligible FROM players WHERE id=?").get(playerId)?.eligible === 1;
 }
 
-export const NOT_ELIGIBLE = "Your account doesn't meet the STACK5 requirements yet. See the checklist on the Play page.";
+export const NOT_ELIGIBLE = "Your account doesn't meet the CleanLobby requirements yet. See the checklist on the Play page.";

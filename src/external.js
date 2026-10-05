@@ -1,5 +1,5 @@
 /**
- * External identity sources for the STACK5 trust score.
+ * External identity sources for the CleanLobby trust score.
  *
  * - Steam Web API (STEAM_API_KEY): bans, account age, level, CS2 playtime.
  * - FACEIT Data API (FACEIT_API_KEY, optional): live profile panel only (level, elo, bans).

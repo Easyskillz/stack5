@@ -1,6 +1,6 @@
 # Accounts & login
 
-Every player needs a STACK5 account before doing anything beyond browsing. **"Sign in through Steam" is the only way in.** There are no STACK5 passwords (since 2026-10-05).
+Every player needs a CleanLobby account before doing anything beyond browsing. **"Sign in through Steam" is the only way in.** There are no CleanLobby passwords (since 2026-10-05).
 
 ## How it works for players
 
@@ -9,7 +9,7 @@ Every player needs a STACK5 account before doing anything beyond browsing. **"Si
 3. **Returning:** they go straight to the Play page.
 4. A login lasts 30 days. **Logout** is in the header.
 
-The `/login` page has an **"Is this safe?"** box: check the address bar says steamcommunity.com, STACK5 only gets the public SteamID, it can't touch inventory or trades, and it never asks for a Steam Guard code, API key or trade link.
+The `/login` page has an **"Is this safe?"** box: check the address bar says steamcommunity.com, CleanLobby only gets the public SteamID, it can't touch inventory or trades, and it never asks for a Steam Guard code, API key or trade link.
 
 ## Email (optional)
 
@@ -20,7 +20,7 @@ The `/login` page has an **"Is this safe?"** box: check the address bar says ste
 
 - Username: 3–24 characters, letters, numbers or underscore. Unique, ignoring case.
 - Email: unique, ignoring case.
-- One STACK5 account per Steam account.
+- One CleanLobby account per Steam account.
 - A first sign-in that never picks a username expires after 30 minutes.
 - Each IP address can make at most 40 requests per minute to the same `/api` or `/auth` endpoint.
 

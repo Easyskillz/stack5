@@ -1,15 +1,15 @@
 # Match room
 
-What happens after both captains accept a match: the teams play through **CS2 Private Matchmaking** on Valve servers, then report the score on STACK5.
+What happens after both captains accept a match: the teams play through **CS2 Private Matchmaking** on Valve servers, then report the score on CleanLobby.
 
 ## How it works for players
 
 When a match is confirmed, all 10 players see the **match room** on the Play page:
 
 1. **Each captain** invites their 4 teammates to their CS2 party (Steam buttons next to every player). Each team must be **one 5-player party**: CS2 keeps parties together, but players who enter alone can be shuffled between teams.
-2. **One captain hosts:** in CS2, *Play → Matchmaking → Private Matchmaking → Create a Private Matchmaking Pool*, copies the full code and pastes it on STACK5. Either captain can post it, or replace a wrong one.
+2. **One captain hosts:** in CS2, *Play → Matchmaking → Private Matchmaking → Create a Private Matchmaking Pool*, copies the full code and pastes it on CleanLobby. Either captain can post it, or replace a wrong one.
 3. **The other captain:** *Private Matchmaking → Manually Enter a Code*, pastes the code (all 10 players see it with a **Copy** button).
-4. **Both parties press GO.** CS2 starts the match when all 10 players are searching. It's unrated in CS2 (no CS Rating or XP); STACK5 records the result.
+4. **Both parties press GO.** CS2 starts the match when all 10 players are searching. It's unrated in CS2 (no CS Rating or XP); CleanLobby records the result.
 5. **After the game,** each captain reports the score from their side (e.g. 13 and 9).
 
 **Team voice (optional):** each captain can paste a Discord invite link for their team's voice channel (discord.gg or discord.com/invite links only). Only that team's 5 players ever receive it: never the other team, never public pages. The captain can change or remove it while the match is live.
@@ -44,5 +44,5 @@ The private matchmaking code and the captains' raw reports are only shown to the
 - Code: `src/matches.js` (`submitReport`, `finishMatch`, `closeOverdueMatches`, `cleanVoiceLink`), routes `POST /api/matches/:id/code`, `POST /api/matches/:id/voice`, `POST /api/matches/:id/result`, `POST /api/admin/matches/:id/result`, public `GET /api/matches` in `src/server.js`; UI `matchPanel()` in `public/app.js`.
 - Match status: `PENDING → CONFIRMED → COMPLETED | DISPUTED | NO_RESULT`. Voice links: `voice_a`/`voice_b`; the Play page API only returns the viewer's own as `my_voice`. Scores are stored team A first (`score_a`, `score_b`); reports as `report_a`/`report_b` ("13-9", team A first).
 - Settings: `RESULT_HOURS` (default 6). The check runs with the other [timers](timers.md).
-- Planned: a STACK5 Discord bot that creates the two team voice channels automatically (see the Launch Board).
+- Planned: a CleanLobby Discord bot that creates the two team voice channels automatically (see the Launch Board).
 - How CS2 Private Matchmaking works was taken from public guides (October 2026). Watch the first real games, especially that both 5-player parties stay together.
