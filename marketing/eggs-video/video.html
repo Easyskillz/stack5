@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>CleanLobby · We don't want eggs (video)</title>
+<style>
+@font-face{font-family:Inter;src:url('../../public/fonts/inter-latin.woff2') format('woff2');font-weight:400 800}
+@font-face{font-family:Anton;src:url('../../public/fonts/anton-latin.woff2') format('woff2')}
+:root{--bg:#0c0c0e;--text:#f6f3ec;--muted:#a29e94;--shell:#f4ecdc;--yolk:#ffc53d;--red:#ff4b3e;--ok:#7ee08a;
+  --grey:#b0c3d9;--cyan:#6fb6ff;--blue:#6b8bff;--purple:#a070ff;--pink:#e15cf0;--tred:#ff5a5a;--gold:#ffd34d}
+*{margin:0;box-sizing:border-box}
+html,body{width:1080px;height:1920px;overflow:hidden;background:var(--bg);color:var(--text);font-family:Inter,Arial,sans-serif}
+#bg{position:absolute;inset:0;background:radial-gradient(circle at var(--gx,70%) var(--gy,20%),rgba(160,112,255,.28),rgba(107,139,255,.10) 30%,transparent 55%),var(--bg)}
+#bg::after{content:"";position:absolute;inset:0;opacity:.06;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cg fill='none' stroke='%23f4ecdc' stroke-width='3'%3E%3Cpath d='M45 27c13 0 22 21 22 34s-10 22-22 22-22-9-22-22 9-34 22-34z'/%3E%3Cpath d='M26 45l38 33M64 45L26 78'/%3E%3Cpath d='M135 105c13 0 22 21 22 34s-10 22-22 22-22-9-22-22 9-34 22-34z'/%3E%3Cpath d='M116 123l38 33M154 123l-38 33'/%3E%3C/g%3E%3C/svg%3E")}
+.tape{position:absolute;left:-40px;right:-40px;background:repeating-linear-gradient(-45deg,var(--yolk) 0 30px,#111 30px 60px);padding:8px 0;z-index:5}
+.tape span{display:inline-block}
+.tape div{overflow:hidden;background:var(--yolk);color:#111;font-weight:800;font-size:26px;letter-spacing:.16em;white-space:nowrap;padding:10px 0}
+#tapeTop{top:70px;transform:rotate(-3deg)}#tapeBot{bottom:90px;transform:rotate(2deg)}
+.stripe{position:absolute;left:0;right:0;bottom:0;height:16px;z-index:6;background:linear-gradient(90deg,var(--grey) 0 14.28%,var(--cyan) 0 28.56%,var(--blue) 0 42.84%,var(--purple) 0 57.12%,var(--pink) 0 71.4%,var(--tred) 0 85.68%,var(--gold) 0)}
+#bar{position:absolute;left:0;bottom:16px;height:6px;background:var(--yolk);z-index:6}
+.scene{position:absolute;inset:0;padding:240px 84px 220px;display:flex;flex-direction:column;justify-content:center;visibility:hidden}
+.d{font-family:Anton,Impact,sans-serif;text-transform:uppercase;line-height:1.04;letter-spacing:.005em}
+.eyebrow{font-size:34px;font-weight:800;letter-spacing:.16em;color:var(--yolk);text-transform:uppercase}
+.y{color:var(--yolk)}.m{color:var(--muted)}.r{color:var(--red)}
+.big{font-size:150px}.mid{font-size:112px}.sm{font-size:84px}
+.line{display:flex;align-items:center;gap:30px;margin-top:26px}
+.line .d{font-size:118px}
+.egg{width:96px;flex:none}
+.strike{position:relative;white-space:nowrap}
+.strike::after{content:"";position:absolute;left:-4%;right:-4%;top:52%;height:.12em;background:var(--red);border-radius:6px;transform:rotate(-4deg) scaleX(var(--s,0));transform-origin:left}
+.stamp{display:inline-block;align-self:flex-start;transform:rotate(-8deg);border:8px solid var(--red);color:var(--red);font-size:96px;padding:6px 30px;border-radius:14px;margin-top:60px;background:rgba(12,12,14,.7)}
+.art{position:relative;width:640px;height:640px;align-self:center;margin-top:30px}
+.art svg{width:100%;height:100%;overflow:visible}
+.rows{display:grid;gap:28px;margin-top:50px}
+.row{--c:var(--yolk);display:grid;grid-template-columns:1fr;border-radius:22px;overflow:hidden;border:2px solid #2a2a30}
+.theirs{background:#141417;padding:22px 34px;display:flex;justify-content:space-between;align-items:center}
+.theirs b{font-family:Anton,Impact,sans-serif;font-weight:400;font-size:58px;text-transform:uppercase;color:#6d6a63;text-decoration:line-through;text-decoration-color:var(--red);text-decoration-thickness:7px}
+.theirs small{font-size:22px;font-weight:800;letter-spacing:.14em;color:#6d6a63}
+.ours{background:#1a1a1f;padding:22px 34px;border-left:14px solid var(--c);display:flex;justify-content:space-between;align-items:center}
+.ours b{font-family:Anton,Impact,sans-serif;font-weight:400;font-size:76px;text-transform:uppercase;color:var(--c)}
+.ours span{font-size:56px;color:var(--c)}
+.badges{display:flex;flex-direction:column;gap:22px;align-items:flex-start;margin:50px 0 10px}
+.pr{--t:var(--grey);display:inline-flex;align-items:baseline;padding:4px 30px 4px 42px;transform:skewX(-12deg);border-radius:6px;font-weight:800;font-style:italic;font-size:76px;color:var(--t);
+  background:linear-gradient(90deg,var(--t) 0 9px,transparent 9px 15px,var(--t) 15px 21px,rgba(255,255,255,.05) 21px);border:3px solid color-mix(in srgb,var(--t) 45%,transparent)}
+.pr small{font-size:.75em}
+.facts{font-size:44px;line-height:1.35;color:#d6d1c7;margin-top:34px;font-weight:600}
+.facts b{color:var(--text)}
+.logo{font-size:96px;font-weight:800;letter-spacing:-.05em}
+.logo span{color:var(--yolk)}
+.cta{align-self:flex-start;margin-top:64px;background:var(--yolk);color:#111;font-weight:800;font-size:82px;letter-spacing:-.02em;padding:30px 54px;border-radius:26px;box-shadow:0 0 0 calc(var(--p,0)*28px) rgba(255,197,61,calc(.35 - var(--p,0)*.35))}
+.cta small{display:block;font-size:30px;letter-spacing:.12em;font-weight:800;opacity:.75;margin-bottom:6px}
+.fine{font-size:36px;color:var(--muted);margin-top:34px;font-weight:600}
+</style></head>
+<body>
+<div id="bg"></div>
+<div class="tape" id="tapeTop"><div><span id="tapeTopTxt"></span></div></div>
+
+<section class="scene" id="s1">
+  <div class="eyebrow" id="s1a" data-t="s1a"></div>
+  <div class="line" id="s1b"><svg class="egg" viewBox="0 0 40 50"><path d="M20 3c10 0 17 17 17 27s-8 17-17 17S3 40 3 30 10 3 20 3z" fill="#f4ecdc"/></svg><div class="d" data-t="s1b"></div></div>
+  <div class="line" id="s1c"><svg class="egg" viewBox="0 0 40 50"><path d="M20 3c10 0 17 17 17 27s-8 17-17 17S3 40 3 30 10 3 20 3z" fill="#f4ecdc"/><path d="M4 26l7 3 4-6 5 7 4-6 5 6 4-5 4 3" fill="none" stroke="#2b2620" stroke-width="2"/></svg><div class="d" data-t="s1c"></div></div>
+  <div class="line" id="s1d"><svg class="egg" viewBox="0 0 40 50"><path d="M20 3c10 0 17 17 17 27s-8 17-17 17S3 40 3 30 10 3 20 3z" fill="#ffc53d"/></svg><div class="d" data-t="s1d"></div></div>
+</section>
+
+<section class="scene" id="s2">
+  <div class="d big m" id="s2a" data-t="s2a"></div>
+  <div class="d mid" id="s2b" style="margin-top:30px" data-t="s2b"></div>
+  <div class="d stamp" id="s2c" data-t="s2c"></div>
+</section>
+
+<section class="scene" id="s3">
+  <div class="d sm m" id="s3a"><span data-t="s3a1"></span> <span class="strike" id="s3s" data-t="s3a2"></span></div>
+  <div class="d big" id="s3b" style="margin-top:22px" data-t="s3b"></div>
+  <div class="art" id="s3c">
+    <svg viewBox="0 0 400 400">
+      <defs><radialGradient id="sh" cx="38%" cy="32%" r="75%"><stop offset="0" stop-color="#fffaf0"/><stop offset=".55" stop-color="#f4ecdc"/><stop offset="1" stop-color="#cdbb98"/></radialGradient>
+        <clipPath id="ec"><path d="M200 82c62 0 104 106 104 170 0 62-46 104-104 104S96 314 96 252C96 188 138 82 200 82z"/></clipPath></defs>
+      <g id="ring1" style="transform-origin:200px 200px"><circle cx="200" cy="200" r="186" fill="none" stroke="#a070ff" stroke-opacity=".6" stroke-width="2" stroke-dasharray="2 10"/></g>
+      <g id="ring2" style="transform-origin:200px 200px"><circle cx="200" cy="200" r="158" fill="none" stroke="#6b8bff" stroke-opacity=".45" stroke-width="1.5" stroke-dasharray="40 14"/></g>
+      <g id="eggW" style="transform-origin:200px 350px">
+        <path d="M200 82c62 0 104 106 104 170 0 62-46 104-104 104S96 314 96 252C96 188 138 82 200 82z" fill="url(#sh)"/>
+        <g clip-path="url(#ec)"><path id="crack" d="M86 214l30 14 18-24 22 30 20-28 24 26 22-30 22 28 20-22 26 18 18-10" fill="none" stroke="#2b2620" stroke-width="5" stroke-linejoin="round" stroke-dasharray="420" stroke-dashoffset="420"/></g>
+      </g>
+      <g stroke="#ffc53d" stroke-width="3"><line x1="200" y1="0" x2="200" y2="60"/><line x1="200" y1="340" x2="200" y2="400"/><line x1="0" y1="200" x2="60" y2="200"/><line x1="340" y1="200" x2="400" y2="200"/></g>
+      <g stroke="#ff4b3e" stroke-width="2.5"><line x1="192" y1="200" x2="208" y2="200"/><line x1="200" y1="192" x2="200" y2="208"/></g>
+    </svg>
+    <div class="d stamp" id="s3d" style="position:absolute;right:-30px;bottom:60px;margin:0;font-size:64px;border-width:6px" data-t="s3d"></div>
+  </div>
+</section>
+
+<section class="scene" id="s4">
+  <div class="d mid" id="s4a"><span class="m" data-t="s4a1"></span><br><span class="y" data-t="s4a2"></span></div>
+  <div class="rows">
+    <div class="row" id="r1" style="--c:var(--tred)"><div class="theirs"><b data-t="r1a"></b><small data-t="theirs"></small></div><div class="ours"><b data-t="r1b"></b><span>✓</span></div></div>
+    <div class="row" id="r2" style="--c:var(--blue)"><div class="theirs"><b data-t="r2a"></b><small data-t="theirs"></small></div><div class="ours"><b data-t="r2b"></b><span>✓</span></div></div>
+    <div class="row" id="r3" style="--c:var(--purple)"><div class="theirs"><b data-t="r3a"></b><small data-t="theirs"></small></div><div class="ours"><b data-t="r3b"></b><span>✓</span></div></div>
+  </div>
+</section>
+
+<section class="scene" id="s5">
+  <div class="d mid" id="s5a" data-t="s5a"></div>
+  <div class="badges" id="badges"></div>
+  <div class="facts" id="s5b" data-t="s5b"></div>
+</section>
+
+<section class="scene" id="s6">
+  <div class="logo" id="s6a">Clean<span>Lobby</span></div>
+  <div class="d big" id="s6b" style="margin-top:40px"><span data-t="s6b1"></span><br><span class="y" data-t="s6b2"></span></div>
+  <div class="cta" id="s6c"><small data-t="s6c"></small>cleanlobby.com →</div>
+  <div class="fine" id="s6d" data-t="s6d"></div>
+</section>
+
+<div class="tape" id="tapeBot"><div><span id="tapeBotTxt"></span></div></div>
+<div id="bar"></div><div class="stripe"></div>
+
+<script>
+const T={
+  en:{tape:"NO EGGS ✕ NO SPINBOTS ✕ NO WALLHACKS ✕ VERIFIED 5-STACKS ONLY ✕ JUST CS2 ✕ ",
+    s1a:"The new CS2 update:",s1b:"Drop eggs.",s1c:"Hatch them.",s1d:"Feed them.",
+    s2a:"Meanwhile…",s2b:"there's still a spinbot on the other team.",s2c:"Still here",
+    s3a1:"We don't want",s3a2:"eggs.",s3b:"We want a <span class='y'>cheater-free</span> game.",s3d:"Not in my lobby",
+    s4a1:"Their update.",s4a2:"Our update.",theirs:"THEIRS",r1a:"Drop eggs",r1b:"Drop the cheaters",r2a:"Hatch them",r2b:"Match them",r3a:"Feed them",r3b:"Rate them",
+    s5a:"Full 5-stacks.<br><span class='y'>Matched by Premier.</span>",s5b:"<b>Steam-verified</b> players only.<br>Public <b>Trust Score</b> on every profile.",
+    s6b1:"Leave the eggs.",s6b2:"Bring four friends.",s6c:"FREE BETA · JOIN NOW",s6d:"Sign in with Steam · We never see your password"},
+  fr:{tape:"PAS D'ŒUFS ✕ PAS DE SPINBOTS ✕ PAS DE WALLHACKS ✕ QUE DES 5-STACKS VÉRIFIÉS ✕ JUSTE CS2 ✕ ",
+    s1a:"La nouvelle MAJ de CS2 :",s1b:"Lâche des œufs.",s1c:"Fais-les éclore.",s1d:"Nourris-les.",
+    s2a:"Pendant ce temps…",s2b:"toujours un spinbot dans l'équipe d'en face.",s2c:"Toujours là",
+    s3a1:"On veut pas",s3a2:"d'œufs.",s3b:"On veut des games <span class='y'>sans cheaters.</span>",s3d:"Pas dans mon lobby",
+    s4a1:"Leur MAJ.",s4a2:"Notre MAJ.",theirs:"EUX",r1a:"Lâcher des œufs",r1b:"Virer les cheaters",r2a:"Les faire éclore",r2b:"Trouver un match",r3a:"Les nourrir",r3b:"Noter les joueurs",
+    s5a:"Des 5-stacks complets.<br><span class='y'>Matchés par Premier.</span>",s5b:"Que des comptes <b>Steam vérifiés</b>.<br><b>Trust Score</b> public sur chaque profil.",
+    s6b1:"Laisse les œufs.",s6b2:"Ramène quatre potes.",s6c:"BÊTA GRATUITE · REJOINS-NOUS",s6d:"Connexion via Steam · On ne voit jamais ton mot de passe"}
+};
+const L=T[new URLSearchParams(location.search).get("lang")]||T.en;
+document.documentElement.lang=L===T.fr?"fr":"en";
+document.querySelectorAll("[data-t]").forEach(e=>e.innerHTML=L[e.dataset.t]);
+document.getElementById("tapeTopTxt").textContent=L.tape.repeat(8);
+document.getElementById("tapeBotTxt").textContent=L.tape.repeat(8);
+const TIERS=[[3150,"grey"],[7420,"cyan"],[12860,"blue"],[17530,"purple"],[22140,"pink"],[27310,"tred"],[31680,"gold"]];
+document.getElementById("badges").innerHTML=TIERS.map(([r,c])=>{const s=r.toLocaleString("en-US"),i=s.indexOf(",");return `<span class="pr" style="--t:var(--${c})"><b>${s.slice(0,i)}</b><small>${s.slice(i)}</small></span>`}).join("");
+
+const DUR=20; window.DUR=DUR;
+const SCENES=[["s1",0,3.2],["s2",3.2,6],["s3",6,10],["s4",10,14],["s5",14,16.6],["s6",16.6,20]];
+const clamp=x=>Math.max(0,Math.min(1,x));
+const ease=x=>1-Math.pow(1-clamp(x),3);
+const pop=x=>{x=clamp(x);return 1+2.70158*Math.pow(x-1,3)+1.70158*Math.pow(x-1,2)};
+const $=id=>document.getElementById(id);
+function inOut(t,s,e,fade=.3){return Math.min(ease((t-s)/fade),e>=DUR?1:ease((e-t)/fade));}
+function rise(el,t,start,dur=.45,dist=70){const p=ease((t-start)/dur);el.style.opacity=p;el.style.transform=`translateY(${(1-p)*dist}px)`;}
+function slam(el,t,start,rot=-8){const p=clamp((t-start)/.35);el.style.opacity=p>0?1:0;el.style.transform=`rotate(${rot}deg) scale(${p>=1?1:2.4-1.4*pop(p)})`;}
+window.render=function(t){
+  $("bg").style.setProperty("--gx",(70-22*Math.sin(t/3))+"%");$("bg").style.setProperty("--gy",(20+10*Math.cos(t/2.5))+"%");
+  $("tapeTopTxt").style.transform=`translateX(${-t*90}px)`;$("tapeBotTxt").style.transform=`translateX(${-900+t*90}px)`;
+  for(const [id,s,e] of SCENES){const el=$(id),o=inOut(t,s,e);el.style.opacity=o;el.style.visibility=o>0?"visible":"hidden";}
+  // 1: the egg update
+  rise($("s1a"),t,.1);rise($("s1b"),t,.5,.4,90);rise($("s1c"),t,1.2,.4,90);rise($("s1d"),t,1.9,.4,90);
+  // 2: meanwhile
+  rise($("s2a"),t,3.3);rise($("s2b"),t,3.8,.5,90);slam($("s2c"),t,4.7);
+  // 3: slogan + cracking egg
+  rise($("s3a"),t,6.1);$("s3s").style.setProperty("--s",ease((t-6.7)/.4));
+  rise($("s3b"),t,7.0,.5,90);
+  const ap=ease((t-7.6)/.6);$("s3c").style.opacity=ap;$("s3c").style.transform=`scale(${.85+.15*ap})`;
+  $("ring1").style.transform=`rotate(${t*14}deg)`;$("ring2").style.transform=`rotate(${-t*22}deg)`;
+  const w=t-8.2;$("eggW").style.transform=`rotate(${w>0&&w<1.2?Math.sin(w*18)*6*(1-w/1.2):0}deg)`;
+  $("crack").setAttribute("stroke-dashoffset",420*(1-ease((t-8.2)/.5)));
+  slam($("s3d"),t,8.9,-12);
+  // 4: their update / our update
+  rise($("s4a"),t,10.1);
+  [["r1",10.7],["r2",11.4],["r3",12.1]].forEach(([id,s])=>{const el=$(id);rise(el,t,s,.4,80);
+    const o=el.querySelector(".ours");const p=ease((t-s-.35)/.35);o.style.transform=`translateX(${(1-p)*-60}px)`;o.style.opacity=p;});
+  // 5: Premier tiers
+  rise($("s5a"),t,14.1);
+  [...$("badges").children].forEach((b,i)=>{const p=ease((t-14.45-i*.13)/.3);b.style.opacity=p;b.style.transform=`skewX(-12deg) translateX(${(1-p)*-120}px)`;});
+  rise($("s5b"),t,15.5);
+  // 6: call to action
+  rise($("s6a"),t,16.7);rise($("s6b"),t,17.0,.5,90);
+  const c=$("s6c");const cp=ease((t-17.6)/.4);c.style.opacity=cp;c.style.transform=`scale(${.8+.2*pop((t-17.6)/.4)})`;
+  c.style.setProperty("--p",t>18?((t-18)%1):0);
+  rise($("s6d"),t,18.2);
+  $("bar").style.width=(100*t/DUR)+"%";
+};
+window.ready=document.fonts.ready;
+render(0);
+</script>
+</body></html>
