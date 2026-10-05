@@ -33,10 +33,11 @@ How every part of CleanLobby works: what players see, the rules behind it, and w
 ## Known gaps
 
 - The Rankings page is a placeholder.
-- The FACEIT level used in matchmaking is self-reported (the live FACEIT panel only displays the real one).
+- The Premier rating used in matchmaking is self-reported (the live Leetify panel displays the real one, but its terms don't allow using it).
 
 ## Changelog
 
+- **2026-10-05:** New look and slogan: **"We don't want eggs. We want a cheater-free game."** Home page rebuilt around it (caution-tape banner, cracked-egg art, "Their update / our update", patch notes). New palette: near-black, cream, hazard yellow, CS2 Premier tier colours (stripe under every header); Anton for page titles (self-hosted). **CS2 Premier rating replaces the FACEIT level** for profiles, team ranges, matchmaking and Find Players (tier filter); players can update it any time; old self-entered FACEIT levels are deleted. FACEIT stays as the live panel on profiles. Privacy Policy updated. New link-preview image and icons (`scripts/brand-images.mjs`), guide screenshots regenerated.
 - **2026-10-05:** Landing-page concept around the slogan "We don't want eggs. We want a cheater-free game." (`marketing/concept-no-eggs/`, not live).
 - **2026-10-05:** STACK5 renamed **CleanLobby**, new domain cleanlobby.com (stack5cs.com will redirect to it). All visible text, the wiki, the guide screenshots, the link-preview image and the icons (now "CL") use the new name; the images regenerate with `scripts/brand-images.mjs`. Terms and Privacy say "formerly STACK5". Internal names (the `stack5_session` cookie, `STACK5_ELIGIBILITY`, the `stack5` service, server paths) are unchanged so nobody is logged out. Live since the [domain switch](operations.md#domain-switch-to-cleanlobbycom) on 5 Oct 08:09 UTC: stack5cs.com redirects (301) to the same page on cleanlobby.com, and the site emails from contact@cleanlobby.com.
 - **2026-10-05:** Beta invite video (`marketing/beta-video/`).

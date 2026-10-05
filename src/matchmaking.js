@@ -11,11 +11,9 @@ export function teamProfile(teamId) {
   return {
     teamId: team.id,
     region: team.region,
-    minLevel: team.min_level,
-    maxLevel: team.max_level,
     count: team.members.length,
-    avgLevel: avg(team.members.map(p => p.faceit_level || 0)),
-    avgElo: avg(team.members.map(p => p.faceit_elo || 0)),
+    // Players without a Premier rating yet (0/empty) don't count towards the team's average.
+    avgRating: avg(team.members.map(p => p.premier_rating).filter(r => r > 0)) || null,
     avgTrust: avg(team.members.map(p => p.trust_score || 50)),
     avgReliability: avg(team.members.map(p => p.reliability_score || 50)),
     avgTeamplay: avg(team.members.map(p => p.teamplay_score || 50))
@@ -27,19 +25,15 @@ export function compatibility(aId, bId) {
   const b = teamProfile(bId);
   if (!a || !b || a.count !== 5 || b.count !== 5) return 0;
 
-  const levelGap = Math.abs(a.avgLevel - b.avgLevel);
-  const eloGap = Math.abs(a.avgElo - b.avgElo);
-
-  const skillScore = Math.max(0, 100 - levelGap * 12);
-  const eloScore = Math.max(0, 100 - eloGap / 35);
+  // 5,000 Premier points apart (one colour tier) = no skill compatibility left. Unknown = neutral.
+  const skillScore = a.avgRating && b.avgRating ? Math.max(0, 100 - Math.abs(a.avgRating - b.avgRating) / 50) : 50;
   const trustScore = Math.max(0, 100 - Math.abs(a.avgTrust - b.avgTrust));
   const regionScore = a.region === b.region ? 100 : 50;
 
   return Math.round(
-    skillScore * 0.45 +
-    eloScore * 0.25 +
-    trustScore * 0.15 +
-    regionScore * 0.15
+    skillScore * 0.6 +
+    trustScore * 0.2 +
+    regionScore * 0.2
   );
 }
 

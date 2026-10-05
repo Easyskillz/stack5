@@ -4,7 +4,7 @@ CleanLobby is built around full 5-player teams ("5-stacks"). Everything happens 
 
 ## Creating a team
 
-An [eligible](eligibility.md) player with no active team can create one with a name (2–40 characters), a region (their own by default) and an optional FACEIT level range (1–10). The creator becomes the **captain**.
+An [eligible](eligibility.md) player with no active team can create one with a name (2–40 characters), a region (their own by default) and an optional CS2 Premier rating range (0–40,000, default any). The range is shown on the team, it doesn't block anyone from joining. The creator becomes the **captain**.
 
 A player can be in only one active team at a time.
 

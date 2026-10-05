@@ -8,7 +8,7 @@ Players create it on the Play page after verifying their email (and, once deploy
 
 - **Display name** (up to 40 characters; defaults to the username)
 - **Country**, which sets the **matchmaking region** automatically
-- **FACEIT level** (self-reported, 1–10) and optionally Elo
+- **CS2 Premier rating** (self-reported, 0–40,000; 0 = no rating yet, since Premier needs 10 wins). Players can update it at any time from the "Your profile" box on the Play page (`POST /api/profile/premier`), because it changes every week. Accounts without one see a reminder there.
 - **Role**: Rifler, AWPer, Entry, IGL, Support or Lurker
 - **Language**: English, French, Arabic, Spanish, German, Portuguese, Italian, Dutch, Turkish or Russian
 
@@ -16,13 +16,17 @@ The Steam account is the one they signed in with. It's shown as verified and can
 
 A Steam account can belong to only one CleanLobby profile, and each account has one profile.
 
+## Premier rating badge
+
+Ratings are shown like in CS2: a slanted badge, digits after the comma smaller, coloured by tier. Grey under 5,000, light blue 5,000+, blue 10,000+, purple 15,000+, pink 20,000+, red 25,000+, gold 30,000+. "Unrated" when there is none. Find Players can filter by tier. Code: `premier()` in `public/app.js`, `.premier` in `public/app.css`.
+
 ## Regions
 
 Europe, North America, South America, Latin America, Asia, Southeast Asia, Oceania, Middle East, **North Africa** (`NAFR`, a dedicated region) and Africa. Each country maps to one region, and teams only play teams from the same region.
 
 ## Public profile page (`/player/<name>`)
 
-- Name, country, region, role, language, FACEIT level (marked "self-reported")
+- Name, country, region, role, language, CS2 Premier rating (marked "self-reported")
 - **STEAM VERIFIED** and **MEETS REQUIREMENTS** badges
 - The [Trust Score](trust-score.md) with its breakdown
 - **CS2 stats from Leetify** (live): Leetify rating, Premier, aim, positioning, utility, matches

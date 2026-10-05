@@ -170,7 +170,7 @@ app.get("/api/admin/stats", auth, adminRequired, (req, res) => {
 
 app.get("/api/admin/accounts", auth, adminRequired, (req, res) => {
   res.json(db.prepare(`SELECT a.id,a.username,a.email,a.email_verified,a.is_admin,a.player_id,a.created_at,
-    p.display_name,p.country,p.region,p.faceit_level
+    p.display_name,p.country,p.region,p.premier_rating
     FROM accounts a LEFT JOIN players p ON p.id=a.player_id ORDER BY a.id DESC`).all());
 });
 
@@ -356,7 +356,9 @@ async function linkVerifiedSteam(account, steamId) {
 }
 
 app.post("/api/profile", auth, csrf, async (req, res) => {
-  if (!requireBody(req, res, ["country","region","faceit_level","role","language"])) return;
+  if (!requireBody(req, res, ["country","region","role","language"])) return;
+  const premier = premierRating(req.body.premier_rating);
+  if (premier === null) return res.status(400).json({ error: PREMIER_ERROR });
   if (!req.account.verified_steam_id) return res.status(403).json({ error: "Sign in through Steam first to prove the account is yours.", code: "STEAM_NOT_LINKED" });
   const country = COUNTRY_CATALOG.find(x => x[0] === req.body.country);
   const region = REGION_CATALOG.find(x => x.id === req.body.region);
@@ -371,7 +373,7 @@ app.post("/api/profile", auth, csrf, async (req, res) => {
     const result = db.transaction(() => {
       const existing = db.prepare("SELECT id FROM players WHERE steam_url=? OR (steam_id IS NOT NULL AND steam_id=?)").get(steamUrl, steamId);
       if (existing) throw new Error("This Steam profile is already linked to a CleanLobby player.");
-      const r = db.prepare(`INSERT INTO players(steam_url,steam_id,steam_verified,steam_verified_at,display_name,avatar_url,faceit_level,faceit_elo,region,country,language,role) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`).run(steamUrl,steamId,1,Date.now(),name,safeAvatarUrl(req.body.avatar_url),Number(req.body.faceit_level),Number(req.body.faceit_elo||0),region.id,country[0],String(req.body.language).slice(0,10),String(req.body.role).slice(0,20));
+      const r = db.prepare(`INSERT INTO players(steam_url,steam_id,steam_verified,steam_verified_at,display_name,avatar_url,premier_rating,region,country,language,role) VALUES(?,?,?,?,?,?,?,?,?,?,?)`).run(steamUrl,steamId,1,Date.now(),name,safeAvatarUrl(req.body.avatar_url),premier,region.id,country[0],String(req.body.language).slice(0,10),String(req.body.role).slice(0,20));
       db.prepare("UPDATE accounts SET player_id=? WHERE id=?").run(r.lastInsertRowid, req.account.account_id);
       return r.lastInsertRowid;
     })();
@@ -383,7 +385,22 @@ app.post("/api/profile", auth, csrf, async (req, res) => {
   } catch(e) { res.status(400).json({ error:e.message }); }
 });
 
-const PUBLIC_PLAYER_COLS = "id,steam_url,steam_verified,display_name,avatar_url,faceit_level,faceit_elo,faceit_verified,region,country,language,role,trust_score,reliability_score,teamplay_score,trust_confidence";
+// Premier rating: whole number 0-40000, 0 = no rating yet (Premier needs 10 wins first). Self-reported:
+// Leetify's live panel shows the real one, but their terms don't allow storing it or using it to match.
+const PREMIER_ERROR = "Enter your CS2 Premier rating (0 to 40,000), or 0 if you don't have one yet.";
+function premierRating(v) {
+  if (v === undefined || v === null || String(v).trim() === "") return null;
+  const n = Number(String(v).replace(/[ ,.]/g, ""));
+  return Number.isInteger(n) && n >= 0 && n <= 40000 ? n : null;
+}
+app.post("/api/profile/premier", auth, csrf, profileRequired, (req, res) => {
+  const premier = premierRating(req.body.premier_rating);
+  if (premier === null) return res.status(400).json({ error: PREMIER_ERROR });
+  db.prepare("UPDATE players SET premier_rating=? WHERE id=?").run(premier, req.account.player_id);
+  res.json({ premier_rating: premier, message: premier ? `Premier rating saved: ${premier.toLocaleString("en-US")}.` : "Saved: no Premier rating yet." });
+});
+
+const PUBLIC_PLAYER_COLS = "id,steam_url,steam_verified,display_name,avatar_url,premier_rating,region,country,language,role,trust_score,reliability_score,teamplay_score,trust_confidence";
 app.get("/api/players", (_, res) => res.json(db.prepare(`SELECT ${PUBLIC_PLAYER_COLS},eligible FROM players WHERE deleted_at IS NULL ORDER BY id DESC`).all()));
 app.get("/api/players/:id", (req,res) => { const p=db.prepare(`SELECT ${PUBLIC_PLAYER_COLS},eligible,created_at FROM players WHERE id=? AND deleted_at IS NULL`).get(req.params.id); if(!p) return res.status(404).json({error:"Player not found"}); res.json(p); });
 
@@ -434,11 +451,11 @@ app.post("/api/teams", auth, csrf, profileRequired, eligibleRequired, (req,res) 
   if(!captain) return res.status(404).json({error:"Player not found"});
   const region=req.body.region || captain.region;
   if (!REGION_CATALOG.some(r=>r.id===region)) return res.status(400).json({error:"Invalid region"});
-  const min=Math.max(1,Math.min(10,Number(req.body.min_level||1)));
-  const max=Math.max(min,Math.min(10,Number(req.body.max_level||10)));
+  const min=Math.max(0,Math.min(40000,Math.round(Number(req.body.min_rating)||0)));
+  const max=Math.max(min,Math.min(40000,Math.round(Number(req.body.max_rating)||40000)));
   const name=String(req.body.name).trim().slice(0,40);
   if(name.length<2) return res.status(400).json({error:"Team name must be at least 2 characters."});
-  const result=db.prepare("INSERT INTO teams(name,captain_id,region,min_level,max_level,scheduled_at,last_activity_at) VALUES(?,?,?,?,?,?,?)").run(name,captain.id,region,min,max,req.body.scheduled_at||null,Date.now());
+  const result=db.prepare("INSERT INTO teams(name,captain_id,region,min_rating,max_rating,scheduled_at,last_activity_at) VALUES(?,?,?,?,?,?,?)").run(name,captain.id,region,min,max,req.body.scheduled_at||null,Date.now());
   db.prepare("INSERT INTO team_members(team_id,player_id) VALUES(?,?)").run(result.lastInsertRowid,captain.id);
   res.status(201).json(getTeam(result.lastInsertRowid));
 });
@@ -554,7 +571,7 @@ app.post("/api/teams/:id/disband", auth, csrf, profileRequired, (req,res)=>{
 });
 app.post("/api/teams/:id/ready", auth, csrf, profileRequired, (req,res)=>{const team=getTeam(req.params.id);if(!team)return res.status(404).json({error:"Team not found"});if(team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain can ready the team"});if(team.count!==5)return res.status(400).json({error:"Team must have 5 players"});db.prepare("UPDATE teams SET status='READY' WHERE id=?").run(team.id);res.json(getTeam(team.id));});
 app.post("/api/teams/:id/queue", auth, csrf, profileRequired, eligibleRequired, (req,res)=>{const team=getTeam(req.params.id);if(!team)return res.status(404).json({error:"Team not found"});if(team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain can queue the team"});if(team.count!==5)return res.status(400).json({error:"Team must have 5 players"});const blocked=team.members.filter(m=>!isEligible(m.id));if(blocked.length)return res.status(409).json({error:`${blocked.map(m=>m.display_name).join(", ")} no longer meet${blocked.length>1?"":"s"} the CleanLobby requirements. Remove them to queue.`});if(!["OPEN","READY"].includes(team.status))return res.status(409).json({error:"Team cannot be queued right now."});db.prepare("UPDATE teams SET status='READY' WHERE id=?").run(team.id);db.prepare("INSERT OR IGNORE INTO queue(team_id) VALUES(?)").run(team.id);res.json({queued:true,team:getTeam(team.id)});});
-app.get("/api/queue", (_,res)=>res.json(db.prepare(`SELECT t.id,t.name,t.region,t.min_level,t.max_level,COUNT(tm.player_id) count FROM queue q JOIN teams t ON t.id=q.team_id LEFT JOIN team_members tm ON tm.team_id=t.id GROUP BY t.id ORDER BY q.queued_at`).all()));
+app.get("/api/queue", (_,res)=>res.json(db.prepare(`SELECT t.id,t.name,t.region,t.min_rating,t.max_rating,COUNT(tm.player_id) count FROM queue q JOIN teams t ON t.id=q.team_id LEFT JOIN team_members tm ON tm.team_id=t.id GROUP BY t.id ORDER BY q.queued_at`).all()));
 app.post("/api/matchmaking/run", auth, adminRequired, csrf, (_,res)=>res.json({matches:runMatchmaking()}));
 app.get("/api/matches/:id", (req,res)=>{const m=db.prepare("SELECT * FROM matches WHERE id=?").get(req.params.id);if(!m)return res.status(404).json({error:"Match not found"});res.json({...publicMatch(m),team_a:getTeam(m.team_a_id),team_b:getTeam(m.team_b_id)});});
 app.post("/api/matches/:id/accept", auth, csrf, profileRequired, (req,res)=>{if(!requireBody(req,res,["team_id"]))return;const m=db.prepare("SELECT * FROM matches WHERE id=?").get(req.params.id);if(!m)return res.status(404).json({error:"Match not found"});if(m.status!=="PENDING")return res.status(409).json({error:"This match is no longer pending."});const teamId=Number(req.body.team_id);const team=getTeam(teamId);if(!team||team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain of the matched team can accept"});if(teamId===m.team_a_id)db.prepare("UPDATE matches SET accepted_a=1 WHERE id=?").run(m.id);else if(teamId===m.team_b_id)db.prepare("UPDATE matches SET accepted_b=1 WHERE id=?").run(m.id);else return res.status(403).json({error:"Team is not part of this match"});const updated=db.prepare("SELECT * FROM matches WHERE id=?").get(m.id);if(updated.accepted_a&&updated.accepted_b){db.prepare("UPDATE matches SET status='CONFIRMED', confirmed_at=? WHERE id=?").run(Date.now(),m.id);db.prepare("UPDATE teams SET status='MATCH_CONFIRMED' WHERE id IN (?,?)").run(m.team_a_id,m.team_b_id);for(const p of [...getTeamMembers(m.team_a_id),...getTeamMembers(m.team_b_id)])computeTrust(p.id);}res.json(db.prepare("SELECT * FROM matches WHERE id=?").get(m.id));});
@@ -756,7 +773,7 @@ app.get("/api/my/dashboard", auth, (req,res)=>{
   out.myRequests=db.prepare(`SELECT r.id,r.team_id,t.name AS team_name FROM team_join_requests r JOIN teams t ON t.id=r.team_id
     WHERE r.player_id=? AND r.status='PENDING' AND t.status='OPEN'`).all(pid);
   if(out.team && out.team.captain_id===pid){
-    out.joinRequests=db.prepare(`SELECT r.id,p.id AS player_id,p.display_name,p.faceit_level,p.role,p.country,p.region,p.trust_score
+    out.joinRequests=db.prepare(`SELECT r.id,p.id AS player_id,p.display_name,p.premier_rating,p.role,p.country,p.region,p.trust_score
       FROM team_join_requests r JOIN players p ON p.id=r.player_id WHERE r.team_id=? AND r.status='PENDING' ORDER BY r.id`).all(out.team.id);
   }
   // Latest match the player is in: pending, live or disputed, or one that ended in the last 24 hours
@@ -874,7 +891,7 @@ app.post("/api/account/delete", auth, csrf, async (req,res)=>{
       db.prepare("DELETE FROM player_events WHERE player_id=?").run(pid);
       // Past teams/matches keep a placeholder row so history stays consistent; nothing identifies the person.
       db.prepare(`UPDATE players SET steam_url=?, steam_id=NULL, steam_verified=0, display_name='Deleted player', avatar_url=NULL, country=NULL,
-        language=NULL, role=NULL, faceit_level=0, faceit_elo=0, faceit_verified=0, availability='', trust_breakdown=NULL,
+        language=NULL, role=NULL, faceit_level=0, faceit_elo=0, faceit_verified=0, premier_rating=NULL, availability='', trust_breakdown=NULL,
         eligibility=NULL, eligible=0, deleted_at=? WHERE id=?`).run(`deleted:${pid}`, Date.now(), pid);
     }
     db.prepare("DELETE FROM sessions WHERE account_id=?").run(account.id);
@@ -893,8 +910,8 @@ app.get("/api/discover/teams", (_, res) => {
       t.id,
       t.name,
       t.region,
-      t.min_level,
-      t.max_level,
+      t.min_rating,
+      t.max_rating,
       t.status,
       COUNT(tm.player_id) AS count
     FROM teams t
@@ -917,7 +934,7 @@ app.get(["/register","/forgot-password","/reset-password"], (_,res)=>res.redirec
 const APP_SHELL=fs.readFileSync(path.join(__dirname,"../public/pages/app.html"),"utf8");
 const SITE_DESC="Find a trusted five and play CS2 5v5 against complete teams. Steam-verified players, trust scores and team matchmaking for North Africa and worldwide. Free beta.";
 const PAGES={
-  "/":        { title:"CleanLobby · Trusted CS2 5v5 team matchmaking", heading:"Tired of cheaters? Find a trusted five.", description:SITE_DESC },
+  "/":        { title:"CleanLobby · Trusted CS2 5v5 team matchmaking", heading:"We don’t want eggs. We want a cheater-free game.", description:SITE_DESC },
   "/teams":   { title:"Find a CS2 team · CleanLobby", heading:"Find a CS2 team", description:"Browse CS2 5-stacks that are recruiting on CleanLobby and ask to join. Every player is Steam-verified with a public trust score." },
   "/players": { title:"Find CS2 players · CleanLobby", heading:"Find CS2 players", description:"Find Steam-verified CS2 players for your 5-stack by region, level, role and language, with a trust score built from real matches." },
   "/matches": { title:"CS2 5v5 matches and results · CleanLobby", heading:"CS2 5v5 matches", description:"Live CleanLobby matches and recent results between complete CS2 teams, played through CS2 Private Matchmaking." },
@@ -963,6 +980,7 @@ app.get("/llms.txt",(_,res)=>res.type("text/plain").send(`# CleanLobby
 
 ## How it works
 
+- Teams are matched by CS2 Premier rating (entered by players), region and Trust Score.
 - Players sign in through Steam (OpenID). CleanLobby only receives the public SteamID; it never sees Steam passwords and has no access to inventories, skins or trades.
 - To play, a Steam account must be at least 2 years old, have at least 500 hours of CS2 and no VAC or game ban in the last 2 years.
 - A captain creates a team and invites four players. Full teams queue and are matched with a team from the same region at a similar FACEIT level.

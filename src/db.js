@@ -266,6 +266,12 @@ for (const col of [
 ]) { try { db.exec(`ALTER TABLE matches ADD COLUMN ${col}`); } catch {} }
 // Last activity, only used to count players online (never shown per player).
 try { db.exec("ALTER TABLE accounts ADD COLUMN last_seen_at INTEGER"); } catch {}
+// CS2 Premier rating (self-reported, 0 = no rating yet) replaces the FACEIT level for teams and matchmaking.
+try { db.exec("ALTER TABLE players ADD COLUMN premier_rating INTEGER"); } catch {}
+try { db.exec("ALTER TABLE teams ADD COLUMN min_rating INTEGER DEFAULT 0"); } catch {}
+try { db.exec("ALTER TABLE teams ADD COLUMN max_rating INTEGER DEFAULT 40000"); } catch {}
+// The self-reported FACEIT level/Elo is no longer collected or used: clear what older versions stored.
+db.exec("UPDATE players SET faceit_level=0, faceit_elo=0 WHERE faceit_level<>0 OR faceit_elo<>0");
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_steam ON accounts(verified_steam_id) WHERE verified_steam_id IS NOT NULL");
 
 export function getTeamMembers(teamId) {

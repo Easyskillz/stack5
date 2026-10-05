@@ -10,12 +10,11 @@ Matchmaking runs automatically every 30 seconds. Queued teams are processed firs
 
 | Factor | Weight |
 |---|---|
-| Average FACEIT level gap | 45% |
-| Average Elo gap | 25% |
-| Average Trust Score gap | 15% |
-| Same region | 15% |
+| Average CS2 Premier rating gap (5,000 points apart = 0) | 60% |
+| Average Trust Score gap | 20% |
+| Same region | 20% |
 
-FACEIT level and Elo here are self-reported on the profile.
+The Premier rating is self-reported on the profile (Leetify's terms don't allow storing or matching on their copy; the live Leetify panel on each profile shows the real one, so anyone can compare). Players with no rating yet (0) are left out of their team's average; if either team has no rated player, the rating part counts as a neutral 50. Code: `src/matchmaking.js`.
 
 ## Accepting a match
 
