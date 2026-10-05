@@ -33,6 +33,13 @@ export function cleanLobbyCode(v) {
   return /^[A-Za-z0-9][A-Za-z0-9-]{3,79}$/.test(code) ? code : null;
 }
 
+/** An optional team voice link: a Discord invite only (discord.gg/<code> or discord.com/invite/<code>). */
+export function cleanVoiceLink(v) {
+  const s = String(v || "").trim();
+  const x = /^(?:https?:\/\/)?(?:www\.)?(?:discord\.gg|discord(?:app)?\.com\/invite)\/([A-Za-z0-9-]{2,32})\/?$/.exec(s);
+  return x ? `https://discord.gg/${x[1]}` : null;
+}
+
 export function matchPlayerIds(m) {
   return db.prepare("SELECT player_id FROM team_members WHERE team_id IN (?,?)").all(m.team_a_id, m.team_b_id).map(r => r.player_id);
 }

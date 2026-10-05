@@ -4,13 +4,14 @@ How search engines, link previews and AI assistants (ChatGPT, Claude, Perplexity
 
 ## What's in place
 
-- **Per-page titles and descriptions.** The server fills the app's HTML shell for each public page (`/`, `/teams`, `/players`, `/matches`, `/rankings`), so every page has its own `<title>`, meta description, canonical URL and keywords. The sign-in, Terms and Privacy pages have their own.
+- **Per-page titles and descriptions.** The server fills the app's HTML shell for each public page (`/`, `/teams`, `/players`, `/matches`, `/rankings`, `/guide`, `/contact`), so every page has its own `<title>`, meta description, canonical URL and keywords. The sign-in, Terms and Privacy pages have their own.
 - **Readable without JavaScript.** Each app page includes a plain-text summary of STACK5 and how it works. Crawlers that don't run JavaScript (most AI crawlers, some search engines) can read it. Visitors with JavaScript don't see it; the app replaces it.
 - **Link previews.** Open Graph and Twitter tags with a 1200×630 image (`public/og.png`). This is what shows when a link is shared on WhatsApp, Discord, X or Facebook.
 - **Structured data.** JSON-LD (`WebSite` + `WebApplication`, free, about Counter-Strike 2) on every app page.
 - **`/sitemap.xml`** lists the public pages. **`/robots.txt`** allows everything except the API, sign-in, admin and personal pages, and points to the sitemap.
 - **`/llms.txt`:** a plain summary of what STACK5 is and how it works, written for AI assistants (llmstxt.org convention).
 - **Search hygiene.** Personal and per-player pages (`/play`, `/account`, `/player/…`, `/team/…`, `/welcome`, admin) are `noindex`. Unknown URLs return a real **404** instead of a "200 OK" page.
+- **Player guide** (`/guide`, "How it works" in the menu and footer): 10 steps with screenshots plus an FAQ. Good for players and for searches like "how to play CS2 5v5 with a premade team".
 - **Icons:** `favicon.svg` and a 512×512 `apple-touch-icon.png` for phone home screens.
 
 Meta keywords are included, but Google ignores them. What matters is the title, description, page text and links from other sites.

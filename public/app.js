@@ -51,6 +51,7 @@ const Stack5 = (() => {
           <a class="${active==='players'?'active':''}" href="/players">${tr('players')}</a>
           <a class="${active==='matches'?'active':''}" href="/matches">${tr('matches')}</a>
           <a class="${active==='rankings'?'active':''}" href="/rankings">${tr('rankings')}</a>
+          <a class="${active==='guide'?'active':''}" href="/guide">How it works</a>
         </nav>
 
         <div class="header-right" id="header-right">
@@ -101,7 +102,7 @@ const Stack5 = (() => {
 
 
   function footer(){
-    return `<footer><div style="max-width:1180px;margin:auto">STACK5 · Build. Match. Play. · <a href="/contact">Contact</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></div></footer>`;
+    return `<footer><div style="max-width:1180px;margin:auto">STACK5 · Build. Match. Play. · <a href="/guide">How it works</a> · <a href="/contact">Contact</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></div></footer>`;
   }
 
   function layout(title,content,active=''){
@@ -324,7 +325,7 @@ const Stack5 = (() => {
         <p class="subtitle">STACK5 is built for CS2 players who want a more trusted 5v5 experience — with player identity, reputation and team-based matchmaking at the core.</p>
         <div class="actions">
           <a class="btn btn-green" href="/login" data-guest-cta>Sign in with Steam</a>
-          <a class="btn btn-dark" href="#how">How STACK5 works</a>
+          <a class="btn btn-dark" href="/guide">How STACK5 works</a>
           <a class="btn btn-dark" href="/teams">${tr('teams')}</a>
         </div>
         ${liveStatsBox()}
@@ -400,6 +401,41 @@ const Stack5 = (() => {
       const item=(n,one,many)=>`<span><strong>${n}</strong> ${n===1?one:many}</span>`;
       els.forEach(el=>el.innerHTML=`<span class="live-dot"></span>${item(s.online,'player online','players online')}${item(s.queued_teams,'team looking for a match','teams looking for a match')}${item(s.recruiting_teams,'team recruiting','teams recruiting')}${item(s.live_matches,'match live','matches live')}`);
     }catch{ els.forEach(el=>el.remove()); }
+  }
+
+  // ---------- Player guide ----------
+  const GUIDE_STEPS=[
+    ['1-sign-in',496,434,'Sign in with Steam','Click <strong>Sign in with Steam</strong>. You log in on Steam’s own website: check the address bar says <code>steamcommunity.com</code>. STACK5 only receives your public SteamID. It never sees your password and can’t touch your inventory or trades.'],
+    ['2-pick-username',436,366,'Pick your username','First time only: choose a STACK5 username. Email is optional (for match notifications). Confirm you’re 16 or older and accept the Terms.'],
+    ['3-profile-setup',784,686,'Set up your player profile','Country (this sets your matchmaking region), FACEIT level, main role and language. Teams see this when they look for players.'],
+    ['4-build-team',1076,540,'Build your five','Create a team and invite players by their STACK5 username, or find them on <a href="/players">Find Players</a>. Prefer joining a team? Browse <a href="/teams">Find a Team</a> and ask to join. An open team disbands after 6 hours without a new player.'],
+    ['5-full-team-queue',715,538,'Five players? Find a match','When your team has 5 players, the captain clicks <strong>Find match</strong>. Everyone must meet the STACK5 requirements: Steam account at least 2 years old, 500+ hours of CS2, no recent VAC or game ban.'],
+    ['6-searching',705,576,'Searching for an opponent','STACK5 looks for another full team in your region at a similar level. This runs every 30 seconds. After 2 hours without a match, your team leaves the queue.'],
+    ['7-match-found',1061,551,'Match found: captains accept','Both captains have <strong>5 minutes</strong> to accept. Declining or letting the time run out counts against the captain’s reliability.'],
+    ['8-match-room',1061,1046,'Play through CS2 Private Matchmaking','Each captain invites their 4 teammates to a <strong>CS2 party</strong> (use the Steam buttons). One captain creates a <em>Private Matchmaking Pool</em> in CS2 and pastes the code here. The other captain enters it with <em>Manually Enter a Code</em>. Both parties press <strong>GO</strong>. Optional: a captain can share a Discord voice channel that only their own team sees.'],
+    ['9-result-and-ratings',1061,512,'Report the score, then rate everyone','After the game, both captains report the score. When they match, the result is final and everyone can rate the players they played with, teammates and opponents. Different scores go to an admin.'],
+    ['10-trust-score',1076,303,'Build your Trust Score','Your Trust Score (0–100) combines your Steam history, ratings from people you played with, reliability and matches played. It’s public on your profile and helps teams decide who to play with.']
+  ];
+  const GUIDE_FAQ=[
+    ['Is signing in with Steam safe?','Yes. You sign in on steamcommunity.com, never on STACK5. We only receive your public SteamID. STACK5 will never ask for your Steam Guard code, an API key or your trade link. If a page asks for those, it isn’t us.'],
+    ['Why can’t I play yet?','Your Steam profile and game details must be public so we can check the requirements (2+ year old account, 500+ hours of CS2, no VAC or game ban in the last 2 years). The Play page shows which check is missing. After changing your Steam privacy, wait a few minutes and click Check again.'],
+    ['Does it cost anything?','No. STACK5 is free during the beta.'],
+    ['Does a STACK5 match change my CS Rating?','No. CS2 Private Matchmaking is unrated in CS2. STACK5 keeps its own results and Trust Score.'],
+    ['What if the other team doesn’t show up, or the captains disagree?','If only one captain reports a score within 6 hours, that score counts. If the scores don’t match, an admin decides. You can also <a href="/contact">contact us</a> with details.'],
+    ['How do I report a cheater?','Use the <a href="/contact">Contact page</a> (topic: Report a player) with their STACK5 name and the match. STACK5 is a reputation layer, not an anti-cheat.']
+  ];
+  function guidePage(){
+    layout('How STACK5 works',`<div class="container guide">
+      <div class="eyebrow">PLAYER GUIDE</div><h1>How STACK5 works</h1>
+      <p class="subtitle">From signing in to your first match, step by step. Getting set up takes about 5 minutes.</p>
+      <nav class="guide-toc" aria-label="Steps">${GUIDE_STEPS.map(([,,,t],i)=>`<a href="#step-${i+1}">${i+1}. ${esc(t)}</a>`).join('')}<a href="#faq">Questions</a></nav>
+      ${GUIDE_STEPS.map(([id,w,h,t,text],i)=>`<section class="guide-step" id="step-${i+1}">
+        <div class="guide-text"><div class="step-num">STEP ${i+1}</div><h2>${esc(t)}</h2><p>${text}</p></div>
+        <figure><img src="/img/guide/${id}.webp" width="${w}" height="${h}" loading="${i<2?'eager':'lazy'}" alt="${esc(t)}: screenshot of STACK5"><figcaption class="muted small">Example players and teams.</figcaption></figure>
+      </section>`).join('')}
+      <section class="panel" id="faq" style="margin-top:28px"><h2>Questions</h2>${GUIDE_FAQ.map(([q,a])=>`<details class="faq"><summary>${esc(q)}</summary><p>${a}</p></details>`).join('')}</section>
+      <div class="cta" style="margin-top:24px"><h2>Ready?</h2><p>Sign in, set up your profile and build your five.</p><div class="actions"><a class="btn btn-green" href="/login" data-guest-cta>Sign in with Steam</a></div></div>
+    </div>`,'guide');
   }
 
   // ---------- Contact page ----------
@@ -524,7 +560,7 @@ const Stack5 = (() => {
     if(r.status===401){
       box.innerHTML=`<div class="panel" style="max-width:560px">
         <h2>Sign in to play</h2>
-        <p class="muted">Sign in through Steam, set up your player profile and build your five.</p>
+        <p class="muted">Sign in through Steam, set up your player profile and build your five. New here? Read <a href="/guide" style="color:var(--green)">how STACK5 works</a>.</p>
         <div class="actions" style="margin-top:16px"><a class="btn btn-green" href="/login">Sign in with Steam</a></div>
       </div>`;
       return;
@@ -634,14 +670,21 @@ const Stack5 = (() => {
           <li><strong>One captain hosts:</strong> in CS2, open <em>Play → Matchmaking → Private Matchmaking → Create a Private Matchmaking Pool</em>, copy the full code and paste it below.</li>
           <li><strong>The other captain:</strong> <em>Private Matchmaking → Manually Enter a Code</em>, paste the code.</li>
           <li><strong>Both parties press GO.</strong> The match starts when all 10 players are searching. It's unrated in CS2; STACK5 records the result.</li>
-        </ol>`;
+        </ol>
+        <p class="muted small" style="margin-top:0">Optional: each captain can share a Discord voice channel for their team below. Only your own team sees it.</p>`;
       const code=m.lobby_code
         ? `<div class="code-box"><div><div class="muted small">Private matchmaking code</div><code>${esc(m.lobby_code)}</code></div>${btn('Copy','copy-code','btn-green',{arg:m.lobby_code})}</div>`
           + (isCaptain?`<details class="muted small" style="margin-top:6px"><summary>Wrong code? Replace it</summary><form data-form="code" data-id="${m.id}" class="inline-form"><input class="input" name="code" placeholder="Paste the new code" required><button class="btn btn-dark btn-small">Replace</button></form></details>`:'')
         : isCaptain
           ? `<form data-form="code" data-id="${m.id}" class="inline-form"><input class="input" name="code" placeholder="Paste the CS2 private matchmaking code" required><button class="btn btn-green btn-small">Post code</button></form>`
           : `<p class="muted">Waiting for a captain to post the private matchmaking code…</p>`;
-      body=`<div class="match-room">${code}</div>`;
+      const voice=m.my_voice
+        ? `<div class="voice-box"><div><div class="muted small">Your team's voice channel</div><strong>Discord</strong> <span class="muted small">· only your team sees this</span></div><a class="btn btn-small btn-discord" href="${esc(m.my_voice)}" target="_blank" rel="noopener noreferrer">Join voice</a></div>`
+          + (isCaptain?`<details class="muted small" style="margin-top:6px"><summary>Change or remove the link</summary><form data-form="voice" data-id="${m.id}" class="inline-form"><input class="input" name="link" placeholder="New Discord invite (leave empty to remove)"><button class="btn btn-dark btn-small">Save</button></form></details>`:'')
+        : isCaptain
+          ? `<details class="voice-add"><summary>Team voice on Discord (optional)</summary><p class="muted small">Create a voice channel (or use your own server), then <em>Invite people → Copy link</em> and paste it here. Only your 4 teammates will see it.</p><form data-form="voice" data-id="${m.id}" class="inline-form"><input class="input" name="link" placeholder="https://discord.gg/..." required><button class="btn btn-dark btn-small">Share with my team</button></form></details>`
+          : '';
+      body=`<div class="match-room">${code}${voice?`<div style="margin-top:10px">${voice}</div>`:''}</div>`;
       const deadline=`<p class="muted small">Report within ${countdown(m.result_deadline)}. If only one captain reports by then, that score counts. With no report, the match doesn't count.</p>`;
       if(isCaptain){
         body+=`<h3 style="margin:18px 0 6px">After the game: report the score</h3>`
@@ -835,6 +878,7 @@ const Stack5 = (() => {
     if(button) button.disabled=true;
     try{
       if(form.dataset.form==='code'){ await post(`/api/matches/${form.dataset.id}/code`,data); toast('Code posted. All 10 players can see it now.'); }
+      if(form.dataset.form==='voice'){ const r=await post(`/api/matches/${form.dataset.id}/voice`,data); toast(r.message); }
       if(form.dataset.form==='report'){ const r=await post(`/api/matches/${form.dataset.id}/result`,{my_score:Number(data.my_score),their_score:Number(data.their_score)}); toast(r.message); }
       if(form.dataset.form==='create-team'){ await post('/api/teams',data); toast('Team created. Invite your players.'); }
       if(form.dataset.form==='invite'){ const r=await post(`/api/teams/${form.dataset.id}/invite`,data); toast(r.message||'Invitation sent.'); }
@@ -938,6 +982,7 @@ const Stack5 = (() => {
     if(p==='/account') return account();
     if(p==='/matches') return matchesPage();
     if(p==='/contact') return contactPage();
+    if(p==='/guide') return guidePage();
     if(p==='/rankings') return layout('Rankings',`<div class="container"><div class="eyebrow">RANKINGS</div><h1>Rankings</h1><div class="empty">Rankings coming next.</div></div>`,'rankings');
     if(p.startsWith('/team/')) return teamProfile(p.split('/')[2]);
     return home();

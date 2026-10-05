@@ -260,7 +260,9 @@ for (const col of [
   "reported_b_at INTEGER",
   "score_a INTEGER",
   "score_b INTEGER",
-  "completed_at INTEGER"
+  "completed_at INTEGER",
+  "voice_a TEXT",                    // optional Discord invite for team A's voice channel; only team A sees it
+  "voice_b TEXT"                     // same for team B
 ]) { try { db.exec(`ALTER TABLE matches ADD COLUMN ${col}`); } catch {} }
 // Last activity, only used to count players online (never shown per player).
 try { db.exec("ALTER TABLE accounts ADD COLUMN last_seen_at INTEGER"); } catch {}

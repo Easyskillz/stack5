@@ -14,6 +14,7 @@ How every part of STACK5 works: what players see, the rules behind it, and where
 | [Player profile](player-profile.md) | Profile setup, regions, public profile page, Leetify and FACEIT panels | Live (FACEIT panel needs `FACEIT_API_KEY` on the server) |
 | [Trust Score](trust-score.md) | The 0–100 reputation score and how it is calculated | Live |
 | [Teams](teams.md) | Creating teams, invites, join requests, captain actions | Live |
+| [Player guide](../public/img/guide) | Public "How it works" page at `/guide`: 10 steps with screenshots + FAQ. Screenshots: `node scripts/guide-screenshots.mjs` | Live |
 | [Match room](match-room.md) | Playing the match through CS2 Private Matchmaking, reporting the score, disputes, ratings | Live |
 | [Queue & matchmaking](queue-and-matchmaking.md) | Queueing a full team, how opponents are picked, accepting matches | Live |
 | [Timers](timers.md) | Time limits for open teams, the queue and match acceptance | Live |
@@ -31,6 +32,7 @@ How every part of STACK5 works: what players see, the rules behind it, and where
 
 ## Changelog
 
+- **2026-10-05:** Player guide (`/guide`, "How it works" in the menu and footer) with 10 screenshots and an FAQ; screenshots regenerate with `scripts/guide-screenshots.mjs`. Optional team Discord voice link in the match room, visible only to that team. Website email now sent from the contact@ mailbox.
 - **2026-10-05:** Contact page (`/contact`) with the email address and a form that emails contact@stack5cs.com; Contact link in every footer; Privacy Policy covers the form.
 - **2026-10-05:** Match room: CS2 Private Matchmaking code shared with the 10 players, both captains report the score (disputes go to the admin, 6-hour timeout), ratings and "matches played" only count completed matches, players locked until the match ends. Matches page (live + recent results) and live counters (players online, teams looking for a match). Country and language flags (self-hosted SVGs) next to players and teams. French removed (English only). SEO: per-page titles and descriptions, Open Graph image, structured data, sitemap.xml, robots.txt, llms.txt, crawler-readable page text, real 404s. Mobile layout fixes.
 - **2026-10-05:** "Sign in through Steam" is now the only way to sign in. Passwords, sign-up, password reset and Steam-URL pasting removed (stored passwords deleted). First sign-in picks a username; email is optional and can be managed on the Account page. "Is this safe?" box on the sign-in page. Trust Score only uses verified Steam data. Fake Steam sign-in for local testing (`scripts/fake-steam.js`).

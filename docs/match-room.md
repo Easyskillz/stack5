@@ -12,6 +12,8 @@ When a match is confirmed, all 10 players see the **match room** on the Play pag
 4. **Both parties press GO.** CS2 starts the match when all 10 players are searching. It's unrated in CS2 (no CS Rating or XP); STACK5 records the result.
 5. **After the game,** each captain reports the score from their side (e.g. 13 and 9).
 
+**Team voice (optional):** each captain can paste a Discord invite link for their team's voice channel (discord.gg or discord.com/invite links only). Only that team's 5 players ever receive it: never the other team, never public pages. The captain can change or remove it while the match is live.
+
 Every player row shows two flags: **country** and **language**. Each team's flags show its most common country and language.
 
 ## Results
@@ -39,7 +41,8 @@ The private matchmaking code and the captains' raw reports are only shown to the
 
 ## Technical notes
 
-- Code: `src/matches.js` (`submitReport`, `finishMatch`, `closeOverdueMatches`), routes `POST /api/matches/:id/code`, `POST /api/matches/:id/result`, `POST /api/admin/matches/:id/result`, public `GET /api/matches` in `src/server.js`; UI `matchPanel()` in `public/app.js`.
-- Match status: `PENDING → CONFIRMED → COMPLETED | DISPUTED | NO_RESULT`. Scores are stored team A first (`score_a`, `score_b`); reports as `report_a`/`report_b` ("13-9", team A first).
+- Code: `src/matches.js` (`submitReport`, `finishMatch`, `closeOverdueMatches`, `cleanVoiceLink`), routes `POST /api/matches/:id/code`, `POST /api/matches/:id/voice`, `POST /api/matches/:id/result`, `POST /api/admin/matches/:id/result`, public `GET /api/matches` in `src/server.js`; UI `matchPanel()` in `public/app.js`.
+- Match status: `PENDING → CONFIRMED → COMPLETED | DISPUTED | NO_RESULT`. Voice links: `voice_a`/`voice_b`; the Play page API only returns the viewer's own as `my_voice`. Scores are stored team A first (`score_a`, `score_b`); reports as `report_a`/`report_b` ("13-9", team A first).
 - Settings: `RESULT_HOURS` (default 6). The check runs with the other [timers](timers.md).
+- Planned: a STACK5 Discord bot that creates the two team voice channels automatically (see the Launch Board).
 - How CS2 Private Matchmaking works was taken from public guides (October 2026). Watch the first real games, especially that both 5-player parties stay together.

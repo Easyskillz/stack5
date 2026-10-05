@@ -14,7 +14,7 @@ import { evaluateEligibility, isEligible, eligibilityEnabled, NOT_ELIGIBLE } fro
 import { steamLoginUrl, verifySteamAssertion } from "./steam-auth.js";
 import { expireStale, touchTeam, teamExpiresAt, queueExpiresAt, matchExpiresAt, LIMITS } from "./timers.js";
 import { runMatchmaking } from "./matchmaking.js";
-import { resultDeadline, cleanLobbyCode, submitReport, finishMatch, parseScore } from "./matches.js";
+import { resultDeadline, cleanLobbyCode, cleanVoiceLink, submitReport, finishMatch, parseScore } from "./matches.js";
 import { REGION_CATALOG, COUNTRY_CATALOG } from "./regions.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -652,7 +652,7 @@ app.post("/api/matches/:id/decline", auth, csrf, profileRequired, (req,res)=>{
 });
 
 // ---- Match room (see src/matches.js): CS2 private matchmaking code, result reports, public lists.
-const PRIVATE_MATCH_COLS = ["lobby_code","lobby_code_by","report_a","report_b","reported_a_at","reported_b_at"];
+const PRIVATE_MATCH_COLS = ["lobby_code","lobby_code_by","report_a","report_b","reported_a_at","reported_b_at","voice_a","voice_b"];
 function publicMatch(m){ const out={...m}; for(const k of PRIVATE_MATCH_COLS) delete out[k]; return out; }
 const captainTeamInMatch=(m,playerId)=>[m.team_a_id,m.team_b_id].map(id=>getTeam(id)).find(t=>t && t.captain_id===playerId);
 const matchById=id=>db.prepare("SELECT * FROM matches WHERE id=?").get(id);
@@ -666,6 +666,20 @@ app.post("/api/matches/:id/code", auth, csrf, profileRequired, (req,res)=>{
   if(!code) return res.status(400).json({error:"Paste the full private matchmaking code from CS2 (letters, numbers and dashes)."});
   db.prepare("UPDATE matches SET lobby_code=?, lobby_code_by=? WHERE id=?").run(code, req.account.player_id, m.id);
   res.json({ok:true});
+});
+
+// Optional Discord voice link for the captain's own team; only that team's players ever receive it.
+app.post("/api/matches/:id/voice", auth, csrf, profileRequired, (req,res)=>{
+  const m=matchById(req.params.id);
+  if(!m) return res.status(404).json({error:"Match not found"});
+  if(m.status!=="CONFIRMED") return res.status(409).json({error:"This match room is closed."});
+  const mine=captainTeamInMatch(m, req.account.player_id);
+  if(!mine) return res.status(403).json({error:"Only a captain can share their team's voice channel."});
+  const raw=String(req.body?.link||"").trim();
+  const link=raw ? cleanVoiceLink(raw) : null;
+  if(raw && !link) return res.status(400).json({error:"Paste a Discord invite link, like https://discord.gg/abc123."});
+  db.prepare(`UPDATE matches SET ${mine.id===m.team_a_id?"voice_a":"voice_b"}=? WHERE id=?`).run(link, m.id);
+  res.json({ok:true, message: link ? "Voice channel shared with your team." : "Voice channel removed."});
 });
 
 app.post("/api/matches/:id/result", auth, csrf, profileRequired, (req,res)=>{
@@ -756,7 +770,8 @@ app.get("/api/my/dashboard", auth, (req,res)=>{
       const myTeamId=teamIds.includes(m.team_a_id)?m.team_a_id:m.team_b_id;
       const others=db.prepare("SELECT player_id FROM team_members WHERE team_id IN (?,?) AND player_id<>?").all(m.team_a_id,m.team_b_id,pid).map(r=>r.player_id);
       const rated=others.length ? db.prepare(`SELECT to_player_id id FROM trust_ratings WHERE from_player_id=? AND to_player_id IN (${others.map(()=>"?").join(",")})`).all(pid,...others).map(r=>r.id) : [];
-      out.match={...m, my_team_id:myTeamId, expires_at:matchExpiresAt(m), result_deadline:resultDeadline(m), rated,
+      const { voice_a, voice_b, ...shared }=m;   // each team only receives its own voice link
+      out.match={...shared, my_voice:myTeamId===m.team_a_id?voice_a:voice_b, my_team_id:myTeamId, expires_at:matchExpiresAt(m), result_deadline:resultDeadline(m), rated,
         team_a:getTeam(m.team_a_id), team_b:getTeam(m.team_b_id)};
     }
   }
@@ -907,6 +922,7 @@ const PAGES={
   "/players": { title:"Find CS2 players · STACK5", heading:"Find CS2 players", description:"Find Steam-verified CS2 players for your 5-stack by region, level, role and language, with a trust score built from real matches." },
   "/matches": { title:"CS2 5v5 matches and results · STACK5", heading:"CS2 5v5 matches", description:"Live STACK5 matches and recent results between complete CS2 teams, played through CS2 Private Matchmaking." },
   "/rankings":{ title:"CS2 team rankings · STACK5", heading:"Rankings", description:"STACK5 rankings for CS2 5v5 teams and players. Coming soon." },
+  "/guide":   { title:"How STACK5 works: CS2 5v5 player guide · STACK5", heading:"How STACK5 works", description:"Step-by-step guide to STACK5: sign in with Steam, build your CS2 5-stack, find a match, play through CS2 Private Matchmaking, report the score and build your Trust Score." },
   "/contact": { title:"Contact · STACK5", heading:"Contact STACK5", description:"Contact the STACK5 team: help with your account, report a player, a disputed match result, partnerships or privacy requests. Email contact@stack5cs.com." }
 };
 const htmlAttr=v=>String(v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"})[c]);
