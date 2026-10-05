@@ -2,6 +2,12 @@
 
 A 0–100 reputation score on every player, shown on their profile with a breakdown. CleanLobby is a reputation layer, **not an anti-cheat**.
 
+## How it's explained to players
+
+- **Bands:** 0–39 Low, 40–59 Fair, **60–74 Good**, 75–100 Excellent. "60 and above is good" is shown under every score. A new player with a solid Steam account starts around 65.
+- **Tips:** every score panel lists up to 3 "How to raise it" tips picked from its weakest parts (fewer than 5 ratings, low ratings, reliability incidents, under 30 matches, private Steam data). Code: `TRUST_BANDS`, `trustTips()` in `public/app.js`.
+- **Full explanation:** the guide's "How the Trust Score works" section (`/guide#trust-score`), linked from every score panel and the match room's rating step, plus two FAQ entries ("What is a good Trust Score?", "How do I raise my Trust Score?").
+
 ## What it's made of
 
 | Part | Weight | Based on |

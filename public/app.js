@@ -45,6 +45,8 @@ const Stack5 = (() => {
     const [,cls,name]=premierTier(r), txt=r.toLocaleString('en-US'), i=txt.lastIndexOf(',');
     return `<span class="premier t-${cls}" title="CS2 Premier rating · ${name} tier (self-reported)">${i<0?`<b>${txt}</b>`:`<b>${txt.slice(0,i)}</b><small>${txt.slice(i)}</small>`}</span>`;
   }
+  const LEETIFY_ATTR='<a class="leetify-attr" href="https://leetify.com/" target="_blank" rel="noopener">Data Provided by Leetify</a>';
+  const premierSource=p=>p?.premier_source==='leetify'?LEETIFY_ATTR:p?.premier_rating!=null?'<span class="muted small">self-reported</span>':'';
   function premierRange(min,max){
     min=Number(min)||0; max=Number(max??40000);
     if(!min && max>=40000) return '<span class="muted">Any Premier rating</span>';
@@ -254,7 +256,7 @@ const Stack5 = (() => {
           </div>
           <div id="trust-box"><div class="empty">Loading trust score…</div></div>
           <div class="detail-grid">
-            <div class="detail"><label>CS2 Premier rating <span class="muted small">(self-reported)</span></label><strong>${premier(p.premier_rating)}</strong></div>
+            <div class="detail"><label>CS2 Premier rating ${premierSource(p)}</label><strong>${premier(p.premier_rating)}</strong></div>
             <div class="detail"><label>Role</label><strong>${esc(p.role||'—')}</strong></div>
             <div class="detail"><label>Speaks</label><strong>${langsOf(p).length?`${languageFlags(langsOf(p))} ${esc(langNames(langsOf(p)))}`:'—'}</strong></div>
           </div>
@@ -278,9 +280,22 @@ const Stack5 = (() => {
   const CONFIDENCE={NEW:['New player','Not much data yet — this score will settle as they play.'],BUILDING:['Building','Some history on record.'],ESTABLISHED:['Established','Backed by solid history.']};
   const PART_LABELS={identity:['Identity','Steam account history'],peer:['Peer reputation','Ratings from players they actually played with'],reliability:['Reliability','Accepting matches, not abandoning teams'],record:['Track record','Confirmed matches on CleanLobby']};
 
+  // What a score means. 60+ is good; new players with a solid Steam account usually start around 65.
+  const TRUST_BANDS=[[75,'Excellent','var(--ok)'],[60,'Good','var(--ok)'],[40,'Fair','#f2c94c'],[0,'Low','var(--danger)']];
+  const trustBand=n=>TRUST_BANDS.find(([min])=>n>=min);
+  // The most useful next steps for this score, from its weakest parts.
+  function trustTips(t){
+    const p=t.parts, tips=[];
+    if((p.peer.ratings||0)<5) tips.push('<strong>Finish matches and get rated.</strong> Ratings from the players you played with are 30% of the score. After each match, rate everyone: they can rate you back.');
+    else if(p.peer.score<60) tips.push('<strong>Ratings are below average.</strong> Communicate, play your role and stay to the end: each new match brings new ratings, and older ones fade after a few months.');
+    if(p.reliability.incidents>0) tips.push('<strong>Stay reliable.</strong> Accept matches within 5 minutes, don’t decline, and don’t leave a team that’s in the queue. Incidents fade after about 3 months.');
+    if((p.record.matches||0)<30) tips.push(`<strong>Play more matches to the end.</strong> Each match with an agreed score adds to your track record (${p.record.matches||0} so far, full at 30).`);
+    if((p.identity.notes||[]).some(n=>/private|hidden|not verified/i.test(n))) tips.push('<strong>Make your Steam profile and game details public</strong> so your account age and CS2 hours count fully.');
+    return tips.slice(0,3);
+  }
   function trustPanel(t){
     const [confLabel,confText]=CONFIDENCE[t.confidence]||CONFIDENCE.NEW;
-    const color=t.total>=70?'var(--ok)':t.total>=40?'#f2c94c':'var(--danger)';
+    const [,bandName,color]=trustBand(t.total);
     const part=(key)=>{
       const v=t.parts[key], [label,desc]=PART_LABELS[key];
       const detail=key==='identity'?(v.notes||[]).join(' · '):key==='peer'?(v.ratings?`${v.ratings} rating${v.ratings>1?'s':''}, avg ${v.avg}★`:'No ratings yet'):key==='reliability'?(v.incidents?`${v.incidents} recent incident(s)`:'No incidents'):`${v.matches} match${v.matches===1?'':'es'}`;
@@ -292,12 +307,13 @@ const Stack5 = (() => {
     };
     return `<div class="trust-panel">
       <div class="trust-head">
-        <div><div class="stat-label">CleanLobby Trust Score</div><div class="trust-total" style="color:${color}">${t.total}</div></div>
+        <div><div class="stat-label">CleanLobby Trust Score</div><div class="trust-total" style="color:${color}">${t.total} <span class="trust-band" style="color:${color}">${bandName}</span></div><div class="muted small">60 and above is good · 75+ excellent</div></div>
         <div style="text-align:right"><span class="status ${t.confidence==='ESTABLISHED'?'green':t.confidence==='BUILDING'?'amber':''}">${confLabel}</span><div class="muted small" style="margin-top:6px;max-width:260px">${confText}</div></div>
       </div>
       ${t.flags?.length?`<div class="trust-flags">${t.flags.map(f=>`<div>⚠️ ${esc(f)}</div>`).join('')}</div>`:''}
       <div class="trust-parts">${['identity','peer','reliability','record'].map(part).join('')}</div>
-      <p class="muted small" style="margin:14px 0 0">CleanLobby is a reputation layer, not an anti-cheat. Scores combine public Steam data with CleanLobby match history and ratings.</p>
+      ${trustTips(t).length?`<div class="trust-tips"><strong class="small">How to raise it</strong><ul>${trustTips(t).map(x=>`<li>${x}</li>`).join('')}</ul></div>`:''}
+      <p class="muted small" style="margin:14px 0 0">CleanLobby is a reputation layer, not an anti-cheat. <a href="/guide#trust-score" style="color:var(--accent)">How the Trust Score works</a></p>
     </div>`;
   }
 
@@ -478,14 +494,14 @@ const Stack5 = (() => {
   const GUIDE_STEPS=[
     ['1-sign-in',496,434,'Sign in with Steam','Click <strong>Sign in with Steam</strong>. You log in on Steam’s own website: check the address bar says <code>steamcommunity.com</code>. CleanLobby only receives your public SteamID. It never sees your password and can’t touch your inventory or trades.'],
     ['2-pick-username',436,366,'Pick your username','First time only: choose a CleanLobby username. Email is optional (for match notifications). Confirm you’re 16 or older and accept the Terms.'],
-    ['3-profile-setup',784,725,'Set up your player profile','Country (this decides which teams you can play: only ones close enough for good ping), CS2 Premier rating, main role and the languages you speak (your teammates need one in common). Teams see this when they look for players.'],
-    ['4-build-team',1061,755,'Build your five','Create a team and invite players by their CleanLobby username, or find them on <a href="/players">Find Players</a>. Prefer joining a team? Browse <a href="/teams">Find a Team</a> and ask to join. An open team disbands after 6 hours without a new player.'],
+    ['3-profile-setup',784,740,'Set up your player profile','Country (this decides which teams you can play: only ones close enough for good ping), CS2 Premier rating, main role and the languages you speak (your teammates need one in common). Teams see this when they look for players.'],
+    ['4-build-team',1061,827,'Build your five','Create a team and invite players by their CleanLobby username, or find them on <a href="/players">Find Players</a>. Prefer joining a team? Browse <a href="/teams">Find a Team</a> and ask to join. An open team disbands after 6 hours without a new player.'],
     ['5-full-team-queue',705,609,'Five players? Find a match','When your team has 5 players, the captain clicks <strong>Find match</strong>. Everyone must meet the CleanLobby requirements: Steam account at least 2 years old, 500+ hours of CS2, no recent VAC or game ban.'],
-    ['6-searching',705,647,'Searching for an opponent','CleanLobby looks for another full team close enough for good ping (their players’ countries within about 2,500 km of yours) with a similar Premier rating. This runs every 30 seconds. After 2 hours without a match, your team leaves the queue.'],
+    ['6-searching',705,667,'Searching for an opponent','CleanLobby looks for another full team close enough for good ping (their players’ countries within about 2,500 km of yours) with a similar Premier rating. This runs every 30 seconds. After 2 hours without a match, your team leaves the queue.'],
     ['7-match-found',1061,594,'Match found: captains accept','Both captains have <strong>5 minutes</strong> to accept. Declining or letting the time run out counts against the captain’s reliability.'],
     ['8-match-room',1061,1088,'Play through CS2 Private Matchmaking','Each captain invites their 4 teammates to a <strong>CS2 party</strong> (use the Steam buttons). One captain creates a <em>Private Matchmaking Pool</em> in CS2 and pastes the code here. The other captain enters it with <em>Manually Enter a Code</em>. Both parties press <strong>GO</strong>. Optional: a captain can share a Discord voice channel that only their own team sees.'],
-    ['9-result-and-ratings',1061,550,'Report the score, then rate everyone','After the game, both captains report the score. When they match, the result is final and everyone can rate the players they played with, teammates and opponents. Different scores go to an admin.'],
-    ['10-trust-score',1076,303,'Build your Trust Score','Your Trust Score (0–100) combines your Steam history, ratings from people you played with, reliability and matches played. It’s public on your profile and helps teams decide who to play with.']
+    ['9-result-and-ratings',1061,570,'Report the score, then rate everyone','After the game, both captains report the score. When they match, the result is final and everyone can rate the players they played with, teammates and opponents. Different scores go to an admin.'],
+    ['10-trust-score',1061,433,'Build your Trust Score','Your Trust Score (0–100) combines your Steam history, ratings from people you played with, reliability and matches played. It’s public on your profile and helps teams decide who to play with. <strong>60 and above is good.</strong> See <a href="#trust-score">how it works and how to raise it</a>.']
   ];
   const GUIDE_FAQ=[
     ['Is signing in with Steam safe?','Yes. You sign in on steamcommunity.com, never on CleanLobby. We only receive your public SteamID. CleanLobby will never ask for your Steam Guard code, an API key or your trade link. If a page asks for those, it isn’t us.'],
@@ -493,17 +509,36 @@ const Stack5 = (() => {
     ['Does it cost anything?','No. CleanLobby is free during the beta.'],
     ['Does a CleanLobby match change my CS Rating?','No. CS2 Private Matchmaking is unrated in CS2. CleanLobby keeps its own results and Trust Score.'],
     ['What if the other team doesn’t show up, or the captains disagree?','If only one captain reports a score within 6 hours, that score counts. If the scores don’t match, an admin decides. You can also <a href="/contact">contact us</a> with details.'],
+    ['What is a good Trust Score?','<strong>60 and above is good</strong>, 75 and above is excellent. 40–59 is fair, under 40 is low. A new player with a solid Steam account usually starts around 65. A VAC or game ban in the last 2 years caps the score at 20. <a href="#trust-score">How it’s calculated</a>.'],
+    ['How do I raise my Trust Score?','Play matches to the end, report the score, and rate everyone you played with after each match: ratings from other players are 30% of the score. Accept matches in time and don’t leave a queued team. Your profile shows tips for your own score. <a href="#trust-score">Details</a>.'],
     ['How do I report a cheater?','Use the <a href="/contact">Contact page</a> (topic: Report a player) with their CleanLobby name and the match. CleanLobby is a reputation layer, not an anti-cheat.']
   ];
   function guidePage(){
     layout('How CleanLobby works',`<div class="container guide">
       <div class="eyebrow">PLAYER GUIDE</div><h1>How CleanLobby works</h1>
       <p class="subtitle">From signing in to your first match, step by step. Getting set up takes about 5 minutes.</p>
-      <nav class="guide-toc" aria-label="Steps">${GUIDE_STEPS.map(([,,,t],i)=>`<a href="#step-${i+1}">${i+1}. ${esc(t)}</a>`).join('')}<a href="#faq">Questions</a></nav>
+      <nav class="guide-toc" aria-label="Steps">${GUIDE_STEPS.map(([,,,t],i)=>`<a href="#step-${i+1}">${i+1}. ${esc(t)}</a>`).join('')}<a href="#trust-score">Trust Score</a><a href="#faq">Questions</a></nav>
       ${GUIDE_STEPS.map(([id,w,h,t,text],i)=>`<section class="guide-step" id="step-${i+1}">
         <div class="guide-text"><div class="step-num">STEP ${i+1}</div><h2>${esc(t)}</h2><p>${text}</p></div>
         <figure><img src="/img/guide/${id}.webp" width="${w}" height="${h}" loading="${i<2?'eager':'lazy'}" alt="${esc(t)}: screenshot of CleanLobby"><figcaption class="muted small">Example players and teams.</figcaption></figure>
       </section>`).join('')}
+      <section class="panel guide-trust" id="trust-score" style="margin-top:28px">
+        <div class="step-num">TRUST SCORE</div><h2>How the Trust Score works</h2>
+        <p>Every player has a public score from 0 to 100. It tells teams how much they can count on you: is this a real, established account, do people enjoy playing with you, and do you show up? It is not a skill rating: skill is your Premier rating.</p>
+        <div class="trust-scale" aria-label="Score bands">
+          <div style="--c:var(--danger);flex:40"><b>0–39</b>Low</div><div style="--c:#f2c94c;flex:20"><b>40–59</b>Fair</div><div style="--c:var(--ok);flex:15"><b>60–74</b>Good</div><div style="--c:var(--ok);flex:25"><b>75–100</b>Excellent</div>
+        </div>
+        <p><strong>60 and above is good.</strong> A new player with a solid Steam account usually starts around 65, then the score moves with every match.</p>
+        <table class="trust-table">
+          <tr><th>Part</th><th>Weight</th><th>What counts</th><th>How to raise it</th></tr>
+          <tr><td><strong>Identity</strong></td><td>35%</td><td>Your Steam account: age (full at 6 years), CS2 hours (full at 2,000 h), Steam level (full at 25). Only counts once you signed in through Steam.</td><td>Keep your Steam profile and game details public. It grows by itself as your account ages.</td></tr>
+          <tr><td><strong>Peer reputation</strong></td><td>30%</td><td>1–5★ ratings from teammates and opponents after matches. Ratings from trusted, older accounts count more. Ratings fade after a few months. The same small group rating each other again and again counts less.</td><td>Play well with others: communicate, play your role, stay to the end. Rate everyone after each match, so they rate you back.</td></tr>
+          <tr><td><strong>Reliability</strong></td><td>25%</td><td>Showing up. Declining a match, letting it expire, or leaving a team that’s in the queue count against you. Incidents fade after about 3 months. New players start at 80.</td><td>Accept matches within 5 minutes and don’t leave a queued team.</td></tr>
+          <tr><td><strong>Track record</strong></td><td>10%</td><td>Matches you played to the end with an agreed score (full at 30 matches).</td><td>Play matches through and make sure your captain reports the score.</td></tr>
+        </table>
+        <p><strong>What can cap it:</strong> a VAC or game ban in the last 2 years caps the score at 20. Older bans take off 15 points each (up to 30). A Steam community ban caps it at 40.</p>
+        <p class="muted small">The label next to the score (New player, Building, Established) says how much history backs it. A new player’s score can still move a lot. CleanLobby is a reputation layer, not an anti-cheat.</p>
+      </section>
       <section class="panel" id="faq" style="margin-top:28px"><h2>Questions</h2>${GUIDE_FAQ.map(([q,a])=>`<details class="faq"><summary>${esc(q)}</summary><p>${a}</p></details>`).join('')}</section>
       <div class="cta" style="margin-top:24px"><h2>Ready?</h2><p>Sign in, set up your profile and build your five.</p><div class="actions"><a class="btn btn-green" href="/login" data-guest-cta>Sign in with Steam</a></div></div>
     </div>`,'guide');
@@ -647,6 +682,11 @@ const Stack5 = (() => {
         <div>${sidePanel(d)}</div>
       </div>`;
     startCountdowns();
+    // FACEIT is shown live only (its API terms forbid keeping a copy).
+    get(`/api/players/${d.player.id}/faceit`).then(f=>{
+      const el=document.getElementById('my-faceit');
+      if(el && f.available && !f.none) el.innerHTML=`FACEIT <strong>level ${esc(f.level??'—')}</strong> · Elo ${esc(f.elo??'—')} <span class="leetify-attr">Live data from FACEIT</span>`;
+    }).catch(()=>{});
 
     // Keep the page live while waiting on the queue or the other captain (no text inputs are shown then).
     const waiting=(d.team && d.team.status==='READY') || (d.match && ['PENDING','CONFIRMED','DISPUTED'].includes(d.match.status));
@@ -761,7 +801,7 @@ const Stack5 = (() => {
         body+=`<h3 style="margin:18px 0 6px">After the game: report the score</h3>`
           +(myReport?`<p>You reported <strong>${myReport[0]}–${myReport[1]}</strong>. ${theirReport?'':'Waiting for the other captain.'}</p><details class="muted small"><summary>Change your report</summary>${reportForm('Update')}</details>`:reportForm('Report result'))+deadline;
       } else {
-        body+=`<p class="muted" style="margin-top:16px">After the game, your captain reports the score. Then you can rate everyone you played with.</p>`;
+        body+=`<p class="muted" style="margin-top:16px">After the game, your captain reports the score. Then you can rate everyone you played with: ratings are 30% of the Trust Score.</p>`;
       }
     } else if(m.status==='DISPUTED'){
       head=`<div class="eyebrow" style="color:#ffb3b9">RESULT DISPUTED</div><h2 style="margin-top:8px">${esc(mine?.name)} vs ${esc(other?.name)}</h2>
@@ -771,7 +811,7 @@ const Stack5 = (() => {
       const [me,them]=mySide([m.score_a,m.score_b]);
       head=`<div class="eyebrow">MATCH FINISHED</div>
         <h2 style="margin-top:8px">${esc(mine?.name)} <span class="score">${me} – ${them}</span> ${esc(other?.name)}</h2>
-        <p class="muted">${me>them?'🏆 Your team won.':me<them?'Your team lost.':'Draw.'} Rate the players you played with, teammates and opponents. Ratings build their Trust Score.</p>`;
+        <p class="muted">${me>them?'🏆 Your team won.':me<them?'Your team lost.':'Draw.'} Rate the players you played with, teammates and opponents. Ratings are 30% of everyone’s Trust Score, and they can rate you back. <a href="/guide#trust-score" style="color:var(--accent)">How it works</a></p>`;
     } else if(m.status==='NO_RESULT'){
       head=`<div class="eyebrow">MATCH CLOSED</div><h2 style="margin-top:8px">${esc(mine?.name)} vs ${esc(other?.name)}</h2>
         <p class="muted">No result was reported in time, so this match doesn't count for anyone.</p>`;
@@ -862,9 +902,12 @@ const Stack5 = (() => {
     }
     html+=`<div class="panel"><h2>Your profile</h2>
       <div class="muted small">${countryFlag(d.player.country)} ${esc(d.player.region)} · ${premier(d.player.premier_rating)} · ${esc(d.player.role)}</div>
-      ${d.player.premier_rating==null?'<p class="small" style="color:#f2c94c;margin:10px 0 0">Add your CS2 Premier rating so we can match your team fairly.</p>':''}
+      <div class="small" style="margin-top:8px">Premier ${premier(d.player.premier_rating)} ${premierSource(d.player)}</div>
+      <div class="small" id="my-faceit" style="margin-top:6px"></div>
+      ${d.player.premier_rating==null?'<p class="small" style="color:#f2c94c;margin:10px 0 0">Leetify has no Premier rating for you yet. Type yours below so we can match your team fairly.</p>':''}
       <form data-form="languages" style="margin-top:12px"><label class="field-label">Languages you speak</label>${languageBoxes(langsOf(d.player))}<button class="btn btn-dark btn-small" style="margin-top:8px">Save languages</button></form>
       <form data-form="premier" class="inline-form"><input class="input" name="premier_rating" type="number" inputmode="numeric" min="0" max="40000" placeholder="Premier rating" value="${d.player.premier_rating??''}" aria-label="CS2 Premier rating"><button class="btn btn-dark btn-small">Update</button></form>
+      ${d.player.premier_source==='self'?`<button class="btn btn-outline btn-small" data-act="premier-leetify" style="margin-top:8px">Use my Leetify rating instead</button>`:''}
       <div class="muted small" style="margin-top:6px">${d.eligibility?.eligible?'<span class="status green">VERIFIED</span> Meets CleanLobby requirements':'<span class="status amber">NOT VERIFIED</span>'}</div>
       <div class="actions" style="margin-top:12px"><a class="btn btn-small btn-dark" href="/player/${encodeURIComponent(d.player.display_name)}">View public profile</a><a class="btn btn-small btn-outline" href="/account">Account</a></div></div>`;
     return html;
@@ -891,8 +934,8 @@ const Stack5 = (() => {
         <div><label>Display name</label><input class="input" name="display_name" maxlength="40" value="${esc(d.account.username)}" required></div>
         <div><label>Country</label><select name="country" required>${cat.countries.map(c=>`<option value="${c.code}" data-region="${c.region}" ${c.code==='MA'?'selected':''}>${c.flag} ${esc(c.name)}</option>`).join('')}</select></div>
         <div><label>Matchmaking region</label><select name="region" disabled>${cat.regions.map(r=>`<option value="${r.id}">${r.flag} ${esc(r.name)}</option>`).join('')}</select></div>
-        <div><label>CS2 Premier rating</label><input class="input" name="premier_rating" type="number" inputmode="numeric" min="0" max="40000" placeholder="e.g. 12450" required>
-          <div class="muted small" style="margin-top:5px">In CS2: Play → Premier. Enter 0 if you don't have one yet.</div></div>
+        <div><label>CS2 Premier rating (optional)</label><input class="input" name="premier_rating" type="number" inputmode="numeric" min="0" max="40000" placeholder="Leave empty: we get it from Leetify">
+          <div class="muted small" style="margin-top:5px">Leave it empty and we copy it from your Leetify profile. Or type it (CS2: Play → Premier).</div></div>
         <div><label>Main role</label><select name="role">${ROLES.map(r=>`<option>${r}</option>`).join('')}</select></div>
         <div class="full"><label>Languages you speak (teammates need one in common)</label>${languageBoxes(['FR'])}</div>
         <div class="full"><label>Avatar URL (optional, https)</label><input class="input" name="avatar_url" type="url" placeholder="https://..."></div>
@@ -915,6 +958,7 @@ const Stack5 = (() => {
     'leave':          id=>post(`/api/teams/${id}/leave`),
     'disband':        id=>post(`/api/teams/${id}/disband`),
     'remove':     (id,arg)=>post(`/api/teams/${id}/remove`,{player_id:Number(arg)}),
+    'premier-leetify': ()=>post('/api/profile/premier',{use_leetify:true}),
     'transfer':   (id,arg)=>post(`/api/teams/${id}/transfer`,{player_id:Number(arg)}),
     'accept-match':(id,arg)=>post(`/api/matches/${id}/accept`,{team_id:Number(arg)}),
     'decline-match':  id=>post(`/api/matches/${id}/decline`),
@@ -965,6 +1009,7 @@ const Stack5 = (() => {
       if(form.dataset.form==='profile'){
         data.region=form.region.value;
         data.languages=checked();
+        if(!data.premier_rating) delete data.premier_rating;
         if(!data.avatar_url) delete data.avatar_url;
         await post('/api/profile',data); toast('Profile saved. Welcome to CleanLobby!');
       }

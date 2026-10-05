@@ -8,7 +8,7 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import nodemailer from "nodemailer";
 import { db, getTeam, getTeamMembers } from "./db.js";
-import { steamPersonaName, refreshExternal, leetifyProfile, faceitProfile, faceitEnabled } from "./external.js";
+import { steamPersonaName, refreshExternal, leetifyProfile, faceitProfile, faceitEnabled, syncPremierFromLeetify } from "./external.js";
 import { computeTrust, recomputeAll, recordEvent } from "./trust.js";
 import { evaluateEligibility, isEligible, eligibilityEnabled, NOT_ELIGIBLE } from "./eligibility.js";
 import { steamLoginUrl, verifySteamAssertion } from "./steam-auth.js";
@@ -359,8 +359,10 @@ app.post("/api/profile", auth, csrf, async (req, res) => {
   if (!requireBody(req, res, ["country","region","role"])) return;
   const languages = parseLanguages(req.body.languages ?? req.body.language);
   if (!languages.length) return res.status(400).json({ error: "Pick at least one language you speak." });
-  const premier = premierRating(req.body.premier_rating);
-  if (premier === null) return res.status(400).json({ error: PREMIER_ERROR });
+  // Premier rating is optional at sign-up: left empty, it's copied from Leetify right after.
+  const typed = String(req.body.premier_rating ?? "").trim() !== "";
+  const premier = typed ? premierRating(req.body.premier_rating) : null;
+  if (typed && premier === null) return res.status(400).json({ error: PREMIER_ERROR });
   if (!req.account.verified_steam_id) return res.status(403).json({ error: "Sign in through Steam first to prove the account is yours.", code: "STEAM_NOT_LINKED" });
   const country = COUNTRY_CATALOG.find(x => x[0] === req.body.country);
   const region = REGION_CATALOG.find(x => x.id === req.body.region);
@@ -375,10 +377,11 @@ app.post("/api/profile", auth, csrf, async (req, res) => {
     const result = db.transaction(() => {
       const existing = db.prepare("SELECT id FROM players WHERE steam_url=? OR (steam_id IS NOT NULL AND steam_id=?)").get(steamUrl, steamId);
       if (existing) throw new Error("This Steam profile is already linked to a CleanLobby player.");
-      const r = db.prepare(`INSERT INTO players(steam_url,steam_id,steam_verified,steam_verified_at,display_name,avatar_url,premier_rating,region,country,language,languages,role) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`).run(steamUrl,steamId,1,Date.now(),name,safeAvatarUrl(req.body.avatar_url),premier,region.id,country[0],languages[0],languages.join(","),String(req.body.role).slice(0,20));
+      const r = db.prepare(`INSERT INTO players(steam_url,steam_id,steam_verified,steam_verified_at,display_name,avatar_url,premier_rating,premier_source,region,country,language,languages,role) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(steamUrl,steamId,1,Date.now(),name,safeAvatarUrl(req.body.avatar_url),premier,typed?"self":null,region.id,country[0],languages[0],languages.join(","),String(req.body.role).slice(0,20));
       db.prepare("UPDATE accounts SET player_id=? WHERE id=?").run(r.lastInsertRowid, req.account.account_id);
       return r.lastInsertRowid;
     })();
+    if (!typed) await syncPremierFromLeetify(result).catch(e => console.error("[STACK5] Premier from Leetify failed:", e.message));
     computeTrust(result);
     evaluateEligibility(result);
     // Pull Steam/FACEIT data in the background, then rescore and re-check eligibility.
@@ -395,10 +398,15 @@ function premierRating(v) {
   const n = Number(String(v).replace(/[ ,.]/g, ""));
   return Number.isInteger(n) && n >= 0 && n <= 40000 ? n : null;
 }
-app.post("/api/profile/premier", auth, csrf, profileRequired, (req, res) => {
+app.post("/api/profile/premier", auth, csrf, profileRequired, async (req, res) => {
+  if (req.body.use_leetify) {   // go back to the Leetify copy
+    db.prepare("UPDATE players SET premier_source=NULL, premier_rating=NULL WHERE id=?").run(req.account.player_id);
+    const r = await syncPremierFromLeetify(req.account.player_id).catch(() => null);
+    return res.json({ premier_rating: r, message: r ? `Premier rating from Leetify: ${r.toLocaleString("en-US")}.` : "Leetify has no Premier rating for you. Enter it yourself." });
+  }
   const premier = premierRating(req.body.premier_rating);
   if (premier === null) return res.status(400).json({ error: PREMIER_ERROR });
-  db.prepare("UPDATE players SET premier_rating=? WHERE id=?").run(premier, req.account.player_id);
+  db.prepare("UPDATE players SET premier_rating=?, premier_source='self' WHERE id=?").run(premier, req.account.player_id);
   res.json({ premier_rating: premier, message: premier ? `Premier rating saved: ${premier.toLocaleString("en-US")}.` : "Saved: no Premier rating yet." });
 });
 
@@ -409,7 +417,7 @@ app.post("/api/profile/languages", auth, csrf, profileRequired, (req, res) => {
   res.json({ languages, message: "Languages saved." });
 });
 
-const PUBLIC_PLAYER_COLS = "id,steam_url,steam_verified,display_name,avatar_url,premier_rating,region,country,language,languages,role,trust_score,reliability_score,teamplay_score,trust_confidence";
+const PUBLIC_PLAYER_COLS = "id,steam_url,steam_verified,display_name,avatar_url,premier_rating,premier_source,region,country,language,languages,role,trust_score,reliability_score,teamplay_score,trust_confidence";
 app.get("/api/players", (_, res) => res.json(db.prepare(`SELECT ${PUBLIC_PLAYER_COLS},eligible FROM players WHERE deleted_at IS NULL ORDER BY id DESC`).all()));
 app.get("/api/players/:id", (req,res) => { const p=db.prepare(`SELECT ${PUBLIC_PLAYER_COLS},eligible,created_at FROM players WHERE id=? AND deleted_at IS NULL`).get(req.params.id); if(!p) return res.status(404).json({error:"Player not found"}); res.json(p); });
 
@@ -1042,9 +1050,14 @@ async function trustUpkeep(){
   if(process.env.STEAM_API_KEY){
     for(const {id} of stale){ await refreshExternal(id).catch(()=>{}); await new Promise(r=>setTimeout(r,300)); }
   }
+  // Premier ratings copied from Leetify: fill missing ones and refresh daily (not ones players typed).
+  const premierDue=db.prepare(`SELECT id FROM players WHERE deleted_at IS NULL AND steam_id IS NOT NULL AND (premier_source IS NULL OR premier_source='leetify')
+    AND (premier_synced_at IS NULL OR premier_synced_at < ?) LIMIT 200`).all(Date.now()-86_400_000);
+  let synced=0;
+  for(const {id} of premierDue){ if(await syncPremierFromLeetify(id).catch(()=>null)) synced++; await new Promise(r=>setTimeout(r,500)); }
   const n=recomputeAll();
   for(const {id} of db.prepare("SELECT id FROM players WHERE deleted_at IS NULL").all()) evaluateEligibility(id);
-  console.log(`[STACK5] trust upkeep: refreshed ${process.env.STEAM_API_KEY ? stale.length : 0}, rescored ${n}`);
+  console.log(`[STACK5] trust upkeep: refreshed ${process.env.STEAM_API_KEY ? stale.length : 0}, Premier from Leetify ${synced}/${premierDue.length}, rescored ${n}`);
 }
 if(process.env.NODE_ENV!=="test"){
   setTimeout(()=>trustUpkeep().catch(e=>console.error("[STACK5] trust upkeep failed:",e)),5000).unref();

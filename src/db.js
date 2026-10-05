@@ -272,6 +272,10 @@ try { db.exec("ALTER TABLE teams ADD COLUMN min_rating INTEGER DEFAULT 0"); } ca
 try { db.exec("ALTER TABLE teams ADD COLUMN max_rating INTEGER DEFAULT 40000"); } catch {}
 // Players can speak several languages ("FR,AR,EN"); the first one is also kept in `language` (flags, older code).
 try { db.exec("ALTER TABLE players ADD COLUMN languages TEXT"); } catch {}
+// Where the Premier rating came from: 'leetify' (copied, kept in sync) or 'self' (typed by the player, always wins).
+try { db.exec("ALTER TABLE players ADD COLUMN premier_source TEXT"); } catch {}
+try { db.exec("ALTER TABLE players ADD COLUMN premier_synced_at INTEGER"); } catch {}
+db.exec("UPDATE players SET premier_source='self' WHERE premier_rating IS NOT NULL AND premier_source IS NULL");
 db.exec("UPDATE players SET languages=language WHERE languages IS NULL AND language IS NOT NULL AND language<>''");
 // The self-reported FACEIT level/Elo is no longer collected or used: clear what older versions stored.
 db.exec("UPDATE players SET faceit_level=0, faceit_elo=0 WHERE faceit_level<>0 OR faceit_elo<>0");

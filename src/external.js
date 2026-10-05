@@ -136,6 +136,22 @@ export async function refreshExternal(playerId) {
 
 // ---------- Leetify (live, not stored) ----------
 const leetifyCache = new Map();   // steamId -> { at, data } ; short-lived to respect rate limits
+/**
+ * Copy the player's CS2 Premier rating from Leetify (operator's decision, 2026-10-05: Leetify's guidelines ask
+ * developers not to store their data, accepted as a risk). Kept as close to their rules as possible: the number is
+ * never changed, it's labelled "Data Provided by Leetify", refreshed daily, and removed when Leetify no longer has it.
+ * A rating the player typed themselves ('self') is never overwritten.
+ */
+export async function syncPremierFromLeetify(playerId) {
+  const p = db.prepare("SELECT id, steam_id, premier_source FROM players WHERE id=?").get(playerId);
+  if (!p || !p.steam_id || p.premier_source === "self") return null;
+  const data = await leetifyProfile(p.steam_id);
+  const rating = Number(data?.premier) > 0 ? Math.round(Number(data.premier)) : null;
+  if (rating) db.prepare("UPDATE players SET premier_rating=?, premier_source='leetify', premier_synced_at=? WHERE id=?").run(rating, Date.now(), playerId);
+  else db.prepare("UPDATE players SET premier_rating=CASE WHEN premier_source='leetify' THEN NULL ELSE premier_rating END, premier_source=CASE WHEN premier_source='leetify' THEN NULL ELSE premier_source END, premier_synced_at=? WHERE id=?").run(Date.now(), playerId);
+  return rating;
+}
+
 export async function leetifyProfile(steamId64) {
   const hit = leetifyCache.get(steamId64);
   if (hit && Date.now() - hit.at < 5 * 60_000) return hit.data;
