@@ -13,7 +13,7 @@ A 0–100 reputation score on every player, shown on their profile with a breakd
 | Part | Weight | Based on |
 |---|---|---|
 | Identity | 35% | Steam account age, CS2 hours, Steam level |
-| Peer reputation | 30% | 1–5★ ratings from players they actually played a completed match with |
+| Peer reputation | 30% | 👍/👎 votes on comms, teamplay, attitude (teammates) and attitude, sportsmanship (opponents) from players they played a completed match with. One voter's votes for one match count as one rating, split across the aspects. Older 1–5★ ratings from before votes still count (1★ = 0, 5★ = 1). Shrunk toward a neutral 50% until enough votes exist, weighted by the voter's trust and account age, fading after ~3 months, halved for players with 3+ completed matches together. The profile shows the % of 👍 per aspect. |
 | Reliability | 25% | Accepting matches versus declining, letting them expire, or leaving a queued team |
 | Track record | 10% | Completed matches (with an agreed result) played on CleanLobby |
 

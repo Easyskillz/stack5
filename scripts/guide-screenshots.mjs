@@ -121,7 +121,22 @@ try {
 
   await players[0].post(`/api/matches/${m.id}/result`, { my_score: 13, their_score: 10 });
   await players[5].post(`/api/matches/${mb.id}/result`, { my_score: 10, their_score: 13 });
-  await players[1].post("/api/trust", { to_player_id: (await players[6].get("/api/me")).player.id, rating: 5 });
+  // Votes: most players give everyone 👍; one opponent gives a 👎 on sportsmanship; the shot player has voted partly.
+  const pid = async b => (await b.get("/api/me")).player.id;
+  for (const b of [players[0], players[2], players[3], players[5], players[7]]) await b.post(`/api/matches/${m.id}/votes/all-up`, {});
+  await players[6].post(`/api/matches/${m.id}/votes`, { to_player_id: await pid(players[1]), aspect: "sportsmanship", vote: -1 });
+  await players[1].post(`/api/matches/${m.id}/votes`, { to_player_id: await pid(players[0]), aspect: "comms", vote: 1 });
+  await players[1].post(`/api/matches/${m.id}/votes`, { to_player_id: await pid(players[0]), aspect: "teamplay", vote: 1 });
+  await players[1].post(`/api/matches/${m.id}/votes`, { to_player_id: await pid(players[6]), aspect: "attitude", vote: 1 });
+  // Voting rules (fail the run if one breaks)
+  const expectErr = (r, label) => { if (!r.error) { console.error("  RULE BROKEN:", label); process.exitCode = 1; } else console.log("  rule ok:", label); };
+  expectErr(await players[1].post(`/api/matches/${m.id}/votes`, { to_player_id: await pid(players[6]), aspect: "comms", vote: 1 }), "no comms vote on an opponent");
+  expectErr(await players[1].post(`/api/matches/${m.id}/votes`, { to_player_id: await pid(players[1]), aspect: "attitude", vote: 1 }), "no vote on yourself");
+  expectErr(await players[1].post(`/api/matches/${m.id}/votes`, { to_player_id: await pid(players[0]), aspect: "attitude", vote: 5 }), "only 👍 or 👎");
+  { const dbx = new Database(DB); const was = dbx.prepare("SELECT completed_at FROM matches WHERE id=?").get(m.id).completed_at;
+    dbx.prepare("UPDATE matches SET completed_at=? WHERE id=?").run(Date.now() - 49 * 3600_000, m.id);
+    expectErr(await players[1].post(`/api/matches/${m.id}/votes`, { to_player_id: await pid(players[0]), aspect: "attitude", vote: 1 }), "voting closes after 48 h");
+    dbx.prepare("UPDATE matches SET completed_at=? WHERE id=?").run(was, m.id); dbx.close(); }
   await shot("9-result-and-ratings", "/play", ".match-panel", players[1].jar);
   await players[0].post("/api/admin/trust/recompute");
   await shot("10-trust-score", `/player/${A[1]}`, ".trust-panel", players[0].jar);

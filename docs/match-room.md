@@ -25,11 +25,21 @@ Every player row shows two flags: **country** and **language**. Each team's flag
 | 6 hours pass and only one captain reported | That score counts (**COMPLETED**), so a losing captain can't block the result by staying silent |
 | 6 hours pass with no report | **NO_RESULT**: the match doesn't count for anyone |
 
-Only **completed** matches count as played ([Trust Score](trust-score.md) "track record") and unlock ratings.
+Only **completed** matches count as played ([Trust Score](trust-score.md) "track record") and unlock votes.
 
-## Ratings
+## Votes
 
-Once a match is completed, every player can rate everyone else from that match, teammates and opponents (1–5 stars), from the Play page for 24 hours. Rated players show **Rated ✓** (the rating can still be changed). Ratings feed the Trust Score.
+Once a match is completed, every player has **48 hours** to vote 👍 or 👎 on the others, aspect by aspect, from the match room on the Play page (it stays visible for the 48 hours):
+
+| Who | Aspects |
+|---|---|
+| Teammates | 🎙️ Comms, 🤝 Teamplay, 😇 Attitude |
+| Opponents | 😇 Attitude, 🏳️ Sportsmanship |
+
+Skill is never voted on: that's the CS2 Premier rating. Every vote can be changed or removed until voting closes; **👍 Everyone I haven't voted on** fills the rest with 👍. One set of votes per voter, player and match, so playing the same people again counts again. Votes feed the Trust Score's peer reputation ([details](trust-score.md)); profiles show the share of 👍 per aspect, never who voted.
+
+- Table `player_votes` (match, voter, player, aspect, ±1). Endpoints: `POST /api/matches/:id/votes` (`to_player_id`, `aspect`, `vote` 1, -1 or 0 to remove) and `POST /api/matches/:id/votes/all-up`. The old 1–5★ endpoint (`/api/trust`) answers 410; older star ratings still count in the score.
+- The rules (no comms vote on opponents, no self vote, only ±1, closed after 48 h) are checked by `scripts/guide-screenshots.mjs` on every run.
 
 ## Locking
 

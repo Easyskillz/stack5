@@ -274,6 +274,18 @@ try { db.exec("ALTER TABLE teams ADD COLUMN max_rating INTEGER DEFAULT 40000"); 
 try { db.exec("ALTER TABLE players ADD COLUMN languages TEXT"); } catch {}
 // Where the Premier rating came from: 'leetify' (copied, kept in sync) or 'self' (typed by the player, always wins).
 try { db.exec("ALTER TABLE players ADD COLUMN premier_source TEXT"); } catch {}
+// After a completed match, players vote 👍/👎 on aspects of each other (not skill: that's the Premier rating).
+// One vote per voter, player, match and aspect; changeable during the voting window.
+db.exec(`CREATE TABLE IF NOT EXISTS player_votes (
+  match_id INTEGER NOT NULL,
+  from_player_id INTEGER NOT NULL,
+  to_player_id INTEGER NOT NULL,
+  aspect TEXT NOT NULL CHECK(aspect IN ('comms','teamplay','attitude','sportsmanship')),
+  vote INTEGER NOT NULL CHECK(vote IN (-1,1)),
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY(match_id, from_player_id, to_player_id, aspect)
+)`);
+db.exec("CREATE INDEX IF NOT EXISTS idx_votes_to ON player_votes(to_player_id)");
 try { db.exec("ALTER TABLE players ADD COLUMN premier_synced_at INTEGER"); } catch {}
 db.exec("UPDATE players SET premier_source='self' WHERE premier_rating IS NOT NULL AND premier_source IS NULL");
 db.exec("UPDATE players SET languages=language WHERE languages IS NULL AND language IS NOT NULL AND language<>''");

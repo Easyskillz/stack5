@@ -3,7 +3,8 @@
  *
  *   identity    35%  Steam account age, CS2 hours, Steam level (FACEIT share held neutral: API terms).
  *                    Only counts once the player proved the Steam account is theirs (Sign in through Steam).
- *   peer        30%  ratings from players you shared a confirmed match with
+ *   peer        30%  👍/👎 votes on comms, teamplay, attitude and sportsmanship from players you shared a
+ *                    completed match with (plus older 1-5★ ratings from before votes existed)
  *   reliability 25%  accepting matches vs declining / abandoning queued teams
  *   record      10%  matches played on CleanLobby with an agreed result (COMPLETED)
  *
@@ -47,27 +48,51 @@ function identityPart(ext, now) {
 }
 
 // ---------- peer ratings ----------
+export const ASPECTS = ["comms", "teamplay", "attitude", "sportsmanship"];
 function peerPart(playerId, now) {
   const rows = db.prepare(`
     SELECT r.rating, r.created_at, r.from_player_id, p.trust_score AS rater_trust, p.created_at AS rater_created
     FROM trust_ratings r JOIN players p ON p.id=r.from_player_id
     WHERE r.to_player_id=?`).all(playerId);
-  const PRIOR = 3, PRIOR_WEIGHT = 3;               // shrink toward a neutral 3/5 until enough ratings exist
+  // Everything is on a 0-1 scale (1★ = 0, 5★ = 1; 👎 = 0, 👍 = 1), shrunk toward a neutral 0.5 until enough exists.
+  const PRIOR = 0.5, PRIOR_WEIGHT = 3;
+  const sharedMatches = (fromId) => db.prepare(`SELECT COUNT(*) c FROM matches m
+      JOIN team_members a ON a.team_id IN (m.team_a_id,m.team_b_id) AND a.player_id=?
+      JOIN team_members b ON b.team_id=a.team_id AND b.player_id=?
+      WHERE m.status='COMPLETED'`).get(fromId, playerId).c;
+  // Raters count more with higher trust and older accounts (brand-new accounts still count 30%), recent ones more.
+  const raterWeight = (trust, created, at) => clamp01((trust ?? 50) / 100) * (0.3 + 0.7 * clamp01(((now - parseTs(created)) / DAY || 0) / 30)) * decay(now - at, 90);
   let sum = 0, wsum = 0;
+  // 👍/👎 votes: one voter's card for one match counts as one rating, split across the aspects they voted on.
+  const votes = db.prepare(`SELECT v.match_id, v.from_player_id, v.aspect, v.vote, v.created_at, p.trust_score AS rater_trust, p.created_at AS rater_created
+    FROM player_votes v JOIN players p ON p.id=v.from_player_id WHERE v.to_player_id=?`).all(playerId);
+  const cards = new Map(), aspects = Object.fromEntries(ASPECTS.map(a => [a, { up: 0, down: 0 }]));
+  for (const v of votes) {
+    const k = v.match_id + ":" + v.from_player_id;
+    if (!cards.has(k)) cards.set(k, []);
+    cards.get(k).push(v);
+    aspects[v.aspect][v.vote > 0 ? "up" : "down"]++;
+  }
+  const damp = new Map();
+  for (const card of cards.values()) {
+    const f = card[0];
+    if (!damp.has(f.from_player_id)) damp.set(f.from_player_id, sharedMatches(f.from_player_id) >= 3 ? 0.5 : 1);
+    const w = raterWeight(f.rater_trust, f.rater_created, f.created_at) * damp.get(f.from_player_id) / card.length;
+    for (const v of card) { sum += w * (v.vote > 0 ? 1 : 0); wsum += w; }
+  }
+  // Older 1-5★ ratings (before votes) still count.
   for (const r of rows) {
     const raterAgeDays = (now - parseTs(r.rater_created)) / DAY;
     // Raters count more with higher trust and older accounts (brand-new accounts still count 30%).
-    let w = clamp01((r.rater_trust ?? 50) / 100) * (0.3 + 0.7 * clamp01((raterAgeDays || 0) / 30)) * decay(now - parseTs(r.created_at), 90);
+    let w = raterWeight(r.rater_trust, r.rater_created, parseTs(r.created_at));
     // Same group repeatedly vouching for each other counts less.
-    const shared = db.prepare(`SELECT COUNT(*) c FROM matches m
-      JOIN team_members a ON a.team_id IN (m.team_a_id,m.team_b_id) AND a.player_id=?
-      JOIN team_members b ON b.team_id=a.team_id AND b.player_id=?
-      WHERE m.status='COMPLETED'`).get(r.from_player_id, playerId).c;
-    if (shared >= 3) w *= 0.5;
-    sum += w * r.rating; wsum += w;
+    if (sharedMatches(r.from_player_id) >= 3) w *= 0.5;
+    sum += w * (r.rating - 1) / 4; wsum += w;
   }
   const mean = (sum + PRIOR * PRIOR_WEIGHT) / (wsum + PRIOR_WEIGHT);
-  return { score: 100 * (mean - 1) / 4, count: rows.length, avg: rows.length ? rows.reduce((a, r) => a + r.rating, 0) / rows.length : null };
+  const up = votes.filter(v => v.vote > 0).length;
+  return { score: 100 * mean, count: rows.length + cards.size, votes: votes.length, positive: votes.length ? Math.round(100 * up / votes.length) : null,
+    aspects, avg: rows.length ? rows.reduce((a, r) => a + r.rating, 0) / rows.length : null };
 }
 
 // ---------- reliability + record ----------
@@ -130,7 +155,7 @@ export function computeTrust(playerId, now = Date.now()) {
     total, confidence, flags, capped: cap < 100 && raw - penalty > cap,
     parts: {
       identity:    { score: Math.round(identity.score), weight: WEIGHTS.identity, notes: identity.notes },
-      peer:        { score: Math.round(peer.score), weight: WEIGHTS.peer, ratings: peer.count, avg: peer.avg && Math.round(peer.avg * 10) / 10 },
+      peer:        { score: Math.round(peer.score), weight: WEIGHTS.peer, ratings: peer.count, votes: peer.votes, positive: peer.positive, aspects: peer.aspects, avg: peer.avg && Math.round(peer.avg * 10) / 10 },
       reliability: { score: Math.round(reliability.score), weight: WEIGHTS.reliability, incidents: reliability.bad },
       record:      { score: Math.round(record.score), weight: WEIGHTS.record, matches: played }
     }

@@ -278,16 +278,25 @@ const Stack5 = (() => {
   }
 
   const CONFIDENCE={NEW:['New player','Not much data yet — this score will settle as they play.'],BUILDING:['Building','Some history on record.'],ESTABLISHED:['Established','Backed by solid history.']};
-  const PART_LABELS={identity:['Identity','Steam account history'],peer:['Peer reputation','Ratings from players they actually played with'],reliability:['Reliability','Accepting matches, not abandoning teams'],record:['Track record','Confirmed matches on CleanLobby']};
+  const PART_LABELS={identity:['Identity','Steam account history'],peer:['Peer reputation','👍/👎 votes from players they actually played with'],reliability:['Reliability','Accepting matches, not abandoning teams'],record:['Track record','Confirmed matches on CleanLobby']};
 
+  // Votes after a match (👍/👎). Teammates: comms, teamplay, attitude. Opponents: attitude, sportsmanship.
+  const ASPECT_INFO={comms:['🎙️','Comms'],teamplay:['🤝','Teamplay'],attitude:['😇','Attitude'],sportsmanship:['🏳️','Sportsmanship']};
+  const TEAMMATE_ASPECTS=['comms','teamplay','attitude'], OPPONENT_ASPECTS=['attitude','sportsmanship'];
+  function aspectSummary(aspects){
+    const rows=Object.entries(aspects||{}).filter(([,v])=>v.up+v.down>0);
+    if(!rows.length) return '';
+    return `<div class="aspect-row">${rows.map(([k,v])=>{ const [i,n]=ASPECT_INFO[k]||['',k], pct=Math.round(100*v.up/(v.up+v.down));
+      return `<span class="aspect-chip" title="${v.up} 👍 · ${v.down} 👎"><span>${i} ${n}</span><b style="color:${pct>=70?'var(--ok)':pct>=50?'#f2c94c':'var(--danger)'}">${pct}% 👍</b><small>${v.up+v.down}</small></span>`; }).join('')}</div>`;
+  }
   // What a score means. 60+ is good; new players with a solid Steam account usually start around 65.
   const TRUST_BANDS=[[75,'Excellent','var(--ok)'],[60,'Good','var(--ok)'],[40,'Fair','#f2c94c'],[0,'Low','var(--danger)']];
   const trustBand=n=>TRUST_BANDS.find(([min])=>n>=min);
   // The most useful next steps for this score, from its weakest parts.
   function trustTips(t){
     const p=t.parts, tips=[];
-    if((p.peer.ratings||0)<5) tips.push('<strong>Finish matches and get rated.</strong> Ratings from the players you played with are 30% of the score. After each match, rate everyone: they can rate you back.');
-    else if(p.peer.score<60) tips.push('<strong>Ratings are below average.</strong> Communicate, play your role and stay to the end: each new match brings new ratings, and older ones fade after a few months.');
+    if((p.peer.ratings||0)<5) tips.push('<strong>Finish matches and collect votes.</strong> 👍/👎 votes from the players you played with are 30% of the score. After each match, vote on everyone: they vote on you too.');
+    else if(p.peer.score<60) tips.push(`<strong>Votes are below average.</strong> ${(()=>{ const w=Object.entries(p.peer.aspects||{}).filter(([,v])=>v.up+v.down>=3).sort((a,b)=>a[1].up/(a[1].up+a[1].down)-b[1].up/(b[1].up+b[1].down))[0]; return w?`Your weakest point is ${ASPECT_INFO[w[0]][1].toLowerCase()}. `:''; })()}Each new match brings new votes, and older ones fade after a few months.`);
     if(p.reliability.incidents>0) tips.push('<strong>Stay reliable.</strong> Accept matches within 5 minutes, don’t decline, and don’t leave a team that’s in the queue. Incidents fade after about 3 months.');
     if((p.record.matches||0)<30) tips.push(`<strong>Play more matches to the end.</strong> Each match with an agreed score adds to your track record (${p.record.matches||0} so far, full at 30).`);
     if((p.identity.notes||[]).some(n=>/private|hidden|not verified/i.test(n))) tips.push('<strong>Make your Steam profile and game details public</strong> so your account age and CS2 hours count fully.');
@@ -298,7 +307,7 @@ const Stack5 = (() => {
     const [,bandName,color]=trustBand(t.total);
     const part=(key)=>{
       const v=t.parts[key], [label,desc]=PART_LABELS[key];
-      const detail=key==='identity'?(v.notes||[]).join(' · '):key==='peer'?(v.ratings?`${v.ratings} rating${v.ratings>1?'s':''}, avg ${v.avg}★`:'No ratings yet'):key==='reliability'?(v.incidents?`${v.incidents} recent incident(s)`:'No incidents'):`${v.matches} match${v.matches===1?'':'es'}`;
+      const detail=key==='identity'?(v.notes||[]).join(' · '):key==='peer'?(v.votes?`${v.votes} vote${v.votes>1?'s':''} · ${v.positive}% 👍`:v.ratings?`${v.ratings} rating${v.ratings>1?'s':''}`:'No votes yet'):key==='reliability'?(v.incidents?`${v.incidents} recent incident(s)`:'No incidents'):`${v.matches} match${v.matches===1?'':'es'}`;
       return `<div class="trust-part">
         <div class="trust-part-head"><span><strong>${label}</strong> <span class="muted small">${Math.round(v.weight*100)}%</span></span><strong>${v.score}</strong></div>
         <div class="bar"><span style="width:${Math.max(2,v.score)}%"></span></div>
@@ -312,6 +321,7 @@ const Stack5 = (() => {
       </div>
       ${t.flags?.length?`<div class="trust-flags">${t.flags.map(f=>`<div>⚠️ ${esc(f)}</div>`).join('')}</div>`:''}
       <div class="trust-parts">${['identity','peer','reliability','record'].map(part).join('')}</div>
+      ${aspectSummary(t.parts.peer.aspects)}
       ${trustTips(t).length?`<div class="trust-tips"><strong class="small">How to raise it</strong><ul>${trustTips(t).map(x=>`<li>${x}</li>`).join('')}</ul></div>`:''}
       <p class="muted small" style="margin:14px 0 0">CleanLobby is a reputation layer, not an anti-cheat. <a href="/guide#trust-score" style="color:var(--accent)">How the Trust Score works</a></p>
     </div>`;
@@ -349,7 +359,7 @@ const Stack5 = (() => {
     const swap=[
       ['Drop eggs','Drop the cheaters','var(--tier-red)','Every player signs in through Steam and must pass the bar: account at least 2 years old, 500+ hours of CS2, no recent VAC or game ban.'],
       ['Hatch them','Match them','var(--tier-blue)','Only complete 5-stacks, only against other complete 5-stacks close enough for good ping, with a similar Premier rating. Played on Valve servers through CS2 Private Matchmaking.'],
-      ['Feed them','Rate them','var(--tier-purple)','After the match, players rate each other. Ratings, reliability and match record build a public Trust Score that follows you.']
+      ['Feed them','Rate them','var(--tier-purple)','After the match, players vote 👍/👎 on each other’s comms, teamplay, attitude and sportsmanship. Votes, reliability and match record build a public Trust Score that follows you.']
     ];
     const steps=[
       ['Sign in with Steam','On Steam’s own website, then pick a username.'],
@@ -500,8 +510,8 @@ const Stack5 = (() => {
     ['6-searching',705,667,'Searching for an opponent','CleanLobby looks for another full team close enough for good ping (their players’ countries within about 2,500 km of yours) with a similar Premier rating. This runs every 30 seconds. After 2 hours without a match, your team leaves the queue.'],
     ['7-match-found',1061,594,'Match found: captains accept','Both captains have <strong>5 minutes</strong> to accept. Declining or letting the time run out counts against the captain’s reliability.'],
     ['8-match-room',1061,1088,'Play through CS2 Private Matchmaking','Each captain invites their 4 teammates to a <strong>CS2 party</strong> (use the Steam buttons). One captain creates a <em>Private Matchmaking Pool</em> in CS2 and pastes the code here. The other captain enters it with <em>Manually Enter a Code</em>. Both parties press <strong>GO</strong>. Optional: a captain can share a Discord voice channel that only their own team sees.'],
-    ['9-result-and-ratings',1061,570,'Report the score, then rate everyone','After the game, both captains report the score. When they match, the result is final and everyone can rate the players they played with, teammates and opponents. Different scores go to an admin.'],
-    ['10-trust-score',1061,433,'Build your Trust Score','Your Trust Score (0–100) combines your Steam history, ratings from people you played with, reliability and matches played. It’s public on your profile and helps teams decide who to play with. <strong>60 and above is good.</strong> See <a href="#trust-score">how it works and how to raise it</a>.']
+    ['9-result-and-ratings',1061,934,'Report the score, then vote','After the game, both captains report the score. When they match, the result is final and everyone has <strong>48 hours</strong> to vote 👍 or 👎 on the players they played with: teammates on comms, teamplay and attitude, opponents on attitude and sportsmanship. Skill isn’t voted on: that’s your Premier rating. Different scores go to an admin.'],
+    ['10-trust-score',1061,454,'Build your Trust Score','Your Trust Score (0–100) combines your Steam history, 👍/👎 votes from people you played with, reliability and matches played. Your profile also shows the % of 👍 for each aspect. It’s public on your profile and helps teams decide who to play with. <strong>60 and above is good.</strong> See <a href="#trust-score">how it works and how to raise it</a>.']
   ];
   const GUIDE_FAQ=[
     ['Is signing in with Steam safe?','Yes. You sign in on steamcommunity.com, never on CleanLobby. We only receive your public SteamID. CleanLobby will never ask for your Steam Guard code, an API key or your trade link. If a page asks for those, it isn’t us.'],
@@ -510,7 +520,7 @@ const Stack5 = (() => {
     ['Does a CleanLobby match change my CS Rating?','No. CS2 Private Matchmaking is unrated in CS2. CleanLobby keeps its own results and Trust Score.'],
     ['What if the other team doesn’t show up, or the captains disagree?','If only one captain reports a score within 6 hours, that score counts. If the scores don’t match, an admin decides. You can also <a href="/contact">contact us</a> with details.'],
     ['What is a good Trust Score?','<strong>60 and above is good</strong>, 75 and above is excellent. 40–59 is fair, under 40 is low. A new player with a solid Steam account usually starts around 65. A VAC or game ban in the last 2 years caps the score at 20. <a href="#trust-score">How it’s calculated</a>.'],
-    ['How do I raise my Trust Score?','Play matches to the end, report the score, and rate everyone you played with after each match: ratings from other players are 30% of the score. Accept matches in time and don’t leave a queued team. Your profile shows tips for your own score. <a href="#trust-score">Details</a>.'],
+    ['How do I raise my Trust Score?','Play matches to the end, report the score, and vote on everyone you played with after each match: 👍/👎 votes from other players are 30% of the score. Accept matches in time and don’t leave a queued team. Your profile shows tips for your own score. <a href="#trust-score">Details</a>.'],
     ['How do I report a cheater?','Use the <a href="/contact">Contact page</a> (topic: Report a player) with their CleanLobby name and the match. CleanLobby is a reputation layer, not an anti-cheat.']
   ];
   function guidePage(){
@@ -532,7 +542,7 @@ const Stack5 = (() => {
         <table class="trust-table">
           <tr><th>Part</th><th>Weight</th><th>What counts</th><th>How to raise it</th></tr>
           <tr><td><strong>Identity</strong></td><td>35%</td><td>Your Steam account: age (full at 6 years), CS2 hours (full at 2,000 h), Steam level (full at 25). Only counts once you signed in through Steam.</td><td>Keep your Steam profile and game details public. It grows by itself as your account ages.</td></tr>
-          <tr><td><strong>Peer reputation</strong></td><td>30%</td><td>1–5★ ratings from teammates and opponents after matches. Ratings from trusted, older accounts count more. Ratings fade after a few months. The same small group rating each other again and again counts less.</td><td>Play well with others: communicate, play your role, stay to the end. Rate everyone after each match, so they rate you back.</td></tr>
+          <tr><td><strong>Peer reputation</strong></td><td>30%</td><td>👍/👎 votes after each match, for 48 hours. Teammates vote on <strong>comms</strong>, <strong>teamplay</strong> and <strong>attitude</strong>; opponents on <strong>attitude</strong> and <strong>sportsmanship</strong>. Skill isn’t voted on (that’s the Premier rating). Votes from trusted, older accounts count more, they fade after a few months, and the same small group voting for each other again and again counts less. Your profile shows the % of 👍 per aspect.</td><td>Communicate, play your role, stay respectful and stay to the end. Vote on everyone after each match: they vote on you too.</td></tr>
           <tr><td><strong>Reliability</strong></td><td>25%</td><td>Showing up. Declining a match, letting it expire, or leaving a team that’s in the queue count against you. Incidents fade after about 3 months. New players start at 80.</td><td>Accept matches within 5 minutes and don’t leave a queued team.</td></tr>
           <tr><td><strong>Track record</strong></td><td>10%</td><td>Matches you played to the end with an agreed score (full at 30 matches).</td><td>Play matches through and make sure your captain reports the score.</td></tr>
         </table>
@@ -744,21 +754,21 @@ const Stack5 = (() => {
     const mine=iAmA?m.team_a:m.team_b, other=iAmA?m.team_b:m.team_a;
     const myAccepted=iAmA?m.accepted_a:m.accepted_b;
     const isCaptain=mine && mine.captain_id===d.player.id;
-    const rated=new Set(m.rated||[]);
+    const myVotes=m.my_votes||{};
     // Scores are stored team A first; show them from this player's side.
     const mySide=([a,b])=>iAmA?[a,b]:[b,a];
     const parse=r=>{ const x=/^(\d+)-(\d+)$/.exec(r||''); return x?[Number(x[1]),Number(x[2])]:null; };
     const myReport=parse(iAmA?m.report_a:m.report_b), theirReport=parse(iAmA?m.report_b:m.report_a);
 
     const teamHead=t=>`<h3>${flags(mostCommon(t?.members,'country'),sharedLangs(t?.members))} ${esc(t?.name)}</h3>`;
-    const roster=(t,rate)=>(t?.members||[]).map(p=>`
+    const roster=(t,vote)=>(t?.members||[]).map(p=>`
       <div class="row">
         <div>${flags(p.country,langsOf(p))} ${playerLink(p)}<div class="muted small">${premier(p.premier_rating)} · ${esc(p.role||'—')}${t.captain_id===p.id?' · Captain':''}</div></div>
         <div class="row-actions">
           ${realSteam(p)?`<a class="btn btn-small btn-outline" href="${esc(p.steam_url)}" target="_blank" rel="noopener">Steam</a>`:''}
-          ${rate && p.id!==d.player.id?`<select class="rate-select" data-player="${p.id}" style="width:auto;padding:6px"><option value="5">5 ★</option><option value="4">4 ★</option><option value="3">3 ★</option><option value="2">2 ★</option><option value="1">1 ★</option></select>
-          ${btn(rated.has(p.id)?'Rated ✓ · change':'Rate','rate',rated.has(p.id)?'btn-outline':'btn-dark',{id:p.id})}`:''}
         </div>
+        ${vote && p.id!==d.player.id?`<div class="votes">${(t.id===m.my_team_id?TEAMMATE_ASPECTS:OPPONENT_ASPECTS).map(a=>{ const v=myVotes[p.id]?.[a], [i,n]=ASPECT_INFO[a];
+          return `<span class="vote"><span class="vote-label">${i} ${n}</span><button class="vbtn${v===1?' on-up':''}" data-act="vote" data-id="${m.id}" data-arg="${p.id}:${a}:${v===1?0:1}" aria-label="${n} thumbs up for ${esc(p.display_name)}" aria-pressed="${v===1}">👍</button><button class="vbtn${v===-1?' on-down':''}" data-act="vote" data-id="${m.id}" data-arg="${p.id}:${a}:${v===-1?0:-1}" aria-label="${n} thumbs down for ${esc(p.display_name)}" aria-pressed="${v===-1}">👎</button></span>`; }).join('')}</div>`:''}
       </div>`).join('');
     const reportForm=label=>`<form data-form="report" data-id="${m.id}" class="score-form">
         <label><span class="muted small">${esc(mine?.name)}</span><input class="input" name="my_score" type="number" inputmode="numeric" min="0" max="60" placeholder="13" required></label>
@@ -801,7 +811,7 @@ const Stack5 = (() => {
         body+=`<h3 style="margin:18px 0 6px">After the game: report the score</h3>`
           +(myReport?`<p>You reported <strong>${myReport[0]}–${myReport[1]}</strong>. ${theirReport?'':'Waiting for the other captain.'}</p><details class="muted small"><summary>Change your report</summary>${reportForm('Update')}</details>`:reportForm('Report result'))+deadline;
       } else {
-        body+=`<p class="muted" style="margin-top:16px">After the game, your captain reports the score. Then you can rate everyone you played with: ratings are 30% of the Trust Score.</p>`;
+        body+=`<p class="muted" style="margin-top:16px">After the game, your captain reports the score. Then you can vote 👍/👎 on everyone you played with (48 hours): votes are 30% of the Trust Score.</p>`;
       }
     } else if(m.status==='DISPUTED'){
       head=`<div class="eyebrow" style="color:#ffb3b9">RESULT DISPUTED</div><h2 style="margin-top:8px">${esc(mine?.name)} vs ${esc(other?.name)}</h2>
@@ -811,12 +821,13 @@ const Stack5 = (() => {
       const [me,them]=mySide([m.score_a,m.score_b]);
       head=`<div class="eyebrow">MATCH FINISHED</div>
         <h2 style="margin-top:8px">${esc(mine?.name)} <span class="score">${me} – ${them}</span> ${esc(other?.name)}</h2>
-        <p class="muted">${me>them?'🏆 Your team won.':me<them?'Your team lost.':'Draw.'} Rate the players you played with, teammates and opponents. Ratings are 30% of everyone’s Trust Score, and they can rate you back. <a href="/guide#trust-score" style="color:var(--accent)">How it works</a></p>`;
+        <p class="muted">${me>them?'🏆 Your team won.':me<them?'Your team lost.':'Draw.'} Vote 👍 or 👎 on the players you played with: teammates on comms, teamplay and attitude, opponents on attitude and sportsmanship. Votes are 30% of everyone’s Trust Score, and they vote on you too. <a href="/guide#trust-score" style="color:var(--accent)">How it works</a></p>
+        <div class="actions" style="margin-top:10px">${btn('👍 Everyone I haven’t voted on','votes-all-up','btn-green',{id:m.id})}<span class="muted small" style="align-self:center">⏳ Voting closes in ${countdown(m.vote_deadline)}. You can change any vote until then.</span></div>`;
     } else if(m.status==='NO_RESULT'){
       head=`<div class="eyebrow">MATCH CLOSED</div><h2 style="margin-top:8px">${esc(mine?.name)} vs ${esc(other?.name)}</h2>
         <p class="muted">No result was reported in time, so this match doesn't count for anyone.</p>`;
     }
-    const canRate=m.status==='COMPLETED';
+    const canRate=m.status==='COMPLETED' && (!m.vote_deadline || m.vote_deadline>Date.now());
     return `<div class="panel match-panel">${head}
       <div class="versus">
         <div>${teamHead(mine)}${roster(mine,canRate)}</div>
@@ -971,11 +982,12 @@ const Stack5 = (() => {
       catch{ const t=document.createElement('textarea'); t.value=code; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
       return {message:'Code copied. Paste it in CS2: Private Matchmaking → Manually Enter a Code.', keep:true};
     },
-    'rate': async id=>{
-      const rating=Number(document.querySelector(`.rate-select[data-player="${id}"]`).value);
-      await post('/api/trust',{to_player_id:Number(id),rating});
-      return {message:'Rating saved.', keep:true};
-    }
+    'vote': async (id,arg)=>{
+      const [to,aspect,vote]=String(arg).split(':');
+      await post(`/api/matches/${id}/votes`,{to_player_id:Number(to),aspect,vote:Number(vote)});
+      return {};   // re-render to show the vote
+    },
+    'votes-all-up': id=>post(`/api/matches/${id}/votes/all-up`,{})
   };
 
   async function onAction(e){

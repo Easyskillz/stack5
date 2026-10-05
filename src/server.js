@@ -593,16 +593,58 @@ app.post("/api/matchmaking/run", auth, adminRequired, csrf, (_,res)=>res.json({m
 app.get("/api/matches/:id", (req,res)=>{const m=db.prepare("SELECT * FROM matches WHERE id=?").get(req.params.id);if(!m)return res.status(404).json({error:"Match not found"});res.json({...publicMatch(m),team_a:getTeam(m.team_a_id),team_b:getTeam(m.team_b_id)});});
 app.post("/api/matches/:id/accept", auth, csrf, profileRequired, (req,res)=>{if(!requireBody(req,res,["team_id"]))return;const m=db.prepare("SELECT * FROM matches WHERE id=?").get(req.params.id);if(!m)return res.status(404).json({error:"Match not found"});if(m.status!=="PENDING")return res.status(409).json({error:"This match is no longer pending."});const teamId=Number(req.body.team_id);const team=getTeam(teamId);if(!team||team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain of the matched team can accept"});if(teamId===m.team_a_id)db.prepare("UPDATE matches SET accepted_a=1 WHERE id=?").run(m.id);else if(teamId===m.team_b_id)db.prepare("UPDATE matches SET accepted_b=1 WHERE id=?").run(m.id);else return res.status(403).json({error:"Team is not part of this match"});const updated=db.prepare("SELECT * FROM matches WHERE id=?").get(m.id);if(updated.accepted_a&&updated.accepted_b){db.prepare("UPDATE matches SET status='CONFIRMED', confirmed_at=? WHERE id=?").run(Date.now(),m.id);db.prepare("UPDATE teams SET status='MATCH_CONFIRMED' WHERE id IN (?,?)").run(m.team_a_id,m.team_b_id);for(const p of [...getTeamMembers(m.team_a_id),...getTeamMembers(m.team_b_id)])computeTrust(p.id);}res.json(db.prepare("SELECT * FROM matches WHERE id=?").get(m.id));});
 
-// True if both players were on either side of the same confirmed match.
-function playedTogether(aId, bId) {
-  return !!db.prepare(`
-    SELECT 1 FROM matches m
-    JOIN team_members x ON x.team_id IN (m.team_a_id, m.team_b_id) AND x.player_id=?
-    JOIN team_members y ON y.team_id IN (m.team_a_id, m.team_b_id) AND y.player_id=?
-    WHERE m.status='COMPLETED' LIMIT 1`).get(aId, bId);
+// ---- Votes after a match: 👍/👎 per aspect. Teammates judge comms, teamplay and attitude; opponents judge attitude
+// and sportsmanship. Open for VOTE_HOURS after the result; changeable until then. Skill is left to the stats.
+const VOTE_HOURS = 48;
+const TEAMMATE_ASPECTS = ["comms","teamplay","attitude"], OPPONENT_ASPECTS = ["attitude","sportsmanship"];
+function voteContext(matchId, voterId) {
+  const m = db.prepare("SELECT * FROM matches WHERE id=?").get(matchId);
+  if (!m) return { error: "Match not found.", status: 404 };
+  if (m.status !== "COMPLETED") return { error: "You can vote once the match has a result.", status: 409 };
+  if (Date.now() - m.completed_at > VOTE_HOURS * 3600_000) return { error: `Voting closed ${VOTE_HOURS} hours after the result.`, status: 409 };
+  const teamOf = pid => db.prepare("SELECT team_id FROM team_members WHERE player_id=? AND team_id IN (?,?)").get(pid, m.team_a_id, m.team_b_id)?.team_id;
+  const myTeam = teamOf(voterId);
+  if (!myTeam) return { error: "You didn't play in this match.", status: 403 };
+  return { m, myTeam, teamOf };
 }
+const aspectsFor = (myTeam, theirTeam) => myTeam === theirTeam ? TEAMMATE_ASPECTS : OPPONENT_ASPECTS;
+function saveVote(matchId, from, to, aspect, vote) {
+  if (vote === 0) db.prepare("DELETE FROM player_votes WHERE match_id=? AND from_player_id=? AND to_player_id=? AND aspect=?").run(matchId, from, to, aspect);
+  else db.prepare(`INSERT INTO player_votes(match_id,from_player_id,to_player_id,aspect,vote,created_at) VALUES(?,?,?,?,?,?)
+    ON CONFLICT(match_id,from_player_id,to_player_id,aspect) DO UPDATE SET vote=excluded.vote, created_at=excluded.created_at`).run(matchId, from, to, aspect, vote, Date.now());
+}
+app.post("/api/matches/:id/votes", auth, csrf, profileRequired, (req, res) => {
+  const me = req.account.player_id, to = Number(req.body.to_player_id), aspect = String(req.body.aspect || ""), vote = Number(req.body.vote);
+  if (![1, -1, 0].includes(vote)) return res.status(400).json({ error: "Vote must be 👍 or 👎." });
+  if (to === me) return res.status(400).json({ error: "You can't vote for yourself." });
+  const c = voteContext(Number(req.params.id), me);
+  if (c.error) return res.status(c.status).json({ error: c.error });
+  const theirTeam = c.teamOf(to);
+  if (!theirTeam) return res.status(403).json({ error: "That player wasn't in this match." });
+  if (!aspectsFor(c.myTeam, theirTeam).includes(aspect)) return res.status(400).json({ error: "You can't vote on that for this player." });
+  saveVote(c.m.id, me, to, aspect, vote);
+  computeTrust(to);
+  res.json({ ok: true, keep: true });
+});
+// "👍 everyone": a thumbs-up on every aspect you haven't voted on yet, for every player in the match.
+app.post("/api/matches/:id/votes/all-up", auth, csrf, profileRequired, (req, res) => {
+  const me = req.account.player_id;
+  const c = voteContext(Number(req.params.id), me);
+  if (c.error) return res.status(c.status).json({ error: c.error });
+  const players = db.prepare("SELECT player_id, team_id FROM team_members WHERE team_id IN (?,?) AND player_id<>?").all(c.m.team_a_id, c.m.team_b_id, me);
+  let n = 0;
+  db.transaction(() => {
+    for (const p of players) for (const aspect of aspectsFor(c.myTeam, p.team_id)) {
+      const had = db.prepare("SELECT 1 FROM player_votes WHERE match_id=? AND from_player_id=? AND to_player_id=? AND aspect=?").get(c.m.id, me, p.player_id, aspect);
+      if (!had) { saveVote(c.m.id, me, p.player_id, aspect, 1); n++; }
+    }
+  })();
+  for (const p of players) computeTrust(p.player_id);
+  res.json({ ok: true, message: n ? `${n} 👍 added. Change any of them until voting closes.` : "You've already voted on everyone." });
+});
 
-app.post("/api/trust", auth, csrf, profileRequired, (req,res)=>{if(!requireBody(req,res,["to_player_id","rating"]))return;const rating=Math.max(1,Math.min(5,Math.round(Number(req.body.rating))||0));req.body.to_player_id=Number(req.body.to_player_id);if(req.body.to_player_id===req.account.player_id)return res.status(400).json({error:"You cannot rate yourself"});if(!playedTogether(req.account.player_id,req.body.to_player_id))return res.status(403).json({error:"You can rate players once a match you played together has a result."});db.prepare(`INSERT INTO trust_ratings(from_player_id,to_player_id,rating,tags) VALUES(?,?,?,?) ON CONFLICT(from_player_id,to_player_id) DO UPDATE SET rating=excluded.rating,tags=excluded.tags`).run(req.account.player_id,req.body.to_player_id,rating,req.body.tags||"");const t=computeTrust(req.body.to_player_id);res.json({ok:true,trust_score:t?.total});});
+// Replaced by the votes above; kept so old pages get a clear answer.
+app.post("/api/trust", auth, csrf, profileRequired, (req,res)=>res.status(410).json({ error: "Star ratings were replaced by 👍/👎 votes. Reload the page." }));
 
 
 // ---- Join requests: a player asks to join an OPEN team; the captain accepts or declines.
@@ -793,19 +835,21 @@ app.get("/api/my/dashboard", auth, (req,res)=>{
     out.joinRequests=db.prepare(`SELECT r.id,p.id AS player_id,p.display_name,p.premier_rating,p.languages,p.role,p.country,p.region,p.trust_score
       FROM team_join_requests r JOIN players p ON p.id=r.player_id WHERE r.team_id=? AND r.status='PENDING' ORDER BY r.id`).all(out.team.id);
   }
-  // Latest match the player is in: pending, live or disputed, or one that ended in the last 24 hours
-  // (so they can see the result and rate the players).
+  // Latest match the player is in: pending, live or disputed, or one that ended within the voting window
+  // (so they can see the result and vote).
   const teamIds=db.prepare("SELECT team_id FROM team_members WHERE player_id=?").all(pid).map(r=>r.team_id);
   if(teamIds.length){
     const ph=teamIds.map(()=>"?").join(",");
     const m=db.prepare(`SELECT * FROM matches WHERE (status IN ('PENDING','CONFIRMED','DISPUTED') OR (status IN ('COMPLETED','NO_RESULT') AND completed_at>?))
-      AND (team_a_id IN (${ph}) OR team_b_id IN (${ph})) ORDER BY id DESC LIMIT 1`).get(Date.now()-86_400_000,...teamIds,...teamIds);
+      AND (team_a_id IN (${ph}) OR team_b_id IN (${ph})) ORDER BY id DESC LIMIT 1`).get(Date.now()-VOTE_HOURS*3600_000,...teamIds,...teamIds);
     if(m){
       const myTeamId=teamIds.includes(m.team_a_id)?m.team_a_id:m.team_b_id;
       const others=db.prepare("SELECT player_id FROM team_members WHERE team_id IN (?,?) AND player_id<>?").all(m.team_a_id,m.team_b_id,pid).map(r=>r.player_id);
-      const rated=others.length ? db.prepare(`SELECT to_player_id id FROM trust_ratings WHERE from_player_id=? AND to_player_id IN (${others.map(()=>"?").join(",")})`).all(pid,...others).map(r=>r.id) : [];
+      // My votes in this match: { playerId: { aspect: 1|-1 } }
+      const my_votes={}; for(const v of db.prepare("SELECT to_player_id,aspect,vote FROM player_votes WHERE match_id=? AND from_player_id=?").all(m.id,pid)) (my_votes[v.to_player_id]??={})[v.aspect]=v.vote;
+      void others;
       const { voice_a, voice_b, ...shared }=m;   // each team only receives its own voice link
-      out.match={...shared, my_voice:myTeamId===m.team_a_id?voice_a:voice_b, my_team_id:myTeamId, expires_at:matchExpiresAt(m), result_deadline:resultDeadline(m), rated,
+      out.match={...shared, my_voice:myTeamId===m.team_a_id?voice_a:voice_b, my_team_id:myTeamId, expires_at:matchExpiresAt(m), result_deadline:resultDeadline(m), my_votes, vote_deadline:m.completed_at?m.completed_at+VOTE_HOURS*3600_000:null,
         team_a:getTeam(m.team_a_id), team_b:getTeam(m.team_b_id)};
     }
   }
@@ -1007,7 +1051,7 @@ app.get("/llms.txt",(_,res)=>res.type("text/plain").send(`# CleanLobby
 - To play, a Steam account must be at least 2 years old, have at least 500 hours of CS2 and no VAC or game ban in the last 2 years.
 - A captain creates a team and invites four players. Teammates pick each other by language (players list the languages they speak). Full teams queue and are matched with a team whose players' countries are close enough for good ping (up to about 2,500 km apart), at a similar CS2 Premier rating.
 - Matches are played on Valve servers through CS2 Private Matchmaking: one captain creates a private matchmaking pool and shares its code on CleanLobby, both 5-player parties join with that code.
-- After the game both captains report the score. Players then rate each other (1-5 stars), which feeds the Trust Score.
+- After the game both captains report the score. Players then have 48 hours to vote thumbs up or down on each other: teammates on communication, teamplay and attitude, opponents on attitude and sportsmanship. Votes feed the Trust Score; skill is left to the CS2 Premier rating.
 - CleanLobby is a reputation layer, not an anti-cheat.
 
 ## Pages

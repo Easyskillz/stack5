@@ -394,3 +394,16 @@ footer{border-top:1px solid #1c1c21;margin-top:70px;padding:30px 24px;color:#757
 .trust-table td{padding:10px 8px;border-bottom:1px solid #1c1c21;vertical-align:top;color:#d6d1c7;line-height:1.5}
 .trust-table td:nth-child(2){white-space:nowrap;font-weight:700;color:var(--accent)}
 @media(max-width:700px){.trust-table tr{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 0;border-bottom:1px solid #1c1c21}.trust-table th{display:none}.trust-table td{border:0;padding:2px 0}.trust-table td:nth-child(3),.trust-table td:nth-child(4){grid-column:1/-1}.trust-table td:nth-child(4)::before{content:"How to raise it: ";font-weight:700;color:var(--text)}}
+
+/* Votes after a match */
+.versus .row{flex-wrap:wrap}
+.votes{flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.vote{display:inline-flex;align-items:center;gap:2px;padding:2px 2px 2px 9px;border:1px solid var(--border);border-radius:999px;background:#141417}
+.vote-label{font-size:12px;color:#d6d1c7;margin-right:4px;white-space:nowrap}
+.vbtn{border:1px solid transparent;background:transparent;border-radius:999px;padding:3px 7px;font-size:14px;line-height:1;cursor:pointer;opacity:.45;filter:grayscale(1)}
+.vbtn:hover{opacity:.9;filter:none}
+.vbtn.on-up{opacity:1;filter:none;background:rgba(126,224,138,.15);border-color:rgba(126,224,138,.5)}
+.vbtn.on-down{opacity:1;filter:none;background:rgba(255,75,62,.15);border-color:rgba(255,75,62,.5)}
+.aspect-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.aspect-chip{display:inline-flex;align-items:baseline;gap:6px;padding:6px 10px;border:1px solid var(--border);border-radius:9px;background:#101013;font-size:13px;color:#d6d1c7}
+.aspect-chip b{font-weight:800}.aspect-chip small{color:var(--muted)}
