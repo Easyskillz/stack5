@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CleanLobby · We don't want eggs</title>
+<meta name="description" content="Concept landing page: We don't want eggs. We want a cheater-free game.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0c0c0e; --ink-2:#141417; --ink-3:#1c1c21; --line:#2a2a30;
+  --text:#f6f3ec; --muted:#a29e94;
+  --shell:#f4ecdc; --shell-2:#e6d9bf;
+  --yolk:#ffc53d; --yolk-deep:#ff9f1c;
+  --red:#ff4b3e; --ok:#7ee08a;
+  --display:"Anton",Impact,"Arial Narrow",sans-serif;
+  --body:"Inter",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:smooth}
+body{background:var(--ink);color:var(--text);font-family:var(--body);line-height:1.55;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+
+/* film grain + scattered eggshell pattern behind everything */
+body{position:relative}
+body::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;opacity:.07;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E")}
+.eggfield{position:absolute;inset:0;pointer-events:none;z-index:0;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg fill='none' stroke='%23f4ecdc' stroke-width='2'%3E%3Cpath d='M30 18c9 0 15 14 15 23s-7 15-15 15-15-6-15-15 6-23 15-23z'/%3E%3Cpath d='M17 30l26 22M43 30L17 52'/%3E%3Cpath d='M90 70c9 0 15 14 15 23s-7 15-15 15-15-6-15-15 6-23 15-23z'/%3E%3Cpath d='M77 82l26 22M103 82L77 104'/%3E%3C/g%3E%3C/svg%3E")}
+
+/* caution tape */
+.tape{position:relative;z-index:2;background:repeating-linear-gradient(-45deg,var(--yolk) 0 22px,#111 22px 44px);padding:6px 0;overflow:hidden}
+.tape-inner{background:var(--yolk);color:#111;font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:.14em;white-space:nowrap;padding:7px 0;display:flex}
+.tape-track{display:flex;gap:28px;padding-right:28px;animation:marquee 32s linear infinite}
+.tape-track span::after{content:"✕";margin-left:28px;color:var(--red)}
+@keyframes marquee{to{transform:translateX(-100%)}}
+
+header{position:relative;z-index:2;border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;gap:28px;height:70px}
+.logo{font-weight:800;font-size:24px;letter-spacing:-.05em}
+.logo span{color:var(--yolk)}
+.nav nav{display:flex;gap:22px;font-size:14px;color:var(--muted);font-weight:500}
+.nav nav a:hover{color:var(--text)}
+.nav .spacer{flex:1}
+.btn{display:inline-flex;align-items:center;gap:10px;font-weight:700;font-size:15px;border-radius:10px;padding:13px 20px;border:1px solid transparent;transition:transform .15s,background .15s}
+.btn:hover{transform:translateY(-2px)}
+.btn-yolk{background:var(--yolk);color:#111}
+.btn-yolk:hover{background:#ffd264}
+.btn-ghost{border-color:var(--line);color:var(--text);background:rgba(255,255,255,.02)}
+.btn-ghost:hover{border-color:#44444c}
+.btn-small{padding:9px 14px;font-size:13px}
+.steam{width:18px;height:18px}
+
+/* hero */
+.hero{position:relative;overflow:hidden;padding:84px 0 96px}
+.hero::after{content:"";position:absolute;width:760px;height:760px;right:-180px;top:-120px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,197,61,.16),transparent 62%);z-index:0}
+.hero-grid{position:relative;z-index:1;display:grid;grid-template-columns:1.15fr .85fr;gap:40px;align-items:center}
+.eyebrow{font-family:var(--mono);font-size:13px;letter-spacing:.16em;color:var(--yolk);font-weight:700;text-transform:uppercase}
+h1{font-family:var(--display);font-weight:400;text-transform:uppercase;line-height:.92;letter-spacing:.005em;margin-top:18px}
+h1 .no{display:block;font-size:clamp(34px,4.9vw,66px);color:var(--muted)}
+h1 .eggs{position:relative;color:var(--shell);white-space:nowrap}
+h1 .eggs::after{content:"";position:absolute;left:-4%;right:-4%;top:52%;height:.12em;background:var(--red);transform:rotate(-4deg) scaleX(0);transform-origin:left;animation:strike .6s .7s cubic-bezier(.7,0,.2,1) forwards;border-radius:4px}
+@keyframes strike{to{transform:rotate(-4deg) scaleX(1)}}
+h1 .want{display:block;font-size:clamp(58px,8.6vw,118px);color:var(--text);margin-top:10px}
+h1 .want em{font-style:normal;color:var(--yolk)}
+.lede{margin-top:26px;font-size:18px;color:#cfcac0;max-width:560px}
+.lede strong{color:var(--text)}
+.cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:32px}
+.fine{margin-top:18px;font-size:13px;color:var(--muted)}
+
+/* scope + egg illustration */
+.art{position:relative;aspect-ratio:1;max-width:460px;width:100%;justify-self:center}
+.art svg{width:100%;height:100%;overflow:visible}
+.ring{transform-origin:200px 200px;animation:spin 40s linear infinite}
+.ring-2{animation-duration:26s;animation-direction:reverse}
+@keyframes spin{to{transform:rotate(360deg)}}
+.egg{transform-origin:200px 350px;animation:wobble 3.2s ease-in-out infinite}
+@keyframes wobble{0%,60%,100%{transform:rotate(0)}66%{transform:rotate(-5deg)}74%{transform:rotate(4deg)}82%{transform:rotate(-2deg)}90%{transform:rotate(1deg)}}
+.stamp{position:absolute;right:-6px;bottom:52px;transform:rotate(-12deg);border:4px solid var(--red);color:var(--red);font-family:var(--display);font-size:30px;letter-spacing:.06em;padding:4px 14px;border-radius:8px;background:rgba(12,12,14,.7);animation:thump .5s 1.2s cubic-bezier(.3,1.6,.5,1) both}
+@keyframes thump{from{opacity:0;transform:rotate(-12deg) scale(2.2)}to{opacity:1;transform:rotate(-12deg) scale(1)}}
+.art .shard{position:absolute;width:26px;height:auto;opacity:.5;animation:drift 9s ease-in-out infinite}
+@keyframes drift{50%{transform:translateY(-16px) rotate(18deg)}}
+
+/* sections */
+section{position:relative;z-index:1}
+.sec{padding:96px 0;border-top:1px solid var(--line)}
+.sec-head{max-width:720px}
+h2{font-family:var(--display);font-weight:400;text-transform:uppercase;font-size:clamp(38px,5vw,64px);line-height:.95;margin-top:12px}
+h2 em{font-style:normal;color:var(--yolk)}
+.sec-head p{margin-top:16px;color:#cfcac0;font-size:17px}
+
+/* their update vs ours */
+.swap{display:grid;gap:14px;margin-top:44px}
+.row{display:grid;grid-template-columns:1fr 56px 1.5fr;align-items:stretch;gap:0}
+.theirs{background:var(--ink-2);border:1px dashed #3a3a40;border-radius:14px 0 0 14px;padding:22px 24px;display:flex;align-items:center;gap:16px}
+.theirs b{font-family:var(--display);font-weight:400;font-size:34px;text-transform:uppercase;color:#6d6a63;text-decoration:line-through;text-decoration-color:var(--red);text-decoration-thickness:4px}
+.theirs small{display:block;font-size:12px;color:#6d6a63;font-family:var(--mono);letter-spacing:.1em}
+.arrow{display:grid;place-items:center;background:var(--yolk);color:#111;font-weight:800;font-size:22px}
+.ours{background:var(--ink-3);border:1px solid var(--line);border-left:0;border-radius:0 14px 14px 0;padding:22px 26px}
+.ours b{font-family:var(--display);font-weight:400;font-size:34px;text-transform:uppercase;color:var(--yolk);letter-spacing:.01em}
+.ours p{color:#cfcac0;font-size:15px;margin-top:4px}
+
+/* patch notes + trust card */
+.split{display:grid;grid-template-columns:1.1fr .9fr;gap:28px;margin-top:44px;align-items:start}
+.notes{background:#0f0f12;border:1px solid var(--line);border-radius:16px;overflow:hidden;font-family:var(--mono);font-size:14px}
+.notes-top{display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid var(--line);background:var(--ink-2);color:var(--muted);font-size:12px;letter-spacing:.1em}
+.dot{width:10px;height:10px;border-radius:50%;background:#333}
+.dot:nth-child(1){background:var(--red)}.dot:nth-child(2){background:var(--yolk)}.dot:nth-child(3){background:var(--ok)}
+.notes ul{list-style:none;padding:20px 22px;display:grid;gap:14px}
+.notes li{display:grid;grid-template-columns:44px 1fr;gap:10px;color:#d9d4ca;line-height:1.5}
+.tag{font-weight:700;font-size:12px;text-align:center;border-radius:5px;padding:2px 0;height:fit-content}
+.t-rm{background:rgba(255,75,62,.15);color:var(--red)}
+.t-add{background:rgba(126,224,138,.13);color:var(--ok)}
+.t-fix{background:rgba(255,197,61,.14);color:var(--yolk)}
+.notes .muted{color:var(--muted)}
+
+.card{background:linear-gradient(160deg,#1b1b20,#121215);border:1px solid var(--line);border-radius:18px;padding:26px;position:relative;overflow:hidden}
+.card::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 100% 0,rgba(255,197,61,.14),transparent 50%)}
+.card>*{position:relative}
+.who{display:flex;align-items:center;gap:14px}
+.avatar{width:54px;height:54px;border-radius:12px;background:linear-gradient(135deg,#2c2c33,#1a1a1f);display:grid;place-items:center;font-weight:800;color:var(--yolk);border:1px solid var(--line)}
+.who h3{font-size:19px}
+.who small{color:var(--muted);font-size:13px}
+.badge{margin-left:auto;font-size:12px;font-weight:700;color:var(--ok);border:1px solid rgba(126,224,138,.35);border-radius:20px;padding:4px 10px;white-space:nowrap}
+.score{display:flex;align-items:baseline;gap:10px;margin:24px 0 6px}
+.score b{font-family:var(--display);font-weight:400;font-size:84px;line-height:1;color:var(--yolk)}
+.score span{color:var(--muted);font-size:14px}
+.bars{display:grid;gap:12px;margin-top:16px}
+.bar{display:grid;grid-template-columns:120px 1fr 34px;gap:12px;align-items:center;font-size:13px;color:#cfcac0}
+.bar i{height:8px;border-radius:8px;background:#2a2a30;position:relative;overflow:hidden}
+.bar i::after{content:"";position:absolute;inset:0;width:var(--v);background:linear-gradient(90deg,var(--yolk-deep),var(--yolk));border-radius:8px}
+.bar em{font-style:normal;text-align:right;color:var(--text);font-weight:600}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:22px}
+.facts div{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}
+.facts b{display:block;font-size:17px}
+.facts small{color:var(--muted);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+
+/* final CTA */
+.final{padding:110px 0;text-align:center;border-top:1px solid var(--line);overflow:hidden}
+.final h2{font-size:clamp(46px,7vw,96px)}
+.final p{color:#cfcac0;margin:18px auto 0;max-width:520px;font-size:17px}
+.final .cta{justify-content:center}
+.nest{display:flex;justify-content:center;gap:18px;margin-bottom:28px}
+.nest svg{width:46px;opacity:.9}
+.nest svg:nth-child(2){transform:translateY(-8px)}
+
+footer{border-top:1px solid var(--line);padding:28px 0;color:var(--muted);font-size:13px;position:relative;z-index:1}
+footer .wrap{display:flex;gap:18px;flex-wrap:wrap;justify-content:space-between}
+.concept{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--yolk);border:1px solid rgba(255,197,61,.4);border-radius:6px;padding:3px 8px}
+
+@media (max-width:900px){
+  .hero{padding:48px 0 64px}
+  .hero-grid,.split{grid-template-columns:1fr}
+  .art{max-width:320px;order:-1}
+  .nav nav{display:none}
+  .row{grid-template-columns:1fr;}
+  .theirs{border-radius:14px 14px 0 0}
+  .arrow{height:36px;transform:none}
+  .arrow span{display:inline-block;transform:rotate(90deg)}
+  .ours{border-left:1px solid var(--line);border-top:0;border-radius:0 0 14px 14px}
+  .sec{padding:64px 0}
+}
+@media (max-width:520px){
+  .wrap{padding:0 16px}
+  .nav .btn{display:none}
+  .lede{font-size:16px}
+  .bar{grid-template-columns:96px 1fr 30px}
+  .score b{font-size:68px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}h1 .eggs::after{transform:rotate(-4deg)}}
+</style>
+</head>
+<body>
+
+<div class="tape" aria-hidden="true"><div class="tape-inner">
+  <div class="tape-track"><span>NO EGGS</span><span>NO SPINBOTS</span><span>NO WALLHACKS</span><span>NO RAGE QUITS</span><span>VERIFIED 5-STACKS ONLY</span><span>JUST CS2</span></div>
+  <div class="tape-track"><span>NO EGGS</span><span>NO SPINBOTS</span><span>NO WALLHACKS</span><span>NO RAGE QUITS</span><span>VERIFIED 5-STACKS ONLY</span><span>JUST CS2</span></div>
+</div></div>
+
+<header><div class="wrap nav">
+  <a class="logo" href="#">Clean<span>Lobby</span></a>
+  <nav><a href="#swap">How it works</a><a href="#notes">Patch notes</a><a href="#">Teams</a><a href="#">Players</a></nav>
+  <div class="spacer"></div>
+  <a class="btn btn-yolk btn-small" href="#"><svg class="steam" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-9.96 9.2l5.36 2.2a2.8 2.8 0 0 1 1.6-.5h.15l2.38-3.45v-.05a3.77 3.77 0 1 1 3.77 3.77h-.09l-3.4 2.42v.13a2.83 2.83 0 0 1-5.6.56L2.4 14.7A10 10 0 1 0 12 2zm-4.2 15.2-1.23-.5a2.13 2.13 0 1 0 1.17-2.9l1.27.52a1.57 1.57 0 1 1-1.21 2.88zm9.48-7.83a2.51 2.51 0 1 0-2.51 2.51 2.51 2.51 0 0 0 2.5-2.51zm-4.4 0a1.89 1.89 0 1 1 1.89 1.89 1.89 1.89 0 0 1-1.89-1.89z"/></svg>Sign in</a>
+</div></header>
+
+<section class="hero">
+  <div class="eggfield"></div>
+  <div class="wrap hero-grid">
+    <div>
+      <div class="eyebrow">// The update we actually asked for</div>
+      <h1>
+        <span class="no">We don't want <span class="eggs">eggs.</span></span>
+        <span class="want">We want a <em>cheater-free</em> game.</span>
+      </h1>
+      <p class="lede">The new update lets you drop eggs, hatch them and feed them. Meanwhile there's still a spinbot on the other team. <strong>CleanLobby</strong> puts full 5-stacks of Steam-verified players against each other, and every player carries a public Trust Score.</p>
+      <div class="cta">
+        <a class="btn btn-yolk" href="#"><svg class="steam" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-9.96 9.2l5.36 2.2a2.8 2.8 0 0 1 1.6-.5h.15l2.38-3.45v-.05a3.77 3.77 0 1 1 3.77 3.77h-.09l-3.4 2.42v.13a2.83 2.83 0 0 1-5.6.56L2.4 14.7A10 10 0 1 0 12 2zm-4.2 15.2-1.23-.5a2.13 2.13 0 1 0 1.17-2.9l1.27.52a1.57 1.57 0 1 1-1.21 2.88zm9.48-7.83a2.51 2.51 0 1 0-2.51 2.51 2.51 2.51 0 0 0 2.5-2.51zm-4.4 0a1.89 1.89 0 1 1 1.89 1.89 1.89 1.89 0 0 1-1.89-1.89z"/></svg>Find a trusted five</a>
+        <a class="btn btn-ghost" href="#swap">How it works</a>
+      </div>
+      <p class="fine">Free beta · Sign in through Steam · We never see your password</p>
+    </div>
+
+    <div class="art" aria-hidden="true">
+      <svg viewBox="0 0 400 400">
+        <defs>
+          <radialGradient id="shell" cx="38%" cy="32%" r="75%"><stop offset="0" stop-color="#fffaf0"/><stop offset=".55" stop-color="#f4ecdc"/><stop offset="1" stop-color="#cdbb98"/></radialGradient>
+          <clipPath id="eggclip"><path d="M200 82c62 0 104 106 104 170 0 62-46 104-104 104S96 314 96 252C96 188 138 82 200 82z"/></clipPath>
+        </defs>
+        <g class="ring"><circle cx="200" cy="200" r="186" fill="none" stroke="#ffc53d" stroke-opacity=".45" stroke-width="2" stroke-dasharray="2 10"/></g>
+        <g class="ring ring-2"><circle cx="200" cy="200" r="158" fill="none" stroke="#ffc53d" stroke-opacity=".25" stroke-width="1.5" stroke-dasharray="40 14"/></g>
+        <ellipse cx="200" cy="362" rx="92" ry="12" fill="#000" opacity=".5"/>
+        <g class="egg">
+          <path d="M200 82c62 0 104 106 104 170 0 62-46 104-104 104S96 314 96 252C96 188 138 82 200 82z" fill="url(#shell)"/>
+          <g clip-path="url(#eggclip)">
+            <path d="M86 214l30 14 18-24 22 30 20-28 24 26 22-30 22 28 20-22 26 18 18-10" fill="none" stroke="#2b2620" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+            <path d="M190 222l-6 22 10 16" fill="none" stroke="#2b2620" stroke-width="3" stroke-linecap="round"/>
+            <ellipse cx="166" cy="150" rx="18" ry="30" fill="#fff" opacity=".35" transform="rotate(-20 166 150)"/>
+          </g>
+        </g>
+        <g stroke="#ffc53d" stroke-width="3" stroke-linecap="round">
+          <line x1="200" y1="0" x2="200" y2="60"/><line x1="200" y1="340" x2="200" y2="400"/>
+          <line x1="0" y1="200" x2="60" y2="200"/><line x1="340" y1="200" x2="400" y2="200"/>
+        </g>
+        <g stroke="#ff4b3e" stroke-width="2.5"><line x1="192" y1="200" x2="208" y2="200"/><line x1="200" y1="192" x2="200" y2="208"/></g>
+      </svg>
+      <div class="stamp">NOT IN MY LOBBY</div>
+      <svg class="shard" style="left:4%;top:18%" viewBox="0 0 30 30"><path d="M3 22L10 4l7 10 10-6-4 18z" fill="#f4ecdc"/></svg>
+      <svg class="shard" style="right:10%;top:6%;animation-delay:-3s;width:20px" viewBox="0 0 30 30"><path d="M5 25L9 6l9 8 8-9 1 20z" fill="#e6d9bf"/></svg>
+      <svg class="shard" style="left:12%;bottom:6%;animation-delay:-6s;width:18px" viewBox="0 0 30 30"><path d="M2 20L14 3l12 12-6 12z" fill="#f4ecdc"/></svg>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="swap">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">// Drop. Hatch. Feed.</div>
+      <h2>Their update, <em>our update</em></h2>
+      <p>Same three steps, different idea. Ours ends with a match you actually want to play.</p>
+    </div>
+    <div class="swap">
+      <div class="row">
+        <div class="theirs"><div><small>THEIRS</small><b>Drop eggs</b></div></div>
+        <div class="arrow"><span>→</span></div>
+        <div class="ours"><b>Drop the cheaters</b><p>Every player signs in through Steam and must pass the bar: account at least 2 years old, 500+ hours of CS2, no recent bans.</p></div>
+      </div>
+      <div class="row">
+        <div class="theirs"><div><small>THEIRS</small><b>Hatch them</b></div></div>
+        <div class="arrow"><span>→</span></div>
+        <div class="ours"><b>Match them</b><p>Only complete 5-stacks, only against other complete 5-stacks. Played on Valve servers through CS2 Private Matchmaking.</p></div>
+      </div>
+      <div class="row">
+        <div class="theirs"><div><small>THEIRS</small><b>Feed them</b></div></div>
+        <div class="arrow"><span>→</span></div>
+        <div class="ours"><b>Rate them</b><p>After the match, players rate each other. Ratings, reliability and match record build a public Trust Score that follows you.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="notes">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">// Patch notes</div>
+      <h2>CleanLobby <em>beta update</em></h2>
+      <p>No cosmetics, no pets. Just the stuff that makes a lobby worth joining.</p>
+    </div>
+    <div class="split">
+      <div class="notes">
+        <div class="notes-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span>&nbsp; PATCH_NOTES.TXT</div>
+        <ul>
+          <li><span class="tag t-rm">−</span><span>Removed eggs. <span class="muted">(We never had any.)</span></span></li>
+          <li><span class="tag t-add">+</span><span>Sign in through Steam only. We never see your password, your inventory or your trades.</span></li>
+          <li><span class="tag t-add">+</span><span>Trust Score (0–100) on every public profile.</span></li>
+          <li><span class="tag t-add">+</span><span>Both captains report the score. Disputes go to a real admin, not a bot.</span></li>
+          <li><span class="tag t-add">+</span><span>Teams that don't show up lose reliability. Teams that do, climb.</span></li>
+          <li><span class="tag t-fix">~</span><span>Fixed: random teammate who "just got really good" at 3 AM.</span></li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="who">
+          <div class="avatar">K9</div>
+          <div><h3>k9_nafr</h3><small>Rifler · Morocco · NAFR</small></div>
+          <div class="badge">✓ Steam verified</div>
+        </div>
+        <div class="score"><b>87</b><span>Trust Score</span></div>
+        <div class="bars">
+          <div class="bar">Steam history<i style="--v:92%"></i><em>92</em></div>
+          <div class="bar">Peer ratings<i style="--v:84%"></i><em>84</em></div>
+          <div class="bar">Reliability<i style="--v:90%"></i><em>90</em></div>
+          <div class="bar">Match record<i style="--v:78%"></i><em>78</em></div>
+        </div>
+        <div class="facts">
+          <div><b>6 yrs</b><small>Steam</small></div>
+          <div><b>2,340 h</b><small>CS2</small></div>
+          <div><b>0</b><small>Bans</small></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="final">
+  <div class="eggfield"></div>
+  <div class="wrap">
+    <div class="nest" aria-hidden="true">
+      <svg viewBox="0 0 40 50"><path d="M20 3c10 0 17 17 17 27s-8 17-17 17S3 40 3 30 10 3 20 3z" fill="#f4ecdc" opacity=".35"/><path d="M7 18l26 22M33 18L7 40" stroke="#ff4b3e" stroke-width="4" stroke-linecap="round"/></svg>
+      <svg viewBox="0 0 40 50"><path d="M20 3c10 0 17 17 17 27s-8 17-17 17S3 40 3 30 10 3 20 3z" fill="#f4ecdc" opacity=".35"/><path d="M7 18l26 22M33 18L7 40" stroke="#ff4b3e" stroke-width="4" stroke-linecap="round"/></svg>
+      <svg viewBox="0 0 40 50"><path d="M20 3c10 0 17 17 17 27s-8 17-17 17S3 40 3 30 10 3 20 3z" fill="#f4ecdc" opacity=".35"/><path d="M7 18l26 22M33 18L7 40" stroke="#ff4b3e" stroke-width="4" stroke-linecap="round"/></svg>
+    </div>
+    <h2>Leave the eggs.<br><em>Bring four friends.</em></h2>
+    <p>Build your 5-stack, queue, and play a team that got here the same way you did.</p>
+    <div class="cta"><a class="btn btn-yolk" href="#">Find a trusted five</a><a class="btn btn-ghost" href="#">Browse teams</a></div>
+    <p class="fine" style="margin-top:22px">CleanLobby is a reputation layer, not an anti-cheat. Cheaters get reported, rated down and removed.</p>
+  </div>
+</section>
+
+<footer><div class="wrap">
+  <span>CleanLobby · We don't want eggs. We want a cheater-free game.</span>
+  <span class="concept">CONCEPT · NOT LIVE</span>
+</div></footer>
+
+</body>
+</html>
