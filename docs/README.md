@@ -38,6 +38,7 @@ How every part of CleanLobby works: what players see, the rules behind it, and w
 
 ## Changelog
 
+- **2026-10-05:** SEO: home description now leads with the slogan and mentions Premier rating; keywords updated (Premier, cheater-free CS2).
 - **2026-10-05:** "We don't want eggs" short video in English and French (`marketing/eggs-video/`), call to action to cleanlobby.com.
 - **2026-10-05:** New look and slogan: **"We don't want eggs. We want a cheater-free game."** Home page rebuilt around it (caution-tape banner, cracked-egg art, "Their update / our update", patch notes). New palette: near-black, cream, hazard yellow, CS2 Premier tier colours (stripe under every header); Anton for page titles (self-hosted). **CS2 Premier rating replaces the FACEIT level** for profiles, team ranges, matchmaking and Find Players (tier filter); players can update it any time; old self-entered FACEIT levels are deleted. FACEIT stays as the live panel on profiles. Privacy Policy updated. New link-preview image and icons (`scripts/brand-images.mjs`), guide screenshots regenerated.
 - **2026-10-05:** Landing-page concept around the slogan "We don't want eggs. We want a cheater-free game." (`marketing/concept-no-eggs/`, not live).

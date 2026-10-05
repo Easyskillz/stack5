@@ -14,7 +14,7 @@ How search engines, link previews and AI assistants (ChatGPT, Claude, Perplexity
 - **Player guide** (`/guide`, "How it works" in the menu and footer): 10 steps with screenshots plus an FAQ. Good for players and for searches like "how to play CS2 5v5 with a premade team".
 - **Icons:** `favicon.svg` and a 512×512 `apple-touch-icon.png` for phone home screens.
 
-Meta keywords are included, but Google ignores them. What matters is the title, description, page text and links from other sites.
+The home description (`SITE_DESC`) leads with the slogan and mentions Premier rating, Steam verification and the Trust Score (154 characters, so Google shows it whole). Meta keywords (in `public/pages/app.html`) include CS2 Premier, cheater-free CS2 and the North African countries, but Google ignores them. What matters is the title, description, page text and links from other sites.
 
 ## To do after launch (owner)
 

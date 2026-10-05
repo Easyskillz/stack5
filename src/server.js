@@ -932,7 +932,7 @@ app.get(["/register","/forgot-password","/reset-password"], (_,res)=>res.redirec
 
 // ---- App pages: one HTML shell, with per-page title/description/robots for search engines and link previews.
 const APP_SHELL=fs.readFileSync(path.join(__dirname,"../public/pages/app.html"),"utf8");
-const SITE_DESC="Find a trusted five and play CS2 5v5 against complete teams. Steam-verified players, trust scores and team matchmaking for North Africa and worldwide. Free beta.";
+const SITE_DESC="We don’t want eggs, we want a cheater-free game. CS2 5v5 for full teams: Steam-verified players, matched by Premier rating, public Trust Score. Free beta.";
 const PAGES={
   "/":        { title:"CleanLobby · Trusted CS2 5v5 team matchmaking", heading:"We don’t want eggs. We want a cheater-free game.", description:SITE_DESC },
   "/teams":   { title:"Find a CS2 team · CleanLobby", heading:"Find a CS2 team", description:"Browse CS2 5-stacks that are recruiting on CleanLobby and ask to join. Every player is Steam-verified with a public trust score." },
