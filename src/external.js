@@ -144,7 +144,7 @@ const leetifyCache = new Map();   // steamId -> { at, data } ; short-lived to re
  */
 export async function syncPremierFromLeetify(playerId) {
   const p = db.prepare("SELECT id, steam_id, premier_source FROM players WHERE id=?").get(playerId);
-  if (!p || !p.steam_id || p.premier_source === "self") return null;
+  if (!p || !p.steam_id || p.premier_source === "self" || p.premier_source === "test") return null;   // "test": set by tests (NODE_ENV=test), no Leetify there
   const data = await leetifyProfile(p.steam_id);
   const rating = Number(data?.premier) > 0 ? Math.round(Number(data.premier)) : null;
   if (rating) db.prepare("UPDATE players SET premier_rating=?, premier_source='leetify', premier_synced_at=? WHERE id=?").run(rating, Date.now(), playerId);

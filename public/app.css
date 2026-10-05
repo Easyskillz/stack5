@@ -431,3 +431,10 @@ footer{border-top:1px solid #1c1c21;margin-top:70px;padding:30px 24px;color:#757
 .header-right{margin-left:0}
 @media(max-width:850px){.lang-switch{margin-left:auto;margin-right:6px}}
 .nav a,.header-right .btn{white-space:nowrap}
+
+/* Test day guide (/fr/test) */
+.test-guide .notice{max-width:none}
+.test-h{font-family:var(--display);font-weight:400;text-transform:uppercase;font-size:clamp(28px,3.4vw,40px);margin:56px 0 6px;scroll-margin-top:90px}
+.test-list{margin:10px 0 0;padding-left:20px;display:grid;gap:8px;color:#d6d1c7;line-height:1.6}
+.test-box{margin-top:14px}
+.test-faq{margin-top:10px}

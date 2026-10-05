@@ -20,4 +20,12 @@ When you add or change English text, add the French line to `public/i18n/fr.js`,
 - `node scripts/i18n-extract.mjs` lists strings found in the code with no French translation (it also lists code strings, which can be ignored).
 - `I18N_AUDIT=1 node scripts/guide-screenshots.mjs` plays a full match on the `/fr` pages and lists text that still looks English (written to `%TEMP%/i18n-audit.json`). Known false alarms: the CS2 menu path "Play → Matchmaking → …" (kept as in the game), French sentences containing "fair-play" or "matchmaking", flag tooltips.
 
+## French screenshots
+
+The French guide (`/fr/guide`) and the tester guide use French screenshots from `public/img/guide/fr/`: `GUIDE_LANG=fr node scripts/guide-screenshots.mjs`, then update `GUIDE_SIZES_FR` in `public/app.js` (the English set stays in `public/img/guide/`).
+
+## Tester guide
+
+`cleanlobby.com/fr/test` (also `/test`): a French page for live-test players: what to do before test day (Steam public, profile, languages, Leetify, all ✅), the steps on the day with screenshots, what we observe, troubleshooting, and the feedback questions. Not linked anywhere and not indexed (`noindex`): share the link with testers. Code: `testPage()` in `public/app.js`.
+
 Emails (verification, contact form) stay in English.

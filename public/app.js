@@ -104,7 +104,7 @@ const Stack5 = (() => {
     return `<span class="premier t-${cls}" title="CS2 Premier rating · ${name} tier (self-reported)">${i<0?`<b>${txt}</b>`:`<b>${txt.slice(0,i)}</b><small>${txt.slice(i)}</small>`}</span>`;
   }
   const LEETIFY_ATTR='<a class="leetify-attr" href="https://leetify.com/" target="_blank" rel="noopener">Data Provided by Leetify</a>';
-  const premierSource=p=>p?.premier_source==='leetify'?LEETIFY_ATTR:p?.premier_rating!=null?'<span class="muted small">self-reported</span>':'';
+  const premierSource=p=>['leetify','test'].includes(p?.premier_source)?LEETIFY_ATTR:p?.premier_rating!=null?'<span class="muted small">self-reported</span>':'';
   function premierRange(min,max){
     min=Number(min)||0; max=Number(max??40000);
     if(!min && max>=40000) return '<span class="muted">Any Premier rating</span>';
@@ -526,7 +526,7 @@ const Stack5 = (() => {
         <div class="eyebrow">// Beta countries</div>
         <h2>Open in <em>12 countries</em>, more soon</h2>
         <p class="section-lead" style="margin-top:14px">The beta starts small on purpose: Morocco and the English, French, Spanish and Portuguese-speaking countries of Europe, close enough for good ping and a shared language on comms. We’ll open more countries step by step. Not on the list? <a href="/contact" style="color:var(--accent)">Tell us where you play</a>.</p>
-        <div class="beta-grid">${BETA.map(([c,n])=>`<div class="beta-country">${countryFlag(c)}<span>${n}</span></div>`).join('')}</div>
+        <div class="beta-grid">${BETA.map(([c])=>`<div class="beta-country">${countryFlag(c)}<span>${countryName(c)}</span></div>`).join('')}</div>
       </div></section>
 
       <section class="ne-sec" id="tournaments"><div class="container" style="padding-top:0;padding-bottom:0">
@@ -597,7 +597,7 @@ const Stack5 = (() => {
     ['1-sign-in',496,434,'Sign in with Steam','Click <strong>Sign in with Steam</strong>. You log in on Steam’s own website: check the address bar says <code>steamcommunity.com</code>. CleanLobby only receives your public SteamID. It never sees your password and can’t touch your inventory or trades.'],
     ['2-pick-username',436,366,'Pick your username','First time only: choose a CleanLobby username. Email is optional (for match notifications). Confirm you’re 16 or older and accept the Terms.'],
     ['3-profile-setup',784,646,'Set up your player profile','Country (the beta is open in 12 countries; it decides which teams you can play: only ones close enough for good ping), main role and the languages you speak (your teammates need one in common). Your CS2 Premier rating is read from Leetify automatically. Teams see this when they look for players.'],
-    ['4-build-team',1061,717,'Build your five','Create a team and invite players by their CleanLobby username, or find them on <a href="/players">Find Players</a>. Prefer joining a team? Browse <a href="/teams">Find a Team</a> and ask to join. An open team disbands after 6 hours without a new player.'],
+    ['4-build-team',1061,614,'Build your five','Create a team and invite players by their CleanLobby username, or find them on <a href="/players">Find Players</a>. Prefer joining a team? Browse <a href="/teams">Find a Team</a> and ask to join. An open team disbands after 6 hours without a new player.'],
     ['5-full-team-queue',705,609,'Five players? Find a match','When your team has 5 players, the captain clicks <strong>Find match</strong>. Everyone must meet the CleanLobby requirements: Steam account at least 2 years old, 500+ hours of CS2, no recent VAC or game ban.'],
     ['6-searching',705,667,'Searching for an opponent','CleanLobby looks for another full team close enough for good ping (their players’ countries within about 2,500 km of yours) with a similar Premier rating. This runs every 30 seconds. After 2 hours without a match, your team leaves the queue.'],
     ['7-match-found',1061,592,'Match found: captains accept','Both captains have <strong>5 minutes</strong> to accept. Declining or letting the time run out counts against the captain’s reliability.'],
@@ -605,6 +605,10 @@ const Stack5 = (() => {
     ['9-result-and-ratings',1061,934,'Report the score, then vote','After the game, both captains report the score. When they match, the result is final and everyone has <strong>48 hours</strong> to vote 👍 or 👎 on the players they played with: teammates on comms, teamplay and attitude, opponents on attitude and sportsmanship. Skill isn’t voted on: that’s your Premier rating. Different scores go to an admin.'],
     ['10-trust-score',1061,454,'Build your Trust Score','Your Trust Score (0–100) combines your Steam history, 👍/👎 votes from people you played with, reliability and matches played. Your profile also shows the % of 👍 for each aspect. It’s public on your profile and helps teams decide who to play with. <strong>60 and above is good.</strong> See <a href="#trust-score">how it works and how to raise it</a>.']
   ];
+  // French screenshots (GUIDE_LANG=fr node scripts/guide-screenshots.mjs): id -> [width, height]
+  const GUIDE_SIZES_FR={'1-sign-in':[496,434],'2-pick-username':[436,366],'3-profile-setup':[784,676],'4-build-team':[1061,629],'5-full-team-queue':[705,609],'6-searching':[705,667],'7-match-found':[1061,612],'8-match-room':[1061,1109],'9-result-and-ratings':[1061,954],'10-trust-score':[1061,454]};
+  const guideImg=id=>{ const g=GUIDE_STEPS.find(s=>s[0]===id), fr=(LANG==='fr'||appPath()==='/test')&&GUIDE_SIZES_FR[id];
+    return { src:`/img/guide/${fr?'fr/':''}${id}.webp`, w:fr?fr[0]:g[1], h:fr?fr[1]:g[2] }; };
   const GUIDE_FAQ=[
     ['Is signing in with Steam safe?','Yes. You sign in on steamcommunity.com, never on CleanLobby. We only receive your public SteamID. CleanLobby will never ask for your Steam Guard code, an API key or your trade link. If a page asks for those, it isn’t us.'],
     ['Why can’t I play yet?','Your Steam profile and game details must be public so we can check the requirements (2+ year old account, 500+ hours of CS2, no VAC or game ban in the last 2 years). The Play page shows which check is missing. After changing your Steam privacy, wait a few minutes and click Check again.'],
@@ -625,7 +629,7 @@ const Stack5 = (() => {
       <nav class="guide-toc" aria-label="Steps">${GUIDE_STEPS.map(([,,,t],i)=>`<a href="#step-${i+1}">${i+1}. ${esc(t)}</a>`).join('')}<a href="#trust-score">Trust Score</a><a href="#faq">Questions</a></nav>
       ${GUIDE_STEPS.map(([id,w,h,t,text],i)=>`<section class="guide-step" id="step-${i+1}">
         <div class="guide-text"><div class="step-num">STEP ${i+1}</div><h2>${esc(t)}</h2><p>${text}</p></div>
-        <figure><img src="/img/guide/${id}.webp" width="${w}" height="${h}" loading="${i<2?'eager':'lazy'}" alt="${esc(t)}: screenshot of CleanLobby"><figcaption class="muted small">Example players and teams.</figcaption></figure>
+        <figure><img src="${guideImg(id).src}" width="${guideImg(id).w}" height="${guideImg(id).h}" loading="${i<2?'eager':'lazy'}" alt="${esc(t)}: screenshot of CleanLobby"><figcaption class="muted small">Example players and teams.</figcaption></figure>
       </section>`).join('')}
       <section class="panel guide-trust" id="trust-score" style="margin-top:28px">
         <div class="step-num">TRUST SCORE</div><h2>How the Trust Score works</h2>
@@ -646,6 +650,65 @@ const Stack5 = (() => {
       </section>
       <section class="panel" id="faq" style="margin-top:28px"><h2>Questions</h2>${GUIDE_FAQ.map(([q,a])=>`<details class="faq"><summary>${esc(q)}</summary><p>${a}</p></details>`).join('')}</section>
       <div class="cta" style="margin-top:24px"><h2>Ready?</h2><p>Sign in, set up your profile and build your five.</p><div class="actions"><a class="btn btn-green" href="/login" data-guest-cta>Sign in with Steam</a></div></div>
+    </div>`,'guide');
+  }
+
+  // ---------- Test day guide (French, shared with testers only; not indexed) ----------
+  function testPage(){
+    const img=(id,alt)=>{ const g=GUIDE_STEPS.find(s=>s[0]===id), gi=g&&guideImg(id); return g?`<figure><img src="${gi.src}" width="${gi.w}" height="${gi.h}" loading="lazy" alt="${esc(alt)}"><figcaption class="muted small">Joueurs et équipes d’exemple.</figcaption></figure>`:''; };
+    const step=(n,title,body,shot,alt)=>`<section class="guide-step"><div class="guide-text"><div class="step-num">${n}</div><h2>${title}</h2>${body}</div>${shot?img(shot,alt):'<div></div>'}</section>`;
+    layout('Guide du testeur',`<div class="container guide test-guide" data-no-i18n>
+      <div class="eyebrow">JOUR DE TEST · BÊTA</div><h1>Guide du testeur</h1>
+      <p class="subtitle">Merci de tester CleanLobby ! Voici tout ce qu’il faut faire, avant et pendant le test. Garde cette page ouverte sur ton téléphone le jour J.</p>
+      <div class="notice">📅 <strong>Date, heure et équipes :</strong> annoncées sur le groupe WhatsApp / Discord. Sois connecté sur Steam et CS2 <strong>15 minutes avant</strong>.</div>
+      <nav class="guide-toc" aria-label="Sommaire"><a href="#avant">1. Avant le test</a><a href="#jour-j">2. Le jour J</a><a href="#observer">3. Ce qu’on observe</a><a href="#depannage">4. Si ça bloque</a><a href="#apres">5. Après le test</a></nav>
+
+      <h2 id="avant" class="test-h">1. Avant le test : à faire dès maintenant</h2>
+      <p class="muted">Ça prend 5 minutes. Fais-le avant le jour J : s’il y a un souci avec ton compte, on a le temps de le régler.</p>
+      ${step('ÉTAPE 1','Connecte-toi avec Steam',`<p>Va sur <a href="/fr/login"><strong>cleanlobby.com/fr</strong></a> et clique sur <strong>Se connecter via Steam</strong>. Tu te connectes sur le site officiel de Steam : vérifie que l’adresse affiche <code>steamcommunity.com</code>. CleanLobby ne voit jamais ton mot de passe.</p><p>Première fois : choisis ton pseudo CleanLobby et accepte les conditions.</p>`,'1-sign-in','Connexion avec Steam')}
+      ${step('ÉTAPE 2','Rends ton profil Steam public',`<p>On vérifie que ton compte est réel : <strong>compte Steam de 2 ans ou plus</strong>, <strong>500 heures de CS2</strong> ou plus, <strong>pas de ban VAC ou de jeu récent</strong>. Pour ça, ton profil et tes détails de jeu doivent être publics :</p><p>Steam → Modifier le profil → Paramètres de confidentialité → <strong>Mon profil : Public</strong> et <strong>Détails de jeu : Public</strong>. <a href="https://steamcommunity.com/my/edit/settings" target="_blank" rel="noopener">Ouvrir les paramètres Steam</a></p>`)}
+      ${step('ÉTAPE 3','Complète ton profil de joueur',`<p>Sur la page <a href="/fr/play">Jouer</a> : ton <strong>pays</strong> (la bêta est ouverte dans 12 pays), ton <strong>rôle</strong> et <strong>toutes les langues que tu parles</strong>. Coche-les toutes : tes coéquipiers doivent avoir une langue en commun avec toi.</p>`,'3-profile-setup','Profil de joueur')}
+      ${step('ÉTAPE 4','Vérifie ton rating Premier',`<p>Ton rating Premier vient automatiquement de <strong>Leetify</strong>, personne ne peut le truquer. Pas de compte Leetify ? Connecte-toi une fois sur <a href="https://leetify.com/" target="_blank" rel="noopener">leetify.com</a> avec Steam, puis clique sur <strong>Revérifier Leetify</strong> sur la page Jouer.</p><p>Pas de rating Premier du tout ? Tu peux quand même jouer : tu seras « Non classé ».</p>`)}
+      ${step('ÉTAPE 5','Tout doit être ✅',`<p>Sur la page <a href="/fr/play">Jouer</a>, ton profil doit afficher <strong>VÉRIFIÉ · Remplit les conditions CleanLobby</strong>. Un ❌ quelque part ? Le message te dit quoi corriger. Toujours bloqué ? Envoie une capture d’écran sur le groupe.</p>`)}
+
+      <h2 id="jour-j" class="test-h">2. Le jour J</h2>
+      ${step('CAPITAINES','Montez vos équipes',`<p>Chaque capitaine crée son équipe sur la page <a href="/fr/play">Jouer</a> et invite ses 4 joueurs avec leur <strong>pseudo CleanLobby</strong>. Les joueurs acceptent l’invitation sur leur page Jouer.</p><p>Quand l’équipe a 5 joueurs, le capitaine clique sur <strong>Trouver un match</strong>.</p>`,'4-build-team','Monter son équipe')}
+      ${step('MATCH TROUVÉ','Les deux capitaines acceptent',`<p>Quand un adversaire est trouvé, les deux capitaines ont <strong>5 minutes</strong> pour cliquer sur <strong>Accepter</strong>. Restez sur la page Jouer pendant la recherche.</p>`,'7-match-found','Match trouvé')}
+      ${step('DANS CS2','Une party de 5 par équipe, un seul code',`<ol class="test-list">
+          <li><strong>Chaque capitaine</strong> invite ses 4 coéquipiers dans sa <strong>party CS2</strong> (boutons Steam dans le salon du match). Chaque équipe doit être <strong>une seule party de 5</strong>, sinon CS2 mélange les joueurs.</li>
+          <li><strong>Un capitaine</strong> crée le salon : Play → Matchmaking → Private Matchmaking → <strong>Create a Private Matchmaking Pool</strong>, copie le code complet et le colle sur CleanLobby.</li>
+          <li><strong>L’autre capitaine</strong> copie le code depuis CleanLobby et l’entre avec <strong>Manually Enter a Code</strong>.</li>
+          <li><strong>Les deux parties appuient sur GO.</strong> Le match démarre quand les 10 joueurs cherchent.</li></ol>
+          <p class="muted">Option : partagez un salon vocal Discord pour votre équipe dans le salon du match. Seule votre équipe le voit.</p>`,'8-match-room','Salon du match')}
+      ${step('APRÈS LA PARTIE','Score, puis votes',`<p>Les <strong>deux capitaines déclarent le score</strong> (le même !). Ensuite, <strong>tout le monde vote</strong> 👍 ou 👎 pendant 48 heures : coéquipiers sur les comms, le jeu d’équipe et l’attitude, adversaires sur l’attitude et le fair-play. Le bouton <strong>👍 Tous ceux pour qui je n’ai pas voté</strong> fait tout en un clic, puis change ce que tu veux.</p>`,'9-result-and-ratings','Score et votes')}
+
+      <h2 id="observer" class="test-h">3. Ce qu’on observe pendant le test</h2>
+      <div class="panel test-box"><ul class="test-list">
+        <li>Est-ce que <strong>les deux parties de 5 restent bien ensemble</strong> avec un seul code ? Personne ne se retrouve dans la mauvaise équipe ?</li>
+        <li>À quoi ressemble <strong>le code de Private Matchmaking</strong> (long avec des tirets, ou 6 chiffres) ?</li>
+        <li><strong>Combien de temps</strong> entre « Match trouvé » et le début de la partie ?</li>
+        <li>Tout ce qui était <strong>confus, lent ou cassé</strong> : fais une capture d’écran sur le moment.</li>
+      </ul></div>
+
+      <h2 id="depannage" class="test-h">4. Si ça bloque</h2>
+      <div class="test-faq">
+        <details class="faq"><summary>Le code ne marche pas</summary><p>Vérifie que le code a été copié en entier (avec les tirets). Le capitaine qui a créé le salon peut <strong>Remplacer</strong> le code sur CleanLobby à tout moment.</p></details>
+        <details class="faq"><summary>CS2 a mélangé les joueurs entre les équipes</summary><p>Quittez, et vérifiez que <strong>chaque équipe est une seule party de 5</strong> avant d’appuyer sur GO. Puis relancez avec le même code.</p></details>
+        <details class="faq"><summary>Un joueur de l’équipe n’est pas là</summary><p>Prévenez le groupe tout de suite. Pendant le test, on ne fait pas jouer quelqu’un qui n’est pas dans l’équipe sur CleanLobby.</p></details>
+        <details class="faq"><summary>Les capitaines ont déclaré des scores différents</summary><p>Le match passe en « Résultat contesté » et un admin tranche. On est en ligne pendant tout le test.</p></details>
+        <details class="faq"><summary>Je ne peux pas rejoindre ou créer d’équipe</summary><p>Ton compte ne remplit pas encore une condition : regarde la liste ✅/❌ sur la page Jouer. Profil Steam rendu public à l’instant ? Attends quelques minutes et clique sur <strong>Revérifier</strong>.</p></details>
+        <details class="faq"><summary>Un bug ou une erreur</summary><p>Capture d’écran + un message sur le groupe, ou via la <a href="/fr/contact">page Contact</a>. Dis ce que tu faisais juste avant.</p></details>
+      </div>
+
+      <h2 id="apres" class="test-h">5. Après le test : ton avis compte</h2>
+      <div class="panel test-box"><p style="margin-top:0">Réponds à ces questions sur le groupe ou via la <a href="/fr/contact">page Contact</a> :</p><ol class="test-list">
+        <li>Qu’est-ce qui était <strong>confus</strong> ou compliqué ?</li>
+        <li>Quels <strong>bugs</strong> as-tu vus ?</li>
+        <li>Est-ce que tu <strong>rejouerais chaque semaine</strong> sur CleanLobby ?</li>
+        <li><strong>Premium</strong> : un match sur serveur privé avec un vrai admin (stream d’écran, kick des cheaters). Ça t’intéresse ? <strong>Combien</strong> serais-tu prêt à payer ?</li>
+        <li>Ce qui t’a <strong>plu</strong>, et ce que tu changerais en premier.</li>
+      </ol></div>
+      <div class="cta" style="margin-top:24px"><h2>Prêt ?</h2><p>Connecte-toi, complète ton profil et vérifie que tout est ✅.</p><div class="actions"><a class="btn btn-green" href="/fr/play">Aller sur la page Jouer</a><a class="btn btn-dark" href="/fr/guide">Le guide complet</a></div></div>
     </div>`,'guide');
   }
 
@@ -739,8 +802,9 @@ const Stack5 = (() => {
   const LANGS=[['EN','English'],['FR','Français'],['ES','Español'],['PT','Português']];   // beta languages
   // Countries open in the beta (same list as BETA_COUNTRIES in src/regions.js).
   const BETA=[['MA','Morocco'],['FR','France'],['BE','Belgium'],['CH','Switzerland'],['LU','Luxembourg'],['MC','Monaco'],['ES','Spain'],['AD','Andorra'],['PT','Portugal'],['GB','United Kingdom'],['IE','Ireland'],['MT','Malta']];
-  const countryName=c=>(BETA.find(x=>x[0]===c)||[c,c||''])[1];
-  const countryOptions=(label)=>`<option value="">${label}</option>${BETA.map(([c,n])=>`<option value="${c}">${n}</option>`).join('')}`;
+  const COUNTRY_FR={MA:'Maroc',FR:'France',BE:'Belgique',CH:'Suisse',LU:'Luxembourg',MC:'Monaco',ES:'Espagne',AD:'Andorre',PT:'Portugal',GB:'Royaume-Uni',IE:'Irlande',MT:'Malte'};
+  const countryName=c=>LANG==='fr'&&COUNTRY_FR[c]||(BETA.find(x=>x[0]===c)||[c,c||''])[1];
+  const countryOptions=(label)=>`<option value="">${label}</option>${BETA.map(([c])=>`<option value="${c}">${countryName(c)}</option>`).join('')}`;
   const btn=(label,act,cls='btn-dark',data={})=>`<button class="btn btn-small ${cls}" data-act="${act}" ${Object.entries(data).map(([k,v])=>`data-${k}="${esc(v)}"`).join(' ')}>${esc(label)}</button>`;
   const realSteam=p=>/^https:\/\/(www\.)?steamcommunity\.com\//.test(p?.steam_url||'');
   // Names are shown as typed, never translated.
@@ -1042,7 +1106,7 @@ const Stack5 = (() => {
       <form data-form="profile" class="form-grid" style="margin-top:18px">
         ${steamField}
         <div><label>Display name</label><input class="input" name="display_name" maxlength="40" value="${esc(d.account.username)}" required></div>
-        <div><label>Country</label><select name="country" required>${cat.countries.filter(c=>c.open).map(c=>`<option value="${c.code}" ${c.code==='MA'?'selected':''}>${c.flag} ${esc(c.name)}</option>`).join('')}</select>
+        <div><label>Country</label><select name="country" required>${cat.countries.filter(c=>c.open).map(c=>`<option value="${c.code}" ${c.code==='MA'?'selected':''}>${c.flag} ${esc(countryName(c.code))}</option>`).join('')}</select>
           <div class="muted small" style="margin-top:5px">The beta is open in these countries only. <a href="/guide#beta-countries" style="color:var(--accent)">More countries later</a>.</div></div>
         <div><label>CS2 Premier rating</label><div class="input" style="color:var(--muted)">Read from Leetify automatically</div>
           <div class="muted small" style="margin-top:5px">We copy it from your <a href="https://leetify.com/" target="_blank" rel="noopener" style="color:var(--accent)">Leetify</a> profile, so nobody can fake it. No Leetify yet? Sign in there once with Steam.</div></div>
@@ -1203,6 +1267,7 @@ const Stack5 = (() => {
     if(p==='/matches') return matchesPage();
     if(p==='/contact') return contactPage();
     if(p==='/guide') return guidePage();
+    if(p==='/test') return testPage();
     if(p==='/rankings') return layout('Rankings',`<div class="container"><div class="eyebrow">RANKINGS</div><h1>Rankings</h1><div class="empty">Rankings coming next.</div></div>`,'rankings');
     if(p.startsWith('/team/')) return teamProfile(p.split('/')[2]);
     return home();

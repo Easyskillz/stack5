@@ -376,7 +376,7 @@ app.post("/api/profile", auth, csrf, async (req, res) => {
     const result = db.transaction(() => {
       const existing = db.prepare("SELECT id FROM players WHERE steam_url=? OR (steam_id IS NOT NULL AND steam_id=?)").get(steamUrl, steamId);
       if (existing) throw new Error("This Steam profile is already linked to a CleanLobby player.");
-      const r = db.prepare(`INSERT INTO players(steam_url,steam_id,steam_verified,steam_verified_at,display_name,avatar_url,premier_rating,premier_source,region,country,language,languages,role) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(steamUrl,steamId,1,Date.now(),name,safeAvatarUrl(req.body.avatar_url),testPremier,testPremier!=null?"leetify":null,region.id,country[0],languages[0],languages.join(","),String(req.body.role).slice(0,20));
+      const r = db.prepare(`INSERT INTO players(steam_url,steam_id,steam_verified,steam_verified_at,display_name,avatar_url,premier_rating,premier_source,region,country,language,languages,role) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(steamUrl,steamId,1,Date.now(),name,safeAvatarUrl(req.body.avatar_url),testPremier,testPremier!=null?"test":null,region.id,country[0],languages[0],languages.join(","),String(req.body.role).slice(0,20));
       db.prepare("UPDATE accounts SET player_id=? WHERE id=?").run(r.lastInsertRowid, req.account.account_id);
       return r.lastInsertRowid;
     })();
@@ -1091,10 +1091,10 @@ contact@cleanlobby.com
 `));
 for(const [p,page] of Object.entries(PAGES)) app.get(p,(req,res)=>sendApp(req,res,page));
 for(const [p,page] of Object.entries(PAGES_FR)) app.get(p==="/"?"/fr":"/fr"+p,(req,res)=>sendApp(req,res,page,{lang:"fr"}));
-for(const p of ["/fr/play","/fr/account","/fr/player/:username","/fr/team/:id"]) app.get(p,(req,res)=>sendApp(req,res,PAGES_FR["/"],{index:false,lang:"fr"}));
+for(const p of ["/fr/play","/fr/account","/fr/player/:username","/fr/team/:id","/fr/test"]) app.get(p,(req,res)=>sendApp(req,res,PAGES_FR["/"],{index:false,lang:"fr"}));
 app.get("/fr/*splat",(req,res)=>sendApp(req,res,{ ...PAGES_FR["/"], title:"Page introuvable · CleanLobby", heading:"Page introuvable" },{index:false,status:404,lang:"fr"}));
 // Personal and per-player pages work normally but stay out of search results.
-for(const p of ["/play","/account","/player/:username","/team/:id"]) app.get(p,(req,res)=>sendApp(req,res,PAGES["/"],{index:false}));
+for(const p of ["/play","/account","/player/:username","/team/:id","/test"]) app.get(p,(req,res)=>sendApp(req,res,PAGES["/"],{index:false}));
 app.get("*splat",(req,res)=>sendApp(req,res,{ ...PAGES["/"], title:"Page not found · CleanLobby", heading:"Page not found" },{index:false,status:404}));
 // Time limits (idle teams, queue, match accept window). TIMERS_INTERVAL_SECONDS=0 disables.
 const timersEvery=Number(process.env.TIMERS_INTERVAL_SECONDS ?? 30);

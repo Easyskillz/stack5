@@ -1,6 +1,7 @@
 // Regenerates the player-guide screenshots (public/img/guide/*.webp): plays one full match on a
 // throwaway local CleanLobby with fictional example players and captures each step.
 // usage: node scripts/guide-screenshots.mjs   (needs Google Chrome; uses scripts/fake-steam.js)
+// French screenshots: GUIDE_LANG=fr node scripts/guide-screenshots.mjs (then update GUIDE_SIZES_FR in public/app.js)
 // French audit: I18N_AUDIT=1 node scripts/guide-screenshots.mjs  -> plays the same match on the /fr pages and
 // lists text that still looks English (no screenshots are written).
 import { spawn } from "node:child_process";
@@ -11,7 +12,9 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SCRATCH = process.env.TEMP || process.env.TMPDIR || "/tmp";   // throwaway DB and browser profiles
-const OUT = `${REPO}/public/img/guide`;
+// GUIDE_LANG=fr: same match on the /fr pages, French screenshots in public/img/guide/fr
+const FR_SHOTS = process.env.GUIDE_LANG === "fr";
+const OUT = `${REPO}/public/img/guide${FR_SHOTS ? "/fr" : ""}`;
 const DB = `${SCRATCH}/guide.db`;
 const CHROME = process.env.CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe";
 const Database = createRequire(`${REPO}/package.json`)("better-sqlite3");
@@ -44,7 +47,7 @@ function browser() {
 // One CDP session per screenshot: emulate width, set cookies, clip to an element.
 const AUDIT = !!process.env.I18N_AUDIT;
 // Text nodes that still look English on a French page (ignores names, codes and numbers).
-const AUDIT_JS = String.raw`(()=>{const EN=/\b(the|and|your|you|to|of|is|are|with|for|player|players|team|teams|not|can|this|that|from|will|has|have|we|our|be|it|by|yet|here|now|only|after|before|until|sign|join|find|play|loading|no|yes|what|how|why|who|when|which|more|less|every|each|first|last|out|back|over|still)\b/i;   // English-only words (not "match", "score", "vote": French uses them too)
+const AUDIT_JS = String.raw`(()=>{const EN=/\b(the|and|your|you|to|of|is|are|with|for|player|players|team|teams|not|can|this|that|from|will|has|have|we|our|be|it|by|yet|here|now|only|after|before|until|sign|join|find|play|loading|no|yes|what|how|why|who|when|which|more|less|every|each|first|last|out|back|over|still|these|those|steps|follow|own|here|there|please|thanks|everyone|speaks|morocco|spain|belgium|switzerland|ireland|kingdom|andorra|malta)\b/i;   // English-only words (not "match", "score", "vote": French uses them too)
   const out=new Set(), w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
   for(let n=w.nextNode();n;n=w.nextNode()){ const p=n.parentElement; if(!p||p.closest("script,style,code,.premier,.flags,.logo,.leetify-attr,#static-content")) continue;
     const t=n.nodeValue.replace(/\s+/g," ").trim(); if(t.length>2 && EN.test(t) && getComputedStyle(p).display!=="none") out.add(t); }
@@ -52,7 +55,7 @@ const AUDIT_JS = String.raw`(()=>{const EN=/\b(the|and|your|you|to|of|is|are|wit
   return [...out];})()`;
 const auditFound = {};
 async function shot(name, url, selector, cookies = {}, { width = 1100, pad = 12 } = {}) {
-  if (AUDIT) url = "/fr" + (url === "/" ? "" : url);
+  if (AUDIT || FR_SHOTS) url = "/fr" + (url === "/" ? "" : url);
   const port = 9600 + Math.floor(Math.random() * 300);
   const chrome = spawn(CHROME, ["--headless=new", "--disable-gpu", `--remote-debugging-port=${port}`, `--user-data-dir=${SCRATCH}/chrome-guide-${port}`, "about:blank"]);
   try {

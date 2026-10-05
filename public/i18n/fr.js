@@ -665,6 +665,8 @@ window.CL_FR = {
   "No match is being played right now.": "Aucun match en cours pour l’instant.",
   "No finished matches yet.": "Pas encore de match terminé.",
   "Country (the beta is open in 12 countries; it decides which teams you can play: only ones close enough for good ping), main role and the languages you speak (your teammates need one in common). Your CS2 Premier rating is read from Leetify automatically. Teams see this when they look for players.": "Ton pays (la bêta est ouverte dans 12 pays ; il décide contre quelles équipes tu peux jouer : seulement celles assez proches pour un bon ping), ton rôle principal et les langues que tu parles (tes coéquipiers ont besoin d’une langue en commun). Ton rating Premier CS2 est lu automatiquement sur Leetify. C’est ce que voient les équipes quand elles cherchent des joueurs.",
+  ". Follow these steps:": " de CS2. Suis ces étapes :",
+  "🗣️ Everyone speaks": "🗣️ Tout le monde parle",
   // ---------- server messages (toasts and errors) ----------
   "Authentication required": "Connexion requise",
   "Session expired. Please log in again.": "Session expirée. Reconnecte-toi.",
