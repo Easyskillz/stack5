@@ -22,7 +22,7 @@ const Stack5 = (() => {
   }
 
   // Flags are self-hosted SVGs (public/flags, from flag-icons): emoji flags don't render on Windows.
-  const FLAG_CODES=new Set('ma dz tn ly eg fr es de gb it be nl pt us ca br ar cl au nz jp kr sg my th sa ae il za ng tr ru'.split(' '));
+  const FLAG_CODES=new Set('ma dz tn ly eg fr es de gb it be nl pt us ca br ar cl au nz jp kr sg my th sa ae il za ng tr ru ch lu ie mc ad mt'.split(' '));
   function countryFlag(code){
     const c=String(code||'').toLowerCase();
     return FLAG_CODES.has(c)?`<img class="flag" src="/flags/${c}.svg" alt="${esc(c.toUpperCase())}" title="${esc(c.toUpperCase())}">`:'';
@@ -142,7 +142,7 @@ const Stack5 = (() => {
         <p class="subtitle">Browse teams looking for players and choose the one that fits you.</p>
         <div class="filters">
           <input id="q" placeholder="${tr('search')}">
-          <select id="region"><option value="">Region</option><option>EU</option><option>NA</option><option>SA</option><option>LATAM</option><option>ASIA</option><option>SEA</option><option>OCE</option><option>MENA</option><option>NAFR</option><option>AFRICA</option></select>
+          <select id="country">${countryOptions('Country')}</select>
           <select id="role"><option value="">Role</option><option>AWPer</option><option>Rifler</option><option>Entry</option><option>IGL</option><option>Support</option></select>
         </div>
         <div id="results" class="grid"><div class="empty">Loading...</div></div>
@@ -151,17 +151,17 @@ const Stack5 = (() => {
     async function load(){
       const data=await get('/api/discover/teams');
       const q=(document.getElementById('q').value||'').toLowerCase();
-      const region=document.getElementById('region').value;
+      const country=document.getElementById('country').value;
       let rows=data.filter(t=>
         (!q || t.name.toLowerCase().includes(q)) &&
-        (!region || t.region===region)
+        (!country || t.country===country)
       );
       document.getElementById('results').innerHTML=rows.length?rows.map(t=>`
         <article class="card">
           <div class="card-top">
             <div>
               <h3>${esc(t.name)}</h3>
-              <div class="muted small">${esc(t.region)} · ${t.count}/5 players</div>
+              <div class="muted small">${countryFlag(t.country)} ${esc(countryName(t.country))} · ${t.count}/5 players</div>
             </div>
             <span class="badge">OPEN</span>
           </div>
@@ -187,7 +187,7 @@ const Stack5 = (() => {
         <p class="subtitle">Browse available players and discover teammates by language, role, Premier rating and reputation.</p>
         <div class="filters">
           <input id="q" placeholder="${tr('search')}">
-          <select id="region"><option value="">Region</option><option>EU</option><option>NA</option><option>SA</option><option>LATAM</option><option>ASIA</option><option>SEA</option><option>OCE</option><option>MENA</option><option>NAFR</option><option>AFRICA</option></select>
+          <select id="country">${countryOptions('Country')}</select>
           <select id="role"><option value="">Role</option><option>AWPer</option><option>Rifler</option><option>Entry</option><option>IGL</option><option>Support</option></select>
           <select id="lang"><option value="">Language</option>${LANGS.map(([c,n])=>`<option value="${c}">${n}</option>`).join('')}</select>
           <select id="tier"><option value="">Premier tier</option>${PREMIER_TIERS.map(([min,cls,name])=>`<option value="${cls}">${name} (${min===1?'under 5,000':min.toLocaleString('en-US')+'+'})</option>`).join('')}<option value="unrated">Unrated</option></select>
@@ -198,7 +198,7 @@ const Stack5 = (() => {
     async function load(){
       const data=await get('/api/players');
       const q=(document.getElementById('q').value||'').toLowerCase();
-      const region=document.getElementById('region').value;
+      const country=document.getElementById('country').value;
       const role=document.getElementById('role').value;
       const tier=document.getElementById('tier').value;
       const lang=document.getElementById('lang').value;
@@ -206,7 +206,7 @@ const Stack5 = (() => {
         (!lang || langsOf(p).includes(lang)) &&
         (!tier || (tier==='unrated'?!p.premier_rating:premierTier(p.premier_rating||0)?.[1]===tier)) &&
         (!q || String(p.display_name||'').toLowerCase().includes(q)) &&
-        (!region || p.region===region) &&
+        (!country || p.country===country) &&
         (!role || p.role===role) &&
         (p.availability===undefined || p.availability!=='Unavailable')
       );
@@ -216,7 +216,7 @@ const Stack5 = (() => {
             <img class="avatar" src="${esc(p.avatar_url||'')}" onerror="this.style.display='none'">
             <div>
               <h3>${esc(p.display_name||'Player')}</h3>
-              <div class="muted small">${flags(p.country,langsOf(p))} ${esc(p.country||'')} · ${esc(p.region||'')}</div>
+              <div class="muted small">${flags(p.country,langsOf(p))} ${esc(countryName(p.country))}</div>
             </div>
           </div>
           <div class="meta">
@@ -250,7 +250,7 @@ const Stack5 = (() => {
             <div>
               <div class="eyebrow">CleanLobby PLAYER</div>
               <h1 class="name-title" style="font-size:38px;margin:5px 0">${esc(p.display_name)}</h1>
-              <div class="muted">${countryFlag(p.country)} ${esc(p.country||'')} · ${esc(p.region||'')} · ${esc(p.role||'')}</div>
+              <div class="muted">${countryFlag(p.country)} ${esc(countryName(p.country))} · ${esc(p.role||'')}</div>
               <div class="meta">${p.steam_verified?'<span class="status green">STEAM VERIFIED</span>':'<span class="status">Steam not verified</span>'}${p.eligible?'<span class="status green">MEETS REQUIREMENTS</span>':''}</div>
             </div>
           </div>
@@ -358,12 +358,12 @@ const Stack5 = (() => {
     const track=`<div class="ne-track">${tape.map(t=>`<span>${t}</span>`).join('')}</div>`;
     const swap=[
       ['Drop eggs','Drop the cheaters','var(--tier-red)','Every player signs in through Steam and must pass the bar: account at least 2 years old, 500+ hours of CS2, no recent VAC or game ban.'],
-      ['Hatch them','Match them','var(--tier-blue)','Only complete 5-stacks, only against other complete 5-stacks close enough for good ping, with a similar Premier rating. Played on Valve servers through CS2 Private Matchmaking.'],
+      ['Hatch them','Match them','var(--tier-blue)','Only complete 5-stacks, only against other complete 5-stacks close enough for good ping, with a similar Premier rating. Open in 12 countries during the beta. Played on Valve servers through CS2 Private Matchmaking.'],
       ['Feed them','Rate them','var(--tier-purple)','After the match, players vote 👍/👎 on each other’s comms, teamplay, attitude and sportsmanship. Votes, reliability and match record build a public Trust Score that follows you.']
     ];
     const steps=[
       ['Sign in with Steam','On Steam’s own website, then pick a username.'],
-      ['Complete profile','Country, Premier rating, role and the languages you speak.'],
+      ['Complete profile','Country, role and the languages you speak. Premier comes from Leetify.'],
       ['Build your five','Invite friends or find missing players.'],
       ['Find your match','Queue as a full team and meet a comparable five.'],
       ['Play & report','Private Matchmaking code, then both captains report the score.']
@@ -437,7 +437,7 @@ const Stack5 = (() => {
             <div class="ne-notes-top"><span class="ne-dot" style="background:var(--danger)"></span><span class="ne-dot" style="background:var(--accent)"></span><span class="ne-dot" style="background:var(--ok)"></span>&nbsp; PATCH_NOTES.TXT</div>
             <ul>
               <li><span class="ne-t ne-rm">−</span><span>Removed eggs. <span class="muted">(We never had any.)</span></span></li>
-              <li><span class="ne-t ne-add">+</span><span>Teams matched by CS2 Premier rating, from grey to gold.</span></li>
+              <li><span class="ne-t ne-add">+</span><span>Teams matched by CS2 Premier rating (read from Leetify, so nobody can fake it), from grey to gold.</span></li>
               <li><span class="ne-t ne-add">+</span><span>Sign in through Steam only. We never see your password, your inventory or your trades.</span></li>
               <li><span class="ne-t ne-add">+</span><span>Trust Score (0–100) on every public profile.</span></li>
               <li><span class="ne-t ne-add">+</span><span>Both captains report the score. Disputes go to a real admin, not a bot.</span></li>
@@ -461,9 +461,47 @@ const Stack5 = (() => {
         <div class="steps" style="margin-top:28px">${steps.map(([title,text],i)=>`
           <div class="step"><div class="step-num">0${i+1}</div><h3>${title}</h3><p>${text}</p></div>`).join('')}
         </div>
-        <h2 style="margin-top:64px;font-size:clamp(30px,3.6vw,44px)">CleanLobby <em>regions</em></h2>
-        <div class="section-lead" style="margin-top:12px">North Africa first, open worldwide.</div>
-        <div id="home-regions" class="region-grid"></div>
+      </div></section>
+
+      <section class="ne-sec" id="beta-countries"><div class="container" style="padding-top:0;padding-bottom:0">
+        <div class="eyebrow">// Beta countries</div>
+        <h2>Open in <em>12 countries</em>, more soon</h2>
+        <p class="section-lead" style="margin-top:14px">The beta starts small on purpose: Morocco and the English, French, Spanish and Portuguese-speaking countries of Europe, close enough for good ping and a shared language on comms. We’ll open more countries step by step. Not on the list? <a href="/contact" style="color:var(--accent)">Tell us where you play</a>.</p>
+        <div class="beta-grid">${BETA.map(([c,n])=>`<div class="beta-country">${countryFlag(c)}<span>${n}</span></div>`).join('')}</div>
+      </div></section>
+
+      <section class="ne-sec" id="tournaments"><div class="container" style="padding-top:0;padding-bottom:0">
+        <div class="tourney">
+          <div class="premium-badge">COMING UP</div>
+          <h2 style="margin-top:14px">5v5 <em>tournaments</em></h2>
+          <p class="section-lead" style="margin-top:14px">Cups for complete teams from the beta countries: brackets, scheduled matches, results on CleanLobby. Build your five now: teams with a track record and a good Trust Score will be first in line when sign-ups open.</p>
+          <div class="actions"><a class="btn btn-green" href="/login" data-guest-cta>Build your five</a><a class="btn btn-dark" href="/contact">Get notified</a></div>
+        </div>
+      </div></section>
+
+      <section class="ne-sec" id="premium"><div class="container" style="padding-top:0;padding-bottom:0">
+        <div class="premium">
+          <div>
+            <div class="eyebrow">// Premium · coming soon</div>
+            <h2>Officiated matches on <em>private servers</em></h2>
+            <p class="section-lead" style="margin-top:14px">For teams that want certainty. Your match runs on a private CS2 server, with a real admin watching it live:</p>
+            <ul class="premium-list">
+              <li>🛡️ <strong>Only the 10 players on the roster can connect.</strong> No swaps, no ringers.</li>
+              <li>👁️ <strong>A real admin watches the match</strong> and reviews the demo when something looks off.</li>
+              <li>📺 <strong>The admin can ask any player to stream their screen</strong> during the match, at any time, to make sure nothing fishy is going on.</li>
+              <li>🚫 <strong>The admin can kick anyone.</strong> If a player is caught cheating, they’re out, and the admin finds a replacement on the spot so the match can go on.</li>
+              <li>⏸️ <strong>Clear rules</strong> for pauses, substitutes and disconnects, decided on the spot.</li>
+              <li>🏆 <strong>Results that can’t be disputed</strong>, for cups and serious teams.</li>
+            </ul>
+          </div>
+          <div class="premium-card">
+            <div class="premium-badge">COMING SOON</div>
+            <h3>Want to be a match admin?</h3>
+            <p>We’re looking for experienced, fair CS2 players to officiate Premium matches. Tell us about yourself: your CS2 experience, languages, country and when you’re available.</p>
+            <div class="actions"><a class="btn btn-green" href="/contact?topic=admin">Apply to be an admin</a><a class="btn btn-dark" href="mailto:contact@cleanlobby.com?subject=Premium%20match%20admin">Email us</a></div>
+            <p class="muted small" style="margin:12px 0 0">Interested in Premium for your team? Same address: contact@cleanlobby.com</p>
+          </div>
+        </div>
       </div></section>
 
       <section class="ne-final">
@@ -475,11 +513,6 @@ const Stack5 = (() => {
       </section>`);
 
     fillLiveStats();
-    catalog().then(cat=>{
-      const box=document.getElementById('home-regions');
-      if(box) box.innerHTML=cat.regions.map(r=>`
-        <div class="region${r.id==='NAFR'?' featured':''}"><span style="font-size:22px">${r.flag}</span><strong>${esc(r.name)}</strong><small class="muted">${r.id==='NAFR'?'CleanLobby custom region':'Matchmaking region'}</small></div>`).join('');
-    }).catch(()=>{});
 
     // Signed-in visitors get "Go to Play" instead of sign-up buttons.
     fetch('/api/me',{credentials:'include'}).then(r=>{
@@ -504,12 +537,12 @@ const Stack5 = (() => {
   const GUIDE_STEPS=[
     ['1-sign-in',496,434,'Sign in with Steam','Click <strong>Sign in with Steam</strong>. You log in on Steam’s own website: check the address bar says <code>steamcommunity.com</code>. CleanLobby only receives your public SteamID. It never sees your password and can’t touch your inventory or trades.'],
     ['2-pick-username',436,366,'Pick your username','First time only: choose a CleanLobby username. Email is optional (for match notifications). Confirm you’re 16 or older and accept the Terms.'],
-    ['3-profile-setup',784,740,'Set up your player profile','Country (this decides which teams you can play: only ones close enough for good ping), CS2 Premier rating, main role and the languages you speak (your teammates need one in common). Teams see this when they look for players.'],
-    ['4-build-team',1061,827,'Build your five','Create a team and invite players by their CleanLobby username, or find them on <a href="/players">Find Players</a>. Prefer joining a team? Browse <a href="/teams">Find a Team</a> and ask to join. An open team disbands after 6 hours without a new player.'],
+    ['3-profile-setup',784,646,'Set up your player profile','Country (the beta is open in 12 countries; it decides which teams you can play: only ones close enough for good ping), main role and the languages you speak (your teammates need one in common). Your CS2 Premier rating is read from Leetify automatically. Teams see this when they look for players.'],
+    ['4-build-team',1061,717,'Build your five','Create a team and invite players by their CleanLobby username, or find them on <a href="/players">Find Players</a>. Prefer joining a team? Browse <a href="/teams">Find a Team</a> and ask to join. An open team disbands after 6 hours without a new player.'],
     ['5-full-team-queue',705,609,'Five players? Find a match','When your team has 5 players, the captain clicks <strong>Find match</strong>. Everyone must meet the CleanLobby requirements: Steam account at least 2 years old, 500+ hours of CS2, no recent VAC or game ban.'],
     ['6-searching',705,667,'Searching for an opponent','CleanLobby looks for another full team close enough for good ping (their players’ countries within about 2,500 km of yours) with a similar Premier rating. This runs every 30 seconds. After 2 hours without a match, your team leaves the queue.'],
-    ['7-match-found',1061,594,'Match found: captains accept','Both captains have <strong>5 minutes</strong> to accept. Declining or letting the time run out counts against the captain’s reliability.'],
-    ['8-match-room',1061,1088,'Play through CS2 Private Matchmaking','Each captain invites their 4 teammates to a <strong>CS2 party</strong> (use the Steam buttons). One captain creates a <em>Private Matchmaking Pool</em> in CS2 and pastes the code here. The other captain enters it with <em>Manually Enter a Code</em>. Both parties press <strong>GO</strong>. Optional: a captain can share a Discord voice channel that only their own team sees.'],
+    ['7-match-found',1061,592,'Match found: captains accept','Both captains have <strong>5 minutes</strong> to accept. Declining or letting the time run out counts against the captain’s reliability.'],
+    ['8-match-room',1061,1087,'Play through CS2 Private Matchmaking','Each captain invites their 4 teammates to a <strong>CS2 party</strong> (use the Steam buttons). One captain creates a <em>Private Matchmaking Pool</em> in CS2 and pastes the code here. The other captain enters it with <em>Manually Enter a Code</em>. Both parties press <strong>GO</strong>. Optional: a captain can share a Discord voice channel that only their own team sees.'],
     ['9-result-and-ratings',1061,934,'Report the score, then vote','After the game, both captains report the score. When they match, the result is final and everyone has <strong>48 hours</strong> to vote 👍 or 👎 on the players they played with: teammates on comms, teamplay and attitude, opponents on attitude and sportsmanship. Skill isn’t voted on: that’s your Premier rating. Different scores go to an admin.'],
     ['10-trust-score',1061,454,'Build your Trust Score','Your Trust Score (0–100) combines your Steam history, 👍/👎 votes from people you played with, reliability and matches played. Your profile also shows the % of 👍 for each aspect. It’s public on your profile and helps teams decide who to play with. <strong>60 and above is good.</strong> See <a href="#trust-score">how it works and how to raise it</a>.']
   ];
@@ -521,6 +554,9 @@ const Stack5 = (() => {
     ['What if the other team doesn’t show up, or the captains disagree?','If only one captain reports a score within 6 hours, that score counts. If the scores don’t match, an admin decides. You can also <a href="/contact">contact us</a> with details.'],
     ['What is a good Trust Score?','<strong>60 and above is good</strong>, 75 and above is excellent. 40–59 is fair, under 40 is low. A new player with a solid Steam account usually starts around 65. A VAC or game ban in the last 2 years caps the score at 20. <a href="#trust-score">How it’s calculated</a>.'],
     ['How do I raise my Trust Score?','Play matches to the end, report the score, and vote on everyone you played with after each match: 👍/👎 votes from other players are 30% of the score. Accept matches in time and don’t leave a queued team. Your profile shows tips for your own score. <a href="#trust-score">Details</a>.'],
+    ['Which countries can play?','During the beta: Morocco, France, Belgium, Switzerland, Luxembourg, Monaco, Spain, Andorra, Portugal, the United Kingdom, Ireland and Malta. We start small so matches have good ping and teammates share a language (English, French, Spanish or Portuguese). More countries will open later: <a href="/contact">tell us where you play</a>.'],
+    ['Where does my Premier rating come from?','From your <a href="https://leetify.com/" target="_blank" rel="noopener">Leetify</a> profile, read automatically and refreshed every day, so nobody can type a fake one. No Leetify yet? Sign in once at leetify.com with Steam and play a Premier match, then click “Check Leetify again” on the Play page.'],
+    ['What is Premium?','Coming soon: officiated matches on a private CS2 server with a real admin watching, where only the 10 players on the roster can connect. The admin can ask any player to stream their screen during the match, can kick anyone, and finds a replacement on the spot if someone is caught cheating. 5v5 tournaments are coming up too. Want to be an admin, or interested for your team? <a href="/contact?topic=admin">Contact us</a>.'],
     ['How do I report a cheater?','Use the <a href="/contact">Contact page</a> (topic: Report a player) with their CleanLobby name and the match. CleanLobby is a reputation layer, not an anti-cheat.']
   ];
   function guidePage(){
@@ -565,6 +601,7 @@ const Stack5 = (() => {
           <li><strong>Help with your account</strong>: sign-in, profile, Steam checks</li>
           <li><strong>Report a player</strong>: cheating, smurfing, abuse. Include their CleanLobby name and the match.</li>
           <li><strong>Disputed match result</strong>: tell us the match and the real score</li>
+          <li><strong>Become a Premium match admin</strong>: your CS2 experience, languages, country and availability</li>
           <li><strong>Partnerships and sponsoring</strong>: creators, communities, brands</li>
           <li><strong>Your data</strong>: a copy of it or a correction. You can delete your account yourself on the <a href="/account" style="color:var(--accent)">Account page</a>.</li>
         </ul>
@@ -580,7 +617,7 @@ const Stack5 = (() => {
         </form>
       </div></div>`);
     const info=await get('/api/contact/info').catch(()=>null);
-    if(info){ document.getElementById('contact-email').textContent=info.email; document.getElementById('contact-topic').innerHTML=info.topics.map(t=>`<option>${esc(t)}</option>`).join(''); }
+    if(info){ document.getElementById('contact-email').textContent=info.email; document.getElementById('contact-topic').innerHTML=info.topics.map(t=>`<option ${new URLSearchParams(location.search).get('topic')==='admin'&&/admin/i.test(t)?'selected':''}>${esc(t)}</option>`).join(''); }
     document.getElementById('copy-email').onclick=()=>ACTIONS['copy-code'](null,document.getElementById('contact-email').textContent).then(()=>toast('Email address copied.'));
     const form=document.getElementById('contact-form');
     form.onsubmit=async e=>{
@@ -640,7 +677,11 @@ const Stack5 = (() => {
   };
   function statusBadge(s){ const [label,cls]=STATUS[s]||[s,'']; return `<span class="status ${cls}">${esc(label)}</span>`; }
   const ROLES=['Rifler','AWPer','Entry','IGL','Support','Lurker'];
-  const LANGS=[['EN','English'],['FR','Français'],['AR','العربية'],['ES','Español'],['DE','Deutsch'],['PT','Português'],['IT','Italiano'],['NL','Nederlands'],['TR','Türkçe'],['RU','Русский']];
+  const LANGS=[['EN','English'],['FR','Français'],['ES','Español'],['PT','Português']];   // beta languages
+  // Countries open in the beta (same list as BETA_COUNTRIES in src/regions.js).
+  const BETA=[['MA','Morocco'],['FR','France'],['BE','Belgium'],['CH','Switzerland'],['LU','Luxembourg'],['MC','Monaco'],['ES','Spain'],['AD','Andorra'],['PT','Portugal'],['GB','United Kingdom'],['IE','Ireland'],['MT','Malta']];
+  const countryName=c=>(BETA.find(x=>x[0]===c)||[c,c||''])[1];
+  const countryOptions=(label)=>`<option value="">${label}</option>${BETA.map(([c,n])=>`<option value="${c}">${n}</option>`).join('')}`;
   const btn=(label,act,cls='btn-dark',data={})=>`<button class="btn btn-small ${cls}" data-act="${act}" ${Object.entries(data).map(([k,v])=>`data-${k}="${esc(v)}"`).join(' ')}>${esc(label)}</button>`;
   const realSteam=p=>/^https:\/\/(www\.)?steamcommunity\.com\//.test(p?.steam_url||'');
   const playerLink=p=>`<a href="/player/${encodeURIComponent(p.display_name)}"><strong>${esc(p.display_name)}</strong></a>`;
@@ -843,7 +884,6 @@ const Stack5 = (() => {
         <h2>Create your five</h2>
         <form data-form="create-team" class="form-grid">
           <div class="full"><label>Team name</label><input class="input" name="name" maxlength="40" minlength="2" placeholder="e.g. Casablanca Kings" required></div>
-          <div><label>Region</label><select name="region" data-regions="${esc(d.player.region)}"></select></div>
           <div><label>Premier rating range</label><div style="display:flex;gap:8px">
             <input class="input" name="min_rating" type="number" min="0" max="40000" step="500" value="0" aria-label="Lowest Premier rating">
             <input class="input" name="max_rating" type="number" min="0" max="40000" step="500" value="40000" aria-label="Highest Premier rating"></div></div>
@@ -886,7 +926,7 @@ const Stack5 = (() => {
         : btn('Leave team','leave','btn-danger',{id:t.id,confirm:'Leave this team?'})}</div>`;
     }
     return `<div class="panel">
-      <div class="card-top"><div><h2 style="margin:0">${esc(t.name)}</h2><div class="muted small">${esc(t.region)} · ${t.count}/5 players · ${premierRange(t.min_rating,t.max_rating)}</div></div>${statusBadge(t.status)}</div>
+      <div class="card-top"><div><h2 style="margin:0">${esc(t.name)}</h2><div class="muted small">${t.count}/5 players · ${premierRange(t.min_rating,t.max_rating)}</div></div>${statusBadge(t.status)}</div>
       ${(()=>{ const sh=sharedLangs(t.members); return t.count<2?'':sh.length
         ?`<p class="small" style="margin:12px 0 0">🗣️ Everyone speaks ${languageFlags(sh)} <span class="muted">${esc(langNames(sh))}</span></p>`
         :'<p class="small" style="margin:12px 0 0;color:#f2c94c">⚠️ Your players don\'t share a language. Comms will be hard: check the flags before inviting more.</p>'; })()}
@@ -897,7 +937,7 @@ const Stack5 = (() => {
 
   function sidePanel(d){
     const invites=d.invites.length?d.invites.map(i=>`
-      <div class="row"><div><strong>${esc(i.team_name)}</strong><div class="muted small">${esc(i.region)} · ${i.count}/5 · from ${esc(i.invited_by)}</div></div>
+      <div class="row"><div><strong>${esc(i.team_name)}</strong><div class="muted small">${i.count}/5 · from ${esc(i.invited_by)}</div></div>
         <div class="row-actions">${btn('Accept','accept-invite','btn-green',{id:i.id})}${btn('Decline','decline-invite','btn-dark',{id:i.id})}</div></div>`).join('')
       :'<p class="muted small">No pending invitations.</p>';
     let html=`<div class="panel"><h2>Invitations</h2>${invites}</div>`;
@@ -912,13 +952,11 @@ const Stack5 = (() => {
       html+=`<div class="panel"><h2>Your requests</h2>${d.myRequests.map(r=>`<div class="row"><span>${esc(r.team_name)}</span><span class="status amber">Pending</span></div>`).join('')}</div>`;
     }
     html+=`<div class="panel"><h2>Your profile</h2>
-      <div class="muted small">${countryFlag(d.player.country)} ${esc(d.player.region)} · ${premier(d.player.premier_rating)} · ${esc(d.player.role)}</div>
+      <div class="muted small">${countryFlag(d.player.country)} ${esc(countryName(d.player.country))} · ${esc(d.player.role)}</div>
       <div class="small" style="margin-top:8px">Premier ${premier(d.player.premier_rating)} ${premierSource(d.player)}</div>
       <div class="small" id="my-faceit" style="margin-top:6px"></div>
-      ${d.player.premier_rating==null?'<p class="small" style="color:#f2c94c;margin:10px 0 0">Leetify has no Premier rating for you yet. Type yours below so we can match your team fairly.</p>':''}
+      ${d.player.premier_rating==null?`<p class="small" style="color:#f2c94c;margin:10px 0 0">We read your Premier rating from <a href="https://leetify.com/" target="_blank" rel="noopener" style="color:var(--accent)">Leetify</a>, and it doesn’t have one for you yet. Sign in once at leetify.com with Steam and play a Premier match, then check again.</p>${btn('Check Leetify again','premier-leetify','btn-dark')}`:''}
       <form data-form="languages" style="margin-top:12px"><label class="field-label">Languages you speak</label>${languageBoxes(langsOf(d.player))}<button class="btn btn-dark btn-small" style="margin-top:8px">Save languages</button></form>
-      <form data-form="premier" class="inline-form"><input class="input" name="premier_rating" type="number" inputmode="numeric" min="0" max="40000" placeholder="Premier rating" value="${d.player.premier_rating??''}" aria-label="CS2 Premier rating"><button class="btn btn-dark btn-small">Update</button></form>
-      ${d.player.premier_source==='self'?`<button class="btn btn-outline btn-small" data-act="premier-leetify" style="margin-top:8px">Use my Leetify rating instead</button>`:''}
       <div class="muted small" style="margin-top:6px">${d.eligibility?.eligible?'<span class="status green">VERIFIED</span> Meets CleanLobby requirements':'<span class="status amber">NOT VERIFIED</span>'}</div>
       <div class="actions" style="margin-top:12px"><a class="btn btn-small btn-dark" href="/player/${encodeURIComponent(d.player.display_name)}">View public profile</a><a class="btn btn-small btn-outline" href="/account">Account</a></div></div>`;
     return html;
@@ -943,20 +981,16 @@ const Stack5 = (() => {
       <form data-form="profile" class="form-grid" style="margin-top:18px">
         ${steamField}
         <div><label>Display name</label><input class="input" name="display_name" maxlength="40" value="${esc(d.account.username)}" required></div>
-        <div><label>Country</label><select name="country" required>${cat.countries.map(c=>`<option value="${c.code}" data-region="${c.region}" ${c.code==='MA'?'selected':''}>${c.flag} ${esc(c.name)}</option>`).join('')}</select></div>
-        <div><label>Matchmaking region</label><select name="region" disabled>${cat.regions.map(r=>`<option value="${r.id}">${r.flag} ${esc(r.name)}</option>`).join('')}</select></div>
-        <div><label>CS2 Premier rating (optional)</label><input class="input" name="premier_rating" type="number" inputmode="numeric" min="0" max="40000" placeholder="Leave empty: we get it from Leetify">
-          <div class="muted small" style="margin-top:5px">Leave it empty and we copy it from your Leetify profile. Or type it (CS2: Play → Premier).</div></div>
+        <div><label>Country</label><select name="country" required>${cat.countries.filter(c=>c.open).map(c=>`<option value="${c.code}" ${c.code==='MA'?'selected':''}>${c.flag} ${esc(c.name)}</option>`).join('')}</select>
+          <div class="muted small" style="margin-top:5px">The beta is open in these countries only. <a href="/guide#beta-countries" style="color:var(--accent)">More countries later</a>.</div></div>
+        <div><label>CS2 Premier rating</label><div class="input" style="color:var(--muted)">Read from Leetify automatically</div>
+          <div class="muted small" style="margin-top:5px">We copy it from your <a href="https://leetify.com/" target="_blank" rel="noopener" style="color:var(--accent)">Leetify</a> profile, so nobody can fake it. No Leetify yet? Sign in there once with Steam.</div></div>
         <div><label>Main role</label><select name="role">${ROLES.map(r=>`<option>${r}</option>`).join('')}</select></div>
         <div class="full"><label>Languages you speak (teammates need one in common)</label>${languageBoxes(['FR'])}</div>
         <div class="full"><label>Avatar URL (optional, https)</label><input class="input" name="avatar_url" type="url" placeholder="https://..."></div>
         <div class="full"><button class="btn btn-green">Save profile</button></div>
       </form>
     </div>`;
-    const form=box.querySelector('[data-form="profile"]');
-    const syncRegion=()=>{ form.region.value=form.country.selectedOptions[0].dataset.region; };
-    form.country.addEventListener('change',syncRegion);
-    syncRegion();
   }
 
   const ACTIONS={
@@ -969,7 +1003,7 @@ const Stack5 = (() => {
     'leave':          id=>post(`/api/teams/${id}/leave`),
     'disband':        id=>post(`/api/teams/${id}/disband`),
     'remove':     (id,arg)=>post(`/api/teams/${id}/remove`,{player_id:Number(arg)}),
-    'premier-leetify': ()=>post('/api/profile/premier',{use_leetify:true}),
+    'premier-leetify': ()=>post('/api/profile/premier',{}),
     'transfer':   (id,arg)=>post(`/api/teams/${id}/transfer`,{player_id:Number(arg)}),
     'accept-match':(id,arg)=>post(`/api/matches/${id}/accept`,{team_id:Number(arg)}),
     'decline-match':  id=>post(`/api/matches/${id}/decline`),
@@ -1015,13 +1049,10 @@ const Stack5 = (() => {
       if(form.dataset.form==='report'){ const r=await post(`/api/matches/${form.dataset.id}/result`,{my_score:Number(data.my_score),their_score:Number(data.their_score)}); toast(r.message); }
       const checked=()=>[...form.querySelectorAll('input[name="languages"]:checked')].map(x=>x.value);
       if(form.dataset.form==='languages'){ const r=await post('/api/profile/languages',{languages:checked()}); toast(r.message); }
-      if(form.dataset.form==='premier'){ const r=await post('/api/profile/premier',data); toast(r.message); }
       if(form.dataset.form==='create-team'){ await post('/api/teams',data); toast('Team created. Invite your players.'); }
       if(form.dataset.form==='invite'){ const r=await post(`/api/teams/${form.dataset.id}/invite`,data); toast(r.message||'Invitation sent.'); }
       if(form.dataset.form==='profile'){
-        data.region=form.region.value;
         data.languages=checked();
-        if(!data.premier_rating) delete data.premier_rating;
         if(!data.avatar_url) delete data.avatar_url;
         await post('/api/profile',data); toast('Profile saved. Welcome to CleanLobby!');
       }
@@ -1029,16 +1060,6 @@ const Stack5 = (() => {
     }catch(err){ toast(err.message,true); if(button) button.disabled=false; }
   }
 
-  // Region selects are filled from the catalog after render.
-  new MutationObserver(async()=>{
-    const sels=document.querySelectorAll('select[data-regions]:not([data-filled])');
-    if(!sels.length) return;
-    const cat=await catalog();
-    sels.forEach(s=>{
-      s.dataset.filled='1';
-      s.innerHTML=cat.regions.map(r=>`<option value="${r.id}" ${r.id===s.dataset.regions?'selected':''}>${r.flag} ${esc(r.name)}</option>`).join('');
-    });
-  }).observe(document.documentElement,{childList:true,subtree:true});
 
   // ---------- Account page (self-service deletion) ----------
   async function account(){
@@ -1132,7 +1153,7 @@ const Stack5 = (() => {
       <div class="container">
         <div class="eyebrow">CleanLobby TEAM</div>
         <h1 class="name-title" style="font-size:40px">${esc(t.name)}</h1>
-        <p class="subtitle">${esc(t.region)} · ${t.count}/5 players · ${premierRange(t.min_rating,t.max_rating)}</p>
+        <p class="subtitle">${t.count}/5 players · ${premierRange(t.min_rating,t.max_rating)}</p>
         <div class="section">
           <h2>Roster</h2>
           <div class="grid">${(t.members||[]).map(p=>`

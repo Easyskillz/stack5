@@ -34,7 +34,7 @@ function browser() {
     async get(url) { return (await req(url)).json(); },
     async steamToWelcome(steamId) { let r = await req("/auth/steam/start"); r = await req(r.headers.get("location") + "&steamid=" + steamId); await req(r.headers.get("location")); },
     async signup(username) { const s = await b.post("/api/auth/signup", { username, terms: true }); csrf = s.csrf_token; },
-    async profile(role, rating, country = "MA", lang = "FR") { return b.post("/api/profile", { country, region: "NAFR", premier_rating: rating, role, languages: lang }); }
+    async profile(role, rating, country = "MA", lang = "FR") { return b.post("/api/profile", { country, premier_rating: rating, role, languages: lang }); }
   };
   return b;
 }
@@ -75,6 +75,11 @@ try {
   const A = ["atlas_igl", "nizar_awp", "kenzo", "rif_entry", "samy"], Bn = ["medina_igl", "yanis", "walid_awp", "lotfi", "anis"];
   const players = [];
   // First player: stop at /welcome for the username screenshot.
+  { // Beta countries only: a player from outside them is refused.
+    const out = browser(); await out.steamToWelcome("76561198000009901"); await out.signup("outsider_dz");
+    const r = await out.profile("Rifler", 10000, "DZ", "FR");
+    if (!r.error) { console.error("  RULE BROKEN: country outside the beta accepted"); process.exitCode = 1; } else console.log("  rule ok: country outside the beta refused");
+  }
   const first = browser(); await first.steamToWelcome("76561198000002001");
   await shot("2-pick-username", "/welcome", ".card", first.jar);
   await first.signup(A[0]);
@@ -84,7 +89,7 @@ try {
   for (let i = 1; i < 10; i++) {
     const b = browser(); await b.steamToWelcome(`765611980000020${String(i + 1).padStart(2, "0")}`);
     const name = i < 5 ? A[i] : Bn[i - 5];
-    await b.signup(name); await b.profile(roles[i % 5], [9800, 13420, 17950, 21300, 26700, 31250][i % 6], i < 5 ? "MA" : "DZ", i < 5 ? "FR,EN" : "FR,AR"); players.push(b);
+    await b.signup(name); await b.profile(roles[i % 5], [9800, 13420, 17950, 21300, 26700, 31250][i % 6], i < 5 ? "MA" : "FR", i < 5 ? "FR,EN" : "FR,ES"); players.push(b);
   }
   // Realistic Steam history for trust scores (fictional numbers).
   const db = new Database(DB);
@@ -101,7 +106,7 @@ try {
   await players[0].post("/api/admin/trust/recompute");
   await shot("4-build-team", "/play", ".panel-grid", players[0].jar);
   for (const k of [3, 4]) { await players[0].post(`/api/teams/${ta.id}/invite`, { username: A[k] }); const inv = (await players[k].get("/api/my/dashboard")).invites[0]; await players[k].post(`/api/team-invites/${inv.id}/accept`); }
-  const tb = await players[5].post("/api/teams", { name: "Medina Five" });
+  const tb = await players[5].post("/api/teams", { name: "Marseille Five" });
   for (const k of [6, 7, 8, 9]) { await players[5].post(`/api/teams/${tb.id}/invite`, { username: Bn[k - 5] }); const inv = (await players[k].get("/api/my/dashboard")).invites[0]; await players[k].post(`/api/team-invites/${inv.id}/accept`); }
   await players[0].post("/api/admin/trust/recompute");
   await shot("5-full-team-queue", "/play", ".panel-grid > div:first-child .panel", players[0].jar);

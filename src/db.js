@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
+import { COUNTRY_CATALOG } from "./regions.js";
 
 const dbPath = process.env.DB_PATH || "./data/stack5.db";
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
@@ -287,7 +288,22 @@ db.exec(`CREATE TABLE IF NOT EXISTS player_votes (
 )`);
 db.exec("CREATE INDEX IF NOT EXISTS idx_votes_to ON player_votes(to_player_id)");
 try { db.exec("ALTER TABLE players ADD COLUMN premier_synced_at INTEGER"); } catch {}
-db.exec("UPDATE players SET premier_source='self' WHERE premier_rating IS NOT NULL AND premier_source IS NULL");
+// The Premier rating now only comes from Leetify: ratings players typed are removed (the daily job refills from Leetify).
+db.exec("UPDATE players SET premier_rating=NULL, premier_source=NULL, premier_synced_at=NULL WHERE premier_source='self' OR (premier_rating IS NOT NULL AND premier_source IS NULL)");
+// Older (test) profiles stored country names ("France", "UK", "USA") instead of codes: convert them.
+{
+  const alias = { UK: "GB", USA: "US", "United States of America": "US" };
+  db.prepare("UPDATE players SET country='GB' WHERE country='UK'").run();
+  for (const p of db.prepare("SELECT id, country FROM players WHERE country IS NOT NULL AND length(country) > 2").all()) {
+    const code = alias[p.country] || COUNTRY_CATALOG.find(c => c[1].toLowerCase() === p.country.toLowerCase())?.[0];
+    if (code) db.prepare("UPDATE players SET country=? WHERE id=?").run(code, p.id);
+  }
+}
+// Beta languages only (English, French, Spanish, Portuguese): drop the others from profiles.
+for (const p of db.prepare("SELECT id, languages FROM players WHERE languages IS NOT NULL").all()) {
+  const keep = p.languages.split(",").filter(c => ["EN", "FR", "ES", "PT"].includes(c));
+  if (keep.join(",") !== p.languages) db.prepare("UPDATE players SET languages=?, language=? WHERE id=?").run(keep.join(",") || null, keep[0] || null, p.id);
+}
 db.exec("UPDATE players SET languages=language WHERE languages IS NULL AND language IS NOT NULL AND language<>''");
 // The self-reported FACEIT level/Elo is no longer collected or used: clear what older versions stored.
 db.exec("UPDATE players SET faceit_level=0, faceit_elo=0 WHERE faceit_level<>0 OR faceit_elo<>0");

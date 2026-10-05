@@ -37,5 +37,6 @@ An admin can approve a player manually (for example a known pro with a private p
 
 - Code: `src/eligibility.js` (`evaluateEligibility`, `isEligible`); the `eligibleRequired` middleware in `src/server.js`; the checklist UI is `eligibilityPanel` in `public/app.js`.
 - The result is stored on the player (`eligible`, `eligibility` JSON, `eligibility_checked_at`) and refreshed after Steam data refreshes (see [External data sources](data-sources.md)).
+- **Beta countries:** the player's country must be one of `BETA_COUNTRIES` (`src/regions.js`): Morocco, France, Belgium, Switzerland, Luxembourg, Monaco, Spain, Andorra, Portugal, United Kingdom, Ireland, Malta.
 - Settings: `STACK5_ELIGIBILITY=off` (development only), `ELIGIBILITY_MIN_STEAM_DAYS` (default 730), `ELIGIBILITY_MIN_CS2_HOURS` (default 500).
 - Admin override: `players.eligibility_override` (1 = always allowed, 0 = always blocked, empty = automatic).

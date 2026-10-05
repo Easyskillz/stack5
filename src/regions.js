@@ -27,6 +27,12 @@ export const COUNTRY_CATALOG = [
   ['BE', 'Belgium', 'EU', '🇧🇪', 50.85, 4.35],
   ['NL', 'Netherlands', 'EU', '🇳🇱', 52.37, 4.9],
   ['PT', 'Portugal', 'EU', '🇵🇹', 38.72, -9.14],
+  ['CH', 'Switzerland', 'EU', '🇨🇭', 46.95, 7.45],
+  ['LU', 'Luxembourg', 'EU', '🇱🇺', 49.61, 6.13],
+  ['IE', 'Ireland', 'EU', '🇮🇪', 53.35, -6.26],
+  ['MC', 'Monaco', 'EU', '🇲🇨', 43.74, 7.42],
+  ['AD', 'Andorra', 'EU', '🇦🇩', 42.51, 1.52],
+  ['MT', 'Malta', 'EU', '🇲🇹', 35.90, 14.51],
   ['US', 'United States', 'NA', '🇺🇸', 39.5, -98.35],
   ['CA', 'Canada', 'NA', '🇨🇦', 43.65, -79.38],
   ['BR', 'Brazil', 'SA', '🇧🇷', -23.55, -46.63],
@@ -56,6 +62,11 @@ export function getCountry(code) {
   return { code: row[0], name: row[1], region: row[2], flag: row[3] };
 }
 
+// The beta is open to these countries only (English, French, Spanish or Portuguese-speaking Europe, and Morocco).
+// Others stay in the catalog so existing profiles still display, but can't be picked and don't meet the requirements.
+export const BETA_COUNTRIES = ["MA", "FR", "BE", "CH", "LU", "MC", "ES", "AD", "PT", "GB", "IE", "MT"];
+export const isBetaCountry = code => BETA_COUNTRIES.includes(code);
+
 // Great-circle distance in km between two [lat, lon] points.
 export function distanceKm([lat1, lon1], [lat2, lon2]) {
   const rad = d => d * Math.PI / 180, dLat = rad(lat2 - lat1), dLon = rad(lon2 - lon1);
@@ -71,7 +82,7 @@ export function homePoint(countryCodes) {
 }
 
 // Languages a player can list (they speak one or more). Teammates need a shared one; opponents don't.
-export const LANGUAGE_CODES = ["EN", "FR", "AR", "ES", "DE", "PT", "IT", "NL", "TR", "RU"];
+export const LANGUAGE_CODES = ["EN", "FR", "ES", "PT"];   // beta languages
 export function parseLanguages(v) {
   const list = (Array.isArray(v) ? v : String(v || "").split(",")).map(x => String(x).trim().toUpperCase()).filter(x => LANGUAGE_CODES.includes(x));
   return [...new Set(list)].slice(0, 5);

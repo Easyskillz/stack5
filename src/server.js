@@ -15,7 +15,7 @@ import { steamLoginUrl, verifySteamAssertion } from "./steam-auth.js";
 import { expireStale, touchTeam, teamExpiresAt, queueExpiresAt, matchExpiresAt, LIMITS } from "./timers.js";
 import { runMatchmaking } from "./matchmaking.js";
 import { resultDeadline, cleanLobbyCode, cleanVoiceLink, submitReport, finishMatch, parseScore } from "./matches.js";
-import { REGION_CATALOG, COUNTRY_CATALOG, parseLanguages } from "./regions.js";
+import { REGION_CATALOG, COUNTRY_CATALOG, parseLanguages, isBetaCountry, BETA_COUNTRIES } from "./regions.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -205,7 +205,8 @@ app.post("/api/admin/run-matchmaking", auth, adminRequired, csrf, (req, res) => 
 });
 
 app.get("/api/health", (_, res) => res.json({ ok: true, service: "stack5", version: "0.2.0" }));
-app.get("/api/regions", (_, res) => res.json({ regions: REGION_CATALOG, countries: COUNTRY_CATALOG.map(([code,name,region,flag]) => ({ code, name, region, flag })) }));
+app.get("/api/regions", (_, res) => res.json({ regions: REGION_CATALOG, beta: BETA_COUNTRIES,
+  countries: COUNTRY_CATALOG.map(([code,name,region,flag]) => ({ code, name, region, flag, open: isBetaCountry(code) })) }));
 
 app.get("/verify-email", (req, res) => {
   const token = String(req.query.token || "");
@@ -356,18 +357,16 @@ async function linkVerifiedSteam(account, steamId) {
 }
 
 app.post("/api/profile", auth, csrf, async (req, res) => {
-  if (!requireBody(req, res, ["country","region","role"])) return;
+  if (!requireBody(req, res, ["country","role"])) return;
   const languages = parseLanguages(req.body.languages ?? req.body.language);
   if (!languages.length) return res.status(400).json({ error: "Pick at least one language you speak." });
-  // Premier rating is optional at sign-up: left empty, it's copied from Leetify right after.
-  const typed = String(req.body.premier_rating ?? "").trim() !== "";
-  const premier = typed ? premierRating(req.body.premier_rating) : null;
-  if (typed && premier === null) return res.status(400).json({ error: PREMIER_ERROR });
+  // The Premier rating only comes from Leetify (copied right after). Tests can set one (no Leetify there).
+  const testPremier = process.env.NODE_ENV === "test" ? premierRating(req.body.premier_rating) : null;
   if (!req.account.verified_steam_id) return res.status(403).json({ error: "Sign in through Steam first to prove the account is yours.", code: "STEAM_NOT_LINKED" });
   const country = COUNTRY_CATALOG.find(x => x[0] === req.body.country);
-  const region = REGION_CATALOG.find(x => x.id === req.body.region);
-  if (!country || !region) return res.status(400).json({ error: "Invalid country or region." });
-  if (country[2] !== region.id) return res.status(400).json({ error: "Country and matchmaking region do not match." });
+  if (!country) return res.status(400).json({ error: "Invalid country." });
+  if (!isBetaCountry(country[0])) return res.status(400).json({ error: "The beta isn't open in your country yet. We're opening more countries step by step." });
+  const region = REGION_CATALOG.find(x => x.id === country[2]);   // internal only; matchmaking uses distance between countries
   if (req.account.player_id) return res.status(409).json({ error: "Your player profile already exists." });
   try {
     // Ownership already proven by Steam sign-in.
@@ -377,11 +376,11 @@ app.post("/api/profile", auth, csrf, async (req, res) => {
     const result = db.transaction(() => {
       const existing = db.prepare("SELECT id FROM players WHERE steam_url=? OR (steam_id IS NOT NULL AND steam_id=?)").get(steamUrl, steamId);
       if (existing) throw new Error("This Steam profile is already linked to a CleanLobby player.");
-      const r = db.prepare(`INSERT INTO players(steam_url,steam_id,steam_verified,steam_verified_at,display_name,avatar_url,premier_rating,premier_source,region,country,language,languages,role) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(steamUrl,steamId,1,Date.now(),name,safeAvatarUrl(req.body.avatar_url),premier,typed?"self":null,region.id,country[0],languages[0],languages.join(","),String(req.body.role).slice(0,20));
+      const r = db.prepare(`INSERT INTO players(steam_url,steam_id,steam_verified,steam_verified_at,display_name,avatar_url,premier_rating,premier_source,region,country,language,languages,role) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(steamUrl,steamId,1,Date.now(),name,safeAvatarUrl(req.body.avatar_url),testPremier,testPremier!=null?"leetify":null,region.id,country[0],languages[0],languages.join(","),String(req.body.role).slice(0,20));
       db.prepare("UPDATE accounts SET player_id=? WHERE id=?").run(r.lastInsertRowid, req.account.account_id);
       return r.lastInsertRowid;
     })();
-    if (!typed) await syncPremierFromLeetify(result).catch(e => console.error("[STACK5] Premier from Leetify failed:", e.message));
+    if (testPremier == null) await syncPremierFromLeetify(result).catch(e => console.error("[STACK5] Premier from Leetify failed:", e.message));
     computeTrust(result);
     evaluateEligibility(result);
     // Pull Steam/FACEIT data in the background, then rescore and re-check eligibility.
@@ -390,24 +389,16 @@ app.post("/api/profile", auth, csrf, async (req, res) => {
   } catch(e) { res.status(400).json({ error:e.message }); }
 });
 
-// Premier rating: whole number 0-40000, 0 = no rating yet (Premier needs 10 wins first). Self-reported:
-// Leetify's live panel shows the real one, but their terms don't allow storing it or using it to match.
-const PREMIER_ERROR = "Enter your CS2 Premier rating (0 to 40,000), or 0 if you don't have one yet.";
+// Premier rating: whole number 0-40000. Only used to read a test value (NODE_ENV=test); real ratings come from Leetify.
 function premierRating(v) {
   if (v === undefined || v === null || String(v).trim() === "") return null;
   const n = Number(String(v).replace(/[ ,.]/g, ""));
   return Number.isInteger(n) && n >= 0 && n <= 40000 ? n : null;
 }
+// Players can't set their Premier rating: it's read from Leetify. This only asks Leetify again (after joining Leetify).
 app.post("/api/profile/premier", auth, csrf, profileRequired, async (req, res) => {
-  if (req.body.use_leetify) {   // go back to the Leetify copy
-    db.prepare("UPDATE players SET premier_source=NULL, premier_rating=NULL WHERE id=?").run(req.account.player_id);
-    const r = await syncPremierFromLeetify(req.account.player_id).catch(() => null);
-    return res.json({ premier_rating: r, message: r ? `Premier rating from Leetify: ${r.toLocaleString("en-US")}.` : "Leetify has no Premier rating for you. Enter it yourself." });
-  }
-  const premier = premierRating(req.body.premier_rating);
-  if (premier === null) return res.status(400).json({ error: PREMIER_ERROR });
-  db.prepare("UPDATE players SET premier_rating=?, premier_source='self' WHERE id=?").run(premier, req.account.player_id);
-  res.json({ premier_rating: premier, message: premier ? `Premier rating saved: ${premier.toLocaleString("en-US")}.` : "Saved: no Premier rating yet." });
+  const r = await syncPremierFromLeetify(req.account.player_id).catch(() => null);
+  res.json({ premier_rating: r, message: r ? `Premier rating from Leetify: ${r.toLocaleString("en-US")}.` : "Leetify doesn't show a Premier rating for you yet. Sign in once at leetify.com with Steam, play a Premier match, then try again." });
 });
 
 app.post("/api/profile/languages", auth, csrf, profileRequired, (req, res) => {
@@ -466,8 +457,7 @@ app.post("/api/teams", auth, csrf, profileRequired, eligibleRequired, (req,res) 
   if (activeTeamForPlayer(req.account.player_id)) return res.status(409).json({error:"You are already in an active team."});
   const captain=db.prepare("SELECT * FROM players WHERE id=?").get(req.account.player_id);
   if(!captain) return res.status(404).json({error:"Player not found"});
-  const region=req.body.region || captain.region;
-  if (!REGION_CATALOG.some(r=>r.id===region)) return res.status(400).json({error:"Invalid region"});
+  const region=captain.region;   // internal only
   const min=Math.max(0,Math.min(40000,Math.round(Number(req.body.min_rating)||0)));
   const max=Math.max(min,Math.min(40000,Math.round(Number(req.body.max_rating)||40000)));
   const name=String(req.body.name).trim().slice(0,40);
@@ -874,7 +864,7 @@ app.post("/api/admin/players/:id/eligibility", auth, adminRequired, csrf, (req,r
 });
 
 // ---- Contact form: delivered by email to CONTACT_EMAIL (nothing is stored in the database).
-const CONTACT_TOPICS = ["Help with my account","Report a player","Disputed match result","Partnership or sponsoring","My data (privacy request)","Something else"];
+const CONTACT_TOPICS = ["Help with my account","Report a player","Disputed match result","Become a Premium match admin","Partnership or sponsoring","My data (privacy request)","Something else"];
 const contactHits = new Map();   // ip -> timestamps of recent messages (max 3 per hour)
 app.post("/api/contact", async (req, res) => {
   if (req.body?.website) return res.json({ ok: true });   // hidden field only bots fill in
@@ -982,10 +972,13 @@ app.get("/api/discover/teams", (_, res) => {
     HAVING count < 5
     ORDER BY t.created_at DESC
   `).all();
-  // Languages every current member speaks, so players can pick a team they can talk to.
-  const langs = db.prepare("SELECT p.languages FROM team_members tm JOIN players p ON p.id=tm.player_id WHERE tm.team_id=?");
+  // Languages every current member speaks, so players can pick a team they can talk to, and the team's main country.
+  const langs = db.prepare("SELECT p.languages, p.country FROM team_members tm JOIN players p ON p.id=tm.player_id WHERE tm.team_id=?");
   for (const t of teams) {
-    const sets = langs.all(t.id).map(r => (r.languages || "").split(",").filter(Boolean));
+    const rows = langs.all(t.id), c = {};
+    for (const r of rows) if (r.country) c[r.country] = (c[r.country] || 0) + 1;
+    t.country = Object.entries(c).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+    const sets = rows.map(r => (r.languages || "").split(",").filter(Boolean));
     t.languages = sets.length ? sets.reduce((a, b) => a.filter(x => b.includes(x))) : [];
   }
   res.json(teams);
@@ -1002,7 +995,7 @@ const SITE_DESC="We don’t want eggs, we want a cheater-free game. CS2 5v5 for 
 const PAGES={
   "/":        { title:"CleanLobby · Trusted CS2 5v5 team matchmaking", heading:"We don’t want eggs. We want a cheater-free game.", description:SITE_DESC },
   "/teams":   { title:"Find a CS2 team · CleanLobby", heading:"Find a CS2 team", description:"Browse CS2 5-stacks that are recruiting on CleanLobby and ask to join. Every player is Steam-verified with a public trust score." },
-  "/players": { title:"Find CS2 players · CleanLobby", heading:"Find CS2 players", description:"Find Steam-verified CS2 players for your 5-stack by region, level, role and language, with a trust score built from real matches." },
+  "/players": { title:"Find CS2 players · CleanLobby", heading:"Find CS2 players", description:"Find Steam-verified CS2 players for your 5-stack by country, Premier rating, role and language, with a trust score built from real matches." },
   "/matches": { title:"CS2 5v5 matches and results · CleanLobby", heading:"CS2 5v5 matches", description:"Live CleanLobby matches and recent results between complete CS2 teams, played through CS2 Private Matchmaking." },
   "/rankings":{ title:"CS2 team rankings · CleanLobby", heading:"Rankings", description:"CleanLobby rankings for CS2 5v5 teams and players. Coming soon." },
   "/guide":   { title:"How CleanLobby works: CS2 5v5 player guide · CleanLobby", heading:"How CleanLobby works", description:"Step-by-step guide to CleanLobby: sign in with Steam, build your CS2 5-stack, find a match, play through CS2 Private Matchmaking, report the score and build your Trust Score." },
@@ -1042,11 +1035,12 @@ ${[...Object.keys(PAGES),"/login","/terms","/privacy"].map(p=>`  <url><loc>${BAS
 // llms.txt: a plain summary for AI assistants and LLM crawlers (llmstxt.org).
 app.get("/llms.txt",(_,res)=>res.type("text/plain").send(`# CleanLobby
 
-> CleanLobby is a free CS2 (Counter-Strike 2) 5v5 team matchmaking platform focused on trust. Complete teams of five play against other complete teams, every player is a Steam-verified account, and a public Trust Score is built from Steam history, peer ratings, reliability and match record. Strong focus on North Africa (Morocco, Algeria, Tunisia, Libya, Egypt), open worldwide. Currently in beta.
+> CleanLobby is a free CS2 (Counter-Strike 2) 5v5 team matchmaking platform focused on trust. Complete teams of five play against other complete teams, every player is a Steam-verified account, and a public Trust Score is built from Steam history, peer ratings, reliability and match record. Currently in beta, open to players in Morocco and English, French, Spanish and Portuguese-speaking Europe; more countries later.
 
 ## How it works
 
-- Teams are matched by CS2 Premier rating (entered by players), region and Trust Score.
+- Teams are matched by CS2 Premier rating (read from Leetify), distance between countries (good ping) and Trust Score.
+- Beta: open to players in Morocco, France, Belgium, Switzerland, Luxembourg, Monaco, Spain, Andorra, Portugal, the United Kingdom, Ireland and Malta. More countries later.
 - Players sign in through Steam (OpenID). CleanLobby only receives the public SteamID; it never sees Steam passwords and has no access to inventories, skins or trades.
 - To play, a Steam account must be at least 2 years old, have at least 500 hours of CS2 and no VAC or game ban in the last 2 years.
 - A captain creates a team and invites four players. Teammates pick each other by language (players list the languages they speak). Full teams queue and are matched with a team whose players' countries are close enough for good ping (up to about 2,500 km apart), at a similar CS2 Premier rating.

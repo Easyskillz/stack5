@@ -63,7 +63,7 @@
 <div class="table-wrap"><table>
 <tr><th>Data</th><th>Why</th></tr>
 <tr><td><strong>Account:</strong> username, the SteamID64 you sign in with, and optionally an email address</td><td>To create your account and sign you in. CleanLobby has no passwords: you sign in through Steam. The email is optional; if you add one, we verify it and use it only for match notifications and important account news.</td></tr>
-<tr><td><strong>Player profile:</strong> link to your Steam profile, display name, optional avatar URL, country, matchmaking region, CS2 Premier rating (as you enter it, or copied from your Leetify profile if you leave it empty), main role, the languages you speak</td><td>To show your profile to other players and to match teams by region and level.</td></tr>
+<tr><td><strong>Player profile:</strong> link to your Steam profile, display name, optional avatar URL, country, CS2 Premier rating (copied from your Leetify profile), main role, the languages you speak</td><td>To show your profile to other players and to match teams by region and level.</td></tr>
 <tr><td><strong>Terms acceptance:</strong> the date you accepted our terms</td><td>To record your agreement.</td></tr>
 </table></div>
 
@@ -89,7 +89,7 @@
 
 <h3>Information shown from Leetify</h3>
 <p>Your profile page shows CS2 statistics from Leetify's public API (for example Leetify Rating, Premier rating, aim and utility). These are requested live from Leetify when someone opens your profile, kept in server memory for at most 5 minutes, and <strong>not stored</strong> in our database. They are shown only if your Leetify privacy settings allow it, and they are <strong>not</strong> used in the CleanLobby Trust Score.</p>
-<p><strong>One exception, your CS2 Premier rating:</strong> if you don't type it yourself, we copy it from your Leetify profile, store it on your player profile (marked "Data Provided by Leetify") and use it to match your team against teams of a similar level. We refresh it about once a day and delete it if Leetify no longer shows it. A rating you type yourself always replaces it.</p>
+<p><strong>One exception, your CS2 Premier rating:</strong> we copy it from your Leetify profile, store it on your player profile (marked "Data Provided by Leetify") and use it to match your team against teams of a similar level. You can't type or change it yourself, so nobody can fake it. We refresh it about once a day and delete it if Leetify no longer shows it.</p>
 
 <h3>Information shown from FACEIT</h3>
 <p>If a FACEIT account is linked to your Steam account, your profile page shows information from FACEIT's Data API: your FACEIT nickname, level, Elo, number of CS2 matches, the date you joined FACEIT, and any FACEIT bans. These are requested live from FACEIT when someone opens your profile, kept in server memory for at most 5 minutes, and <strong>not stored</strong> in our database. They are <strong>not</strong> used in the CleanLobby Trust Score or in the requirements to play.</p>

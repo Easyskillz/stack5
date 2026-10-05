@@ -7,10 +7,12 @@
  *   - Steam account >= ELIGIBILITY_MIN_STEAM_DAYS old (default 730 = 2 years)
  *   - >= ELIGIBILITY_MIN_CS2_HOURS of CS2 playtime (default 500)
  *   - no VAC/game ban in the last 2 years, no Steam community ban
+ *   - lives in a country open in the beta (BETA_COUNTRIES in regions.js)
  * An admin can approve (or block) a player manually via eligibility_override.
  * Set STACK5_ELIGIBILITY=off to disable the gate (local development/tests).
  */
 import { db } from "./db.js";
+import { isBetaCountry, BETA_COUNTRIES, COUNTRY_CATALOG } from "./regions.js";
 
 const DAY = 86_400_000;
 export const eligibilityEnabled = () => process.env.STACK5_ELIGIBILITY !== "off";
@@ -19,11 +21,15 @@ const MIN_HOURS = () => Number(process.env.ELIGIBILITY_MIN_CS2_HOURS || 500);
 
 /** Returns { eligible, checks:[{key,label,ok,detail}], override } and stores it on the player. */
 export function evaluateEligibility(playerId, now = Date.now()) {
-  const p = db.prepare("SELECT id, eligibility_override, steam_verified FROM players WHERE id=?").get(playerId);
+  const p = db.prepare("SELECT id, eligibility_override, steam_verified, country FROM players WHERE id=?").get(playerId);
   if (!p) return null;
   const e = db.prepare("SELECT * FROM player_external WHERE player_id=?").get(playerId);
   const haveSteam = !!(e && e.steam_fetched_at && !e.steam_error);
   const checks = [];
+
+  const countryName = c => COUNTRY_CATALOG.find(x => x[0] === c)?.[1] || c || "your country";
+  checks.push({ key: "country", label: "Your country is open in the beta", ok: isBetaCountry(p.country),
+    detail: isBetaCountry(p.country) ? countryName(p.country) : `The beta is open to ${BETA_COUNTRIES.map(countryName).join(", ")}. ${countryName(p.country)} opens later.` });
 
   checks.push({ key: "steam_owner", label: "Steam account verified as yours", ok: p.steam_verified === 1,
     detail: p.steam_verified === 1 ? "Signed in through Steam" : "Sign in through Steam to prove this account is yours" });
