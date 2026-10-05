@@ -19,11 +19,16 @@ const MIN_HOURS = () => Number(process.env.ELIGIBILITY_MIN_CS2_HOURS || 500);
 
 /** Returns { eligible, checks:[{key,label,ok,detail}], override } and stores it on the player. */
 export function evaluateEligibility(playerId, now = Date.now()) {
-  const p = db.prepare("SELECT id, eligibility_override FROM players WHERE id=?").get(playerId);
+  const p = db.prepare("SELECT id, eligibility_override, steam_verified FROM players WHERE id=?").get(playerId);
   if (!p) return null;
   const e = db.prepare("SELECT * FROM player_external WHERE player_id=?").get(playerId);
   const haveSteam = !!(e && e.steam_fetched_at && !e.steam_error);
   const checks = [];
+
+  if (process.env.STEAM_VERIFICATION !== "off") {
+    checks.push({ key: "steam_owner", label: "Steam account verified as yours", ok: p.steam_verified === 1,
+      detail: p.steam_verified === 1 ? "Signed in through Steam" : "Sign in through Steam to prove this account is yours" });
+  }
 
   const years = d => (d / 365).toFixed(d >= 365 ? 1 : 2).replace(/\.0$/, "");
   checks.push({ key: "steam_found", label: "Steam profile found", ok: haveSteam,

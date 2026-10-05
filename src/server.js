@@ -8,9 +8,10 @@ import { fileURLToPath } from "node:url";
 import nodemailer from "nodemailer";
 import { db, getTeam, getTeamMembers } from "./db.js";
 import { normalizeSteamUrl } from "./csst.js";
-import { resolveSteamId64, refreshExternal, leetifyProfile } from "./external.js";
+import { resolveSteamId64, refreshExternal, leetifyProfile, faceitProfile, faceitEnabled } from "./external.js";
 import { computeTrust, recomputeAll, recordEvent } from "./trust.js";
 import { evaluateEligibility, isEligible, eligibilityEnabled, NOT_ELIGIBLE } from "./eligibility.js";
+import { steamLoginUrl, verifySteamAssertion, steamVerificationEnabled } from "./steam-auth.js";
 import { expireStale, touchTeam, teamExpiresAt, queueExpiresAt, matchExpiresAt, LIMITS } from "./timers.js";
 import { runMatchmaking } from "./matchmaking.js";
 import { REGION_CATALOG, COUNTRY_CATALOG } from "./regions.js";
@@ -95,11 +96,17 @@ async function createSession(accountId, res) {
   return csrf;
 }
 
-function auth(req, res, next) {
+function sessionAccount(req) {
   const raw = getCookie(req, "stack5_session");
-  if (!raw) return res.status(401).json({ error: "Authentication required" });
-  const session = db.prepare(`SELECT s.*, a.username, a.email, a.email_verified, a.is_admin, a.player_id FROM sessions s JOIN accounts a ON a.id=s.account_id WHERE s.token_hash=?`).get(hash(raw));
-  if (!session || session.expires_at < Date.now()) return res.status(401).json({ error: "Session expired. Please log in again." });
+  if (!raw) return null;
+  const session = db.prepare(`SELECT s.*, a.username, a.email, a.email_verified, a.is_admin, a.player_id, a.verified_steam_id FROM sessions s JOIN accounts a ON a.id=s.account_id WHERE s.token_hash=?`).get(hash(raw));
+  return session && session.expires_at >= Date.now() ? session : null;
+}
+
+function auth(req, res, next) {
+  if (!getCookie(req, "stack5_session")) return res.status(401).json({ error: "Authentication required" });
+  const session = sessionAccount(req);
+  if (!session) return res.status(401).json({ error: "Session expired. Please log in again." });
   req.account = session;
   next();
 }
@@ -535,25 +542,89 @@ app.get("/api/me", auth, (req, res) => {
     csrf_token: req.account.csrf_token, account: { id:req.account.account_id, username:req.account.username, email:req.account.email, email_verified:!!req.account.email_verified }, player });
 });
 
+// ---- Steam ownership verification ("Sign in through Steam").
+const STEAM_RETURN_PATH = "/auth/steam/return";
+
+app.get("/auth/steam/start", (req, res) => {
+  const account = sessionAccount(req);
+  if (!account) return res.redirect("/login");
+  const state = randomToken(16);
+  db.prepare("DELETE FROM steam_auth_states WHERE created_at < ?").run(Date.now() - 15 * 60_000);
+  db.prepare("INSERT INTO steam_auth_states(state,account_id,created_at) VALUES(?,?,?)").run(state, account.account_id, Date.now());
+  res.redirect(steamLoginUrl(`${BASE_URL}${STEAM_RETURN_PATH}?state=${state}`, BASE_URL));
+});
+
+app.get(STEAM_RETURN_PATH, async (req, res) => {
+  const account = sessionAccount(req);
+  if (!account) return res.redirect("/login");
+  const params = new URL(req.originalUrl, BASE_URL).searchParams;
+  const state = params.get("state") || "";
+  const row = db.prepare("SELECT * FROM steam_auth_states WHERE state=?").get(state);
+  db.prepare("DELETE FROM steam_auth_states WHERE state=?").run(state);
+  const fail = msg => res.redirect(`/play?steam=error&reason=${encodeURIComponent(msg)}`);
+  if (!row || row.account_id !== account.account_id || Date.now() - row.created_at > 15 * 60_000) return fail("Steam sign-in expired. Please try again.");
+  try {
+    const steamId = await verifySteamAssertion(params, `${BASE_URL}${STEAM_RETURN_PATH}?state=${state}`);
+    await linkVerifiedSteam(account, steamId);
+    res.redirect("/play?steam=linked");
+  } catch (e) { fail(e.message); }
+});
+
+/**
+ * Attach a proven SteamID to an account. If another STACK5 player had claimed this Steam account
+ * by pasting its URL (without proof), the verified owner wins and that claim is removed.
+ */
+async function linkVerifiedSteam(account, steamId) {
+  const now = Date.now();
+  const claimant = db.prepare("SELECT id, steam_verified FROM players WHERE steam_id=? AND deleted_at IS NULL AND id IS NOT ?").get(steamId, account.player_id ?? null);
+  if (claimant?.steam_verified) throw new Error("This Steam account is already verified by another STACK5 player.");
+  const otherAccount = db.prepare("SELECT id FROM accounts WHERE verified_steam_id=? AND id<>?").get(steamId, account.account_id);
+  db.transaction(() => {
+    if (claimant) {
+      db.prepare("UPDATE players SET steam_id=NULL, steam_url=?, steam_verified=0 WHERE id=?").run(`unlinked:${claimant.id}`, claimant.id);
+      db.prepare("DELETE FROM player_external WHERE player_id=?").run(claimant.id);
+    }
+    if (otherAccount) db.prepare("UPDATE accounts SET verified_steam_id=NULL WHERE id=?").run(otherAccount.id);
+    db.prepare("UPDATE accounts SET verified_steam_id=? WHERE id=?").run(steamId, account.account_id);
+    if (account.player_id) {
+      db.prepare("UPDATE players SET steam_id=?, steam_url=?, steam_verified=1, steam_verified_at=? WHERE id=?")
+        .run(steamId, `https://steamcommunity.com/profiles/${steamId}`, now, account.player_id);
+      db.prepare("DELETE FROM player_external WHERE player_id=?").run(account.player_id);   // re-pull for the proven account
+    }
+  })();
+  for (const pid of [account.player_id, claimant?.id].filter(Boolean)) {
+    await refreshExternal(pid).catch(() => {});
+    computeTrust(pid); evaluateEligibility(pid);
+  }
+}
+
 app.post("/api/profile", auth, csrf, async (req, res) => {
   if (!req.account.email_verified) return res.status(403).json({ error: "Verify your email before creating your player profile." });
-  if (!requireBody(req, res, ["steam_url","country","region","faceit_level","role","language"])) return;
+  const verifySteam = steamVerificationEnabled();
+  if (!requireBody(req, res, [...(verifySteam ? [] : ["steam_url"]),"country","region","faceit_level","role","language"])) return;
+  if (verifySteam && !req.account.verified_steam_id) return res.status(403).json({ error: "Sign in through Steam first to prove the account is yours.", code: "STEAM_NOT_LINKED" });
   const country = COUNTRY_CATALOG.find(x => x[0] === req.body.country);
   const region = REGION_CATALOG.find(x => x.id === req.body.region);
   if (!country || !region) return res.status(400).json({ error: "Invalid country or region." });
   if (country[2] !== region.id) return res.status(400).json({ error: "Country and matchmaking region do not match." });
   if (req.account.player_id) return res.status(409).json({ error: "Your player profile already exists." });
   try {
-    const steamUrl = normalizeSteamUrl(req.body.steam_url);
-    // Resolve to SteamID64 so /id/name and /profiles/<id> links to the same account can't both be used.
-    let steamId = null;
-    try { steamId = await resolveSteamId64(steamUrl); } catch {}
-    if (process.env.STEAM_API_KEY && steamUrl.includes("/id/") && !steamId) throw new Error("We couldn't find that Steam profile. Check the URL.");
+    let steamUrl, steamId = null;
+    if (verifySteam) {
+      // Ownership already proven by Steam sign-in; the pasted URL (if any) is ignored.
+      steamId = req.account.verified_steam_id;
+      steamUrl = `https://steamcommunity.com/profiles/${steamId}`;
+    } else {
+      steamUrl = normalizeSteamUrl(req.body.steam_url);
+      // Resolve to SteamID64 so /id/name and /profiles/<id> links to the same account can't both be used.
+      try { steamId = await resolveSteamId64(steamUrl); } catch {}
+      if (process.env.STEAM_API_KEY && steamUrl.includes("/id/") && !steamId) throw new Error("We couldn't find that Steam profile. Check the URL.");
+    }
     const name = String(req.body.display_name || req.account.username).slice(0,40);
     const result = db.transaction(() => {
       const existing = db.prepare("SELECT id FROM players WHERE steam_url=? OR (steam_id IS NOT NULL AND steam_id=?)").get(steamUrl, steamId);
       if (existing) throw new Error("This Steam profile is already linked to a STACK5 player.");
-      const r = db.prepare(`INSERT INTO players(steam_url,steam_id,display_name,avatar_url,faceit_level,faceit_elo,region,country,language,role) VALUES(?,?,?,?,?,?,?,?,?,?)`).run(steamUrl,steamId,name,safeAvatarUrl(req.body.avatar_url),Number(req.body.faceit_level),Number(req.body.faceit_elo||0),region.id,country[0],String(req.body.language).slice(0,10),String(req.body.role).slice(0,20));
+      const r = db.prepare(`INSERT INTO players(steam_url,steam_id,steam_verified,steam_verified_at,display_name,avatar_url,faceit_level,faceit_elo,region,country,language,role) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`).run(steamUrl,steamId,verifySteam?1:0,verifySteam?Date.now():null,name,safeAvatarUrl(req.body.avatar_url),Number(req.body.faceit_level),Number(req.body.faceit_elo||0),region.id,country[0],String(req.body.language).slice(0,10),String(req.body.role).slice(0,20));
       db.prepare("UPDATE accounts SET player_id=? WHERE id=?").run(r.lastInsertRowid, req.account.account_id);
       return r.lastInsertRowid;
     })();
@@ -565,7 +636,7 @@ app.post("/api/profile", auth, csrf, async (req, res) => {
   } catch(e) { res.status(400).json({ error:e.message }); }
 });
 
-const PUBLIC_PLAYER_COLS = "id,steam_url,display_name,avatar_url,faceit_level,faceit_elo,faceit_verified,region,country,language,role,trust_score,reliability_score,teamplay_score,trust_confidence";
+const PUBLIC_PLAYER_COLS = "id,steam_url,steam_verified,display_name,avatar_url,faceit_level,faceit_elo,faceit_verified,region,country,language,role,trust_score,reliability_score,teamplay_score,trust_confidence";
 app.get("/api/players", (_, res) => res.json(db.prepare(`SELECT ${PUBLIC_PLAYER_COLS},eligible FROM players WHERE deleted_at IS NULL ORDER BY id DESC`).all()));
 app.get("/api/players/:id", (req,res) => { const p=db.prepare(`SELECT ${PUBLIC_PLAYER_COLS},eligible,created_at FROM players WHERE id=? AND deleted_at IS NULL`).get(req.params.id); if(!p) return res.status(404).json({error:"Player not found"}); res.json(p); });
 
@@ -582,6 +653,15 @@ app.get("/api/players/:id/leetify", async (req,res) => {
   if(!p) return res.status(404).json({error:"Player not found"});
   if(!p.steam_id) return res.json({ available:false });
   try { const data=await leetifyProfile(p.steam_id); res.json(data ? { available:true, ...data } : { available:false }); }
+  catch { res.json({ available:false }); }
+});
+
+// Live FACEIT profile (proxied, not stored, per FACEIT's API terms).
+app.get("/api/players/:id/faceit", async (req,res) => {
+  const p=db.prepare("SELECT steam_id FROM players WHERE id=? AND deleted_at IS NULL").get(req.params.id);
+  if(!p) return res.status(404).json({error:"Player not found"});
+  if(!faceitEnabled() || !p.steam_id) return res.json({ available:false });
+  try { const data=await faceitProfile(p.steam_id); res.json(data ? { available:true, ...data } : { available:true, none:true }); }
   catch { res.json({ available:false }); }
 });
 
@@ -828,7 +908,8 @@ app.post("/api/matches/:id/decline", auth, csrf, profileRequired, (req,res)=>{
 app.get("/api/my/dashboard", auth, (req,res)=>{
   const pid=req.account.player_id;
   const player=pid ? db.prepare("SELECT * FROM players WHERE id=?").get(pid) : null;
-  const out={ account:{ username:req.account.username, email_verified:!!req.account.email_verified }, player, team:null, invites:[], joinRequests:[], myRequests:[], match:null };
+  const out={ account:{ username:req.account.username, email_verified:!!req.account.email_verified, verified_steam_id:req.account.verified_steam_id||null },
+    steam_verification:steamVerificationEnabled(), player, team:null, invites:[], joinRequests:[], myRequests:[], match:null };
   out.now=Date.now();
   if(!player) return res.json(out);
   out.eligibility = !eligibilityEnabled() ? { eligible:true, checks:[] }
@@ -909,7 +990,7 @@ app.post("/api/account/delete", auth, csrf, async (req,res)=>{
       db.prepare("DELETE FROM player_external WHERE player_id=?").run(pid);
       db.prepare("DELETE FROM player_events WHERE player_id=?").run(pid);
       // Past teams/matches keep a placeholder row so history stays consistent; nothing identifies the person.
-      db.prepare(`UPDATE players SET steam_url=?, steam_id=NULL, display_name='Deleted player', avatar_url=NULL, country=NULL,
+      db.prepare(`UPDATE players SET steam_url=?, steam_id=NULL, steam_verified=0, display_name='Deleted player', avatar_url=NULL, country=NULL,
         language=NULL, role=NULL, faceit_level=0, faceit_elo=0, faceit_verified=0, availability='', trust_breakdown=NULL,
         eligibility=NULL, eligible=0, deleted_at=? WHERE id=?`).run(`deleted:${pid}`, Date.now(), pid);
     }
@@ -979,7 +1060,7 @@ if(mmEvery>0) setInterval(()=>{
 async function trustUpkeep(){
   const stale=db.prepare(`SELECT p.id FROM players p LEFT JOIN player_external e ON e.player_id=p.id
     WHERE p.deleted_at IS NULL AND (e.steam_fetched_at IS NULL OR e.steam_fetched_at < ?) ORDER BY e.steam_fetched_at IS NOT NULL, e.steam_fetched_at LIMIT 100`).all(Date.now()-7*86_400_000);
-  if(process.env.STEAM_API_KEY || process.env.FACEIT_API_KEY){
+  if(process.env.STEAM_API_KEY){
     for(const {id} of stale){ await refreshExternal(id).catch(()=>{}); await new Promise(r=>setTimeout(r,300)); }
   }
   const n=recomputeAll();

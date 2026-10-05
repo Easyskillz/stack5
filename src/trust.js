@@ -1,12 +1,12 @@
 /**
  * STACK5 Trust Score (0-100).
  *
- *   identity    35%  Steam account age, CS2 hours, Steam level, FACEIT history
+ *   identity    35%  Steam account age, CS2 hours, Steam level (FACEIT share held neutral: API terms)
  *   peer        30%  ratings from players you shared a confirmed match with
  *   reliability 25%  accepting matches vs declining / abandoning queued teams
  *   record      10%  confirmed matches played on STACK5
  *
- * Hard caps: recent VAC/game ban or FACEIT cheating ban -> max 20.
+ * Hard caps: recent VAC/game ban -> max 20.
  * Missing data counts as neutral (0.5); hidden-but-requested data as slightly below (0.35),
  * so new players start near the middle and nobody is punished for a source we don't have.
  */
@@ -24,7 +24,7 @@ const parseTs = v => typeof v === "number" ? v : (v ? Date.parse(String(v).repla
 // ---------- identity ----------
 function identityPart(ext, now) {
   const notes = [];
-  const steamOn = !!process.env.STEAM_API_KEY, faceitOn = !!process.env.FACEIT_API_KEY;
+  const steamOn = !!process.env.STEAM_API_KEY;
   const haveSteam = ext && ext.steam_fetched_at && !ext.steam_error;
 
   let age = NEUTRAL, hours = NEUTRAL, level = NEUTRAL, faceit = NEUTRAL;
@@ -39,16 +39,10 @@ function identityPart(ext, now) {
     if (ext.steam_level != null) level = clamp01(ext.steam_level / 25);
   } else if (steamOn) notes.push("Steam data pending");
 
-  if (faceitOn && ext?.faceit_fetched_at && !ext.faceit_error) {
-    if (ext.faceit_id) {
-      const yrs = ext.faceit_activated_at ? (now - ext.faceit_activated_at) / (365 * DAY) : 0;
-      faceit = clamp01(0.6 * logScale(ext.faceit_matches || 0, 800) + 0.4 * logScale(yrs, 4));
-      notes.push(`FACEIT ${ext.faceit_matches || 0} matches`);
-    } else { faceit = 0.3; notes.push("No FACEIT account"); }
-  }
+  // FACEIT stays neutral: its API terms (5.4) forbid deriving scores from its data. Shown live on profiles instead.
 
   const score = 100 * (0.35 * age + 0.25 * hours + 0.15 * level + 0.25 * faceit);
-  return { score, notes, sources: (haveSteam ? 1 : 0) + (faceitOn && ext?.faceit_id ? 1 : 0) };
+  return { score, notes, sources: haveSteam ? 1 : 0 };
 }
 
 // ---------- peer ratings ----------
@@ -105,15 +99,6 @@ function caps(ext, now) {
       if (recent) cap = Math.min(cap, 20); else penalty += Math.min(30, 15 * bans);
     }
     if (ext.community_banned) { flags.push("Steam community ban"); cap = Math.min(cap, 40); }
-  }
-  if (ext?.faceit_bans) {
-    for (const b of JSON.parse(ext.faceit_bans || "[]")) {
-      const active = !b.ends_at || Date.parse(b.ends_at) > now;
-      const cheating = /cheat|hack/i.test(`${b.reason} ${b.type}`);
-      const recent = Date.parse(b.starts_at) > now - 730 * DAY;
-      if (cheating && recent) { flags.push("FACEIT cheating ban"); cap = Math.min(cap, 20); }
-      else if (active) { flags.push(`Active FACEIT ban (${b.reason || b.type})`); cap = Math.min(cap, 40); }
-    }
   }
   return { cap, penalty, flags };
 }

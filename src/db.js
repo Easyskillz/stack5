@@ -195,6 +195,19 @@ for (const col of [
   "deleted_at INTEGER"                 // set when the owner deletes their account (row is anonymised)
 ]) { try { db.exec(`ALTER TABLE players ADD COLUMN ${col}`); } catch {} }
 try { db.exec("ALTER TABLE teams ADD COLUMN last_activity_at INTEGER"); } catch {}
+// Steam ownership: proven via "Sign in through Steam" (OpenID), never by a pasted URL.
+try { db.exec("ALTER TABLE players ADD COLUMN steam_verified INTEGER DEFAULT 0"); } catch {}
+try { db.exec("ALTER TABLE players ADD COLUMN steam_verified_at INTEGER"); } catch {}
+try { db.exec("ALTER TABLE accounts ADD COLUMN verified_steam_id TEXT"); } catch {}
+db.exec(`CREATE TABLE IF NOT EXISTS steam_auth_states (
+  state TEXT PRIMARY KEY,
+  account_id INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE CASCADE
+)`);
+// FACEIT data is live-only (FACEIT API terms 5.4): wipe anything an earlier version stored.
+db.exec(`UPDATE player_external SET faceit_id=NULL, faceit_nickname=NULL, faceit_level=NULL, faceit_elo=NULL, faceit_matches=NULL,
+  faceit_activated_at=NULL, faceit_bans=NULL, faceit_fetched_at=NULL, faceit_error=NULL WHERE faceit_fetched_at IS NOT NULL OR faceit_id IS NOT NULL`);
 try { db.exec("ALTER TABLE trust_ratings ADD COLUMN match_id INTEGER"); } catch {}
 try { db.exec("ALTER TABLE matches ADD COLUMN declined_by_team_id INTEGER"); } catch {}
 try { db.exec("ALTER TABLE accounts ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0"); } catch {}

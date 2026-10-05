@@ -2,7 +2,9 @@
  * External identity sources for the STACK5 trust score.
  *
  * - Steam Web API (STEAM_API_KEY): bans, account age, level, CS2 playtime.
- * - FACEIT Data API (FACEIT_API_KEY, optional): verified level/elo, matches, bans.
+ * - FACEIT Data API (FACEIT_API_KEY, optional): live profile panel only (level, elo, bans).
+ *   FACEIT's API terms (5.4) forbid permanent copies and derivative works, so like Leetify
+ *   it is proxied live (short in-memory cache), never stored and never feeds the trust score.
  * - Leetify public API (LEETIFY_API_KEY optional): live profile panel only.
  *   Leetify's developer guidelines forbid storing or rescaling their data, so it is
  *   proxied live (short in-memory cache) and never feeds the stored trust score.
@@ -60,34 +62,44 @@ export async function fetchSteam(steamId64) {
   };
 }
 
-// ---------- FACEIT ----------
-export async function fetchFaceit(steamId64) {
+// ---------- FACEIT (live, not stored) ----------
+const faceitCache = new Map();   // steamId -> { at, data } ; in memory only, cleared on restart
+export const faceitEnabled = () => !!process.env.FACEIT_API_KEY;
+export async function faceitProfile(steamId64) {
   const key = process.env.FACEIT_API_KEY;
   if (!key) return null;
+  const hit = faceitCache.get(steamId64);
+  if (hit && Date.now() - hit.at < 5 * 60_000) return hit.data;
   const h = { Authorization: `Bearer ${key}` };
   const player = await getJson(`${FACEIT}/players?game=cs2&game_player_id=${steamId64}`, h);
-  if (!player) return { faceit_id: null };                             // no FACEIT account for this Steam ID
-  const cs2 = player.games?.cs2 || {};
-  const [stats, bans] = await Promise.all([
-    getJson(`${FACEIT}/players/${player.player_id}/stats/cs2`, h).catch(() => null),
-    getJson(`${FACEIT}/players/${player.player_id}/bans?limit=20`, h).catch(() => null)
-  ]);
-  return {
-    faceit_id: player.player_id,
-    faceit_nickname: player.nickname,
-    faceit_level: cs2.skill_level ?? null,
-    faceit_elo: cs2.faceit_elo ?? null,
-    faceit_matches: Number(stats?.lifetime?.Matches ?? 0) || 0,
-    faceit_activated_at: player.activated_at ? Date.parse(player.activated_at) : null,
-    faceit_bans: JSON.stringify((bans?.items || []).map(x => ({ reason: x.reason, type: x.type, starts_at: x.starts_at, ends_at: x.ends_at })))
-  };
+  let data = null;                                                     // null = no FACEIT account for this Steam ID
+  if (player) {
+    const cs2 = player.games?.cs2 || {};
+    const [stats, bans] = await Promise.all([
+      getJson(`${FACEIT}/players/${player.player_id}/stats/cs2`, h).catch(() => null),
+      getJson(`${FACEIT}/players/${player.player_id}/bans?limit=20`, h).catch(() => null)
+    ]);
+    const now = Date.now();
+    data = {
+      nickname: player.nickname,
+      level: cs2.skill_level ?? null,
+      elo: cs2.faceit_elo ?? null,
+      matches: stats?.lifetime?.Matches != null ? Number(stats.lifetime.Matches) : null,
+      member_since: player.activated_at || null,
+      bans: (bans?.items || []).map(b => ({ reason: b.reason || b.type || "Ban", starts_at: b.starts_at || null, ends_at: b.ends_at || null,
+        active: !b.ends_at || Date.parse(b.ends_at) > now })),
+      url: `https://www.faceit.com/en/players/${encodeURIComponent(player.nickname)}`
+    };
+  }
+  faceitCache.set(steamId64, { at: Date.now(), data });
+  if (faceitCache.size > 2000) faceitCache.delete(faceitCache.keys().next().value);
+  return data;
 }
 
 // ---------- Refresh + store ----------
 const STEAM_COLS = ["steam_visibility","steam_created_at","steam_level","cs2_minutes","vac_bans","game_bans","days_since_last_ban","community_banned"];
-const FACEIT_COLS = ["faceit_id","faceit_nickname","faceit_level","faceit_elo","faceit_matches","faceit_activated_at","faceit_bans"];
 
-/** Fetch Steam + FACEIT data for a player and store it. Never throws; errors are recorded per source. */
+/** Fetch Steam data for a player and store it (FACEIT is live-only, see faceitProfile). Never throws; errors are recorded per source. */
 export async function refreshExternal(playerId) {
   const player = db.prepare("SELECT id, steam_url, steam_id FROM players WHERE id=?").get(playerId);
   if (!player) return null;
@@ -109,15 +121,6 @@ export async function refreshExternal(playerId) {
     if (s) db.prepare(`UPDATE player_external SET ${STEAM_COLS.map(c => `${c}=@${c}`).join(",")}, steam_fetched_at=@now, steam_error=NULL WHERE player_id=@pid`).run({ ...s, now, pid: playerId });
   } catch (e) { db.prepare("UPDATE player_external SET steam_error=?, steam_fetched_at=? WHERE player_id=?").run(e.message, now, playerId); }
 
-  try {
-    const f = await fetchFaceit(steamId);
-    if (f) {
-      const row = Object.fromEntries(FACEIT_COLS.map(c => [c, f[c] ?? null]));
-      db.prepare(`UPDATE player_external SET ${FACEIT_COLS.map(c => `${c}=@${c}`).join(",")}, faceit_fetched_at=@now, faceit_error=NULL WHERE player_id=@pid`).run({ ...row, now, pid: playerId });
-      // A linked FACEIT account replaces the self-reported level/elo.
-      if (f.faceit_id && f.faceit_level) db.prepare("UPDATE players SET faceit_level=?, faceit_elo=?, faceit_verified=1 WHERE id=?").run(f.faceit_level, f.faceit_elo || 0, playerId);
-    }
-  } catch (e) { db.prepare("UPDATE player_external SET faceit_error=?, faceit_fetched_at=? WHERE player_id=?").run(e.message, now, playerId); }
 
   return db.prepare("SELECT * FROM player_external WHERE player_id=?").get(playerId);
 }

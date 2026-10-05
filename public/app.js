@@ -227,6 +227,7 @@ const Stack5 = (() => {
               <div class="eyebrow">STACK5 PLAYER</div>
               <h1 style="font-size:38px;margin:5px 0">${esc(p.display_name)}</h1>
               <div class="muted">${countryFlag(p.country)} ${esc(p.country||'')} · ${esc(p.region||'')} · ${esc(p.role||'')}</div>
+              <div class="meta">${p.steam_verified?'<span class="status green">STEAM VERIFIED</span>':'<span class="status">Steam not verified</span>'}${p.eligible?'<span class="status green">MEETS REQUIREMENTS</span>':''}</div>
             </div>
           </div>
           <div id="trust-box"><div class="empty">Loading trust score…</div></div>
@@ -236,8 +237,9 @@ const Stack5 = (() => {
             <div class="detail"><label>Role</label><strong>${esc(p.role||'—')}</strong></div>
             <div class="detail"><label>Language</label><strong>${esc(p.language||'—')}</strong></div>
           </div>
-          ${p.steam_url?`<div class="actions"><a class="btn btn-dark" href="${esc(p.steam_url)}" target="_blank" rel="noopener">View Steam profile</a></div>`:''}
+          ${realSteam(p)?`<div class="actions"><a class="btn btn-dark" href="${esc(p.steam_url)}" target="_blank" rel="noopener">View Steam profile</a></div>`:''}
           <div id="leetify-box"></div>
+          <div id="faceit-box"></div>
         </div>
       </div>`);
 
@@ -247,10 +249,13 @@ const Stack5 = (() => {
     get(`/api/players/${p.id}/leetify`).then(l=>{
       const box=document.getElementById('leetify-box'); if(box && l.available) box.innerHTML=leetifyPanel(l);
     }).catch(()=>{});
+    get(`/api/players/${p.id}/faceit`).then(f=>{
+      const box=document.getElementById('faceit-box'); if(box && f.available) box.innerHTML=faceitPanel(f);
+    }).catch(()=>{});
   }
 
   const CONFIDENCE={NEW:['New player','Not much data yet — this score will settle as they play.'],BUILDING:['Building','Some history on record.'],ESTABLISHED:['Established','Backed by solid history.']};
-  const PART_LABELS={identity:['Identity','Steam & FACEIT account history'],peer:['Peer reputation','Ratings from players they actually played with'],reliability:['Reliability','Accepting matches, not abandoning teams'],record:['Track record','Confirmed matches on STACK5']};
+  const PART_LABELS={identity:['Identity','Steam account history'],peer:['Peer reputation','Ratings from players they actually played with'],reliability:['Reliability','Accepting matches, not abandoning teams'],record:['Track record','Confirmed matches on STACK5']};
 
   function trustPanel(t){
     const [confLabel,confText]=CONFIDENCE[t.confidence]||CONFIDENCE.NEW;
@@ -271,7 +276,7 @@ const Stack5 = (() => {
       </div>
       ${t.flags?.length?`<div class="trust-flags">${t.flags.map(f=>`<div>⚠️ ${esc(f)}</div>`).join('')}</div>`:''}
       <div class="trust-parts">${['identity','peer','reliability','record'].map(part).join('')}</div>
-      <p class="muted small" style="margin:14px 0 0">STACK5 is a reputation layer, not an anti-cheat. Scores combine public Steam/FACEIT data with STACK5 match history and ratings.</p>
+      <p class="muted small" style="margin:14px 0 0">STACK5 is a reputation layer, not an anti-cheat. Scores combine public Steam data with STACK5 match history and ratings.</p>
     </div>`;
   }
 
@@ -284,6 +289,20 @@ const Stack5 = (() => {
         <a class="leetify-attr" href="https://leetify.com/" target="_blank" rel="noopener">Data Provided by Leetify</a></div>
       <div class="detail-grid" style="grid-template-columns:repeat(3,1fr)">${cells.map(([k,v])=>`<div class="detail"><label>${k}</label><strong>${v}</strong></div>`).join('')}</div>
       <a class="leetify-link" href="${esc(l.url)}" target="_blank" rel="noopener">View on Leetify</a>
+    </div>`;
+  }
+
+  // FACEIT data is shown live and unmodified (never stored or scored), with a link back. No endorsement implied.
+  function faceitPanel(f){
+    const head=`<div class="trust-head"><h3 style="margin:0">FACEIT</h3><span class="leetify-attr">Live data from FACEIT</span></div>`;
+    if(f.none) return `<div class="leetify-panel">${head}<p class="muted" style="margin:12px 0 0">No FACEIT account linked to this Steam account.</p></div>`;
+    const since=f.member_since?new Date(f.member_since).toLocaleDateString(undefined,{year:'numeric',month:'short'}):'—';
+    const active=(f.bans||[]).filter(b=>b.active);
+    const cells=[['Level',f.level??'—'],['Elo',f.elo!=null?Number(f.elo).toLocaleString():'—'],['Matches',f.matches!=null?Number(f.matches).toLocaleString():'—'],['Member since',since],['Bans',(f.bans||[]).length?`${f.bans.length}${active.length?` (${active.length} active)`:''}`:'None'],['Nickname',esc(f.nickname)]];
+    return `<div class="leetify-panel">${head}
+      ${active.length?`<div class="trust-flags">${active.map(b=>`<div>⚠️ Active FACEIT ban: ${esc(b.reason)}</div>`).join('')}</div>`:''}
+      <div class="detail-grid" style="grid-template-columns:repeat(3,1fr)">${cells.map(([k,v])=>`<div class="detail"><label>${k}</label><strong>${v}</strong></div>`).join('')}</div>
+      <a class="leetify-link" style="color:#FF5500" href="${esc(f.url)}" target="_blank" rel="noopener">View on FACEIT</a>
     </div>`;
   }
 
@@ -411,6 +430,7 @@ const Stack5 = (() => {
   const ROLES=['Rifler','AWPer','Entry','IGL','Support','Lurker'];
   const LANGS=[['EN','English'],['FR','Français'],['AR','العربية'],['ES','Español'],['DE','Deutsch'],['PT','Português'],['IT','Italiano'],['NL','Nederlands'],['TR','Türkçe'],['RU','Русский']];
   const btn=(label,act,cls='btn-dark',data={})=>`<button class="btn btn-small ${cls}" data-act="${act}" ${Object.entries(data).map(([k,v])=>`data-${k}="${esc(v)}"`).join(' ')}>${esc(label)}</button>`;
+  const realSteam=p=>/^https:\/\/(www\.)?steamcommunity\.com\//.test(p?.steam_url||'');
   const playerLink=p=>`<a href="/player/${encodeURIComponent(p.display_name)}"><strong>${esc(p.display_name)}</strong></a>`;
 
   // ---------- Play hub ----------
@@ -426,6 +446,11 @@ const Stack5 = (() => {
     const box=document.getElementById('play');
     box.addEventListener('click',onAction);
     box.addEventListener('submit',onForm);
+    // Result of "Sign in through Steam".
+    const qs=new URLSearchParams(location.search);
+    if(qs.get('steam')==='linked') toast('Steam account verified ✓');
+    if(qs.get('steam')==='error') toast(qs.get('reason')||'Steam sign-in failed.',true);
+    if(qs.has('steam')) history.replaceState(null,'','/play');
     await renderPlay();
   }
 
@@ -460,6 +485,8 @@ const Stack5 = (() => {
   }
 
   // ---------- Eligibility + countdowns ----------
+  const steamButton=label=>`<a class="btn btn-steam" href="/auth/steam/start"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="15.5" cy="9" r="3" fill="currentColor"/><circle cx="8.5" cy="15.5" r="2.2" fill="currentColor"/><path d="M8.5 15.5 15.5 9" stroke="currentColor" stroke-width="2"/></svg>${esc(label)}</a>`;
+
   function eligibilityPanel(e, inTeam=false){
     const rows=(e.checks||[]).map(c=>`
       <div class="row"><div><strong>${c.ok?'✅':'❌'} ${esc(c.label)}</strong><div class="muted small">${esc(c.detail||'')}</div></div></div>`).join('');
@@ -469,7 +496,7 @@ const Stack5 = (() => {
       <div style="margin-top:10px">${rows}</div>
       <p class="muted small" style="margin-top:14px">Made your profile or game details public? Steam can take a few minutes to update, then check again.
         <a href="https://steamcommunity.com/my/edit/settings" target="_blank" rel="noopener" style="color:var(--green)">Open Steam privacy settings</a></p>
-      <div class="actions" style="margin-top:12px">${btn('Check again','recheck','btn-green')}</div>
+      <div class="actions" style="margin-top:12px">${(e.checks||[]).some(c=>c.key==='steam_owner'&&!c.ok)?steamButton('Verify with Steam'):''}${btn('Check again','recheck','btn-green')}</div>
     </div>${inTeam?'<div style="height:16px"></div>':''}`;
   }
 
@@ -504,7 +531,7 @@ const Stack5 = (() => {
       <div class="row">
         <div>${playerLink(p)}<div class="muted small">FACEIT ${p.faceit_level??'—'} · ${esc(p.role||'—')}${t.captain_id===p.id?' · Captain':''}</div></div>
         <div class="row-actions">
-          ${p.steam_url?`<a class="btn btn-small btn-outline" href="${esc(p.steam_url)}" target="_blank" rel="noopener">Steam</a>`:''}
+          ${realSteam(p)?`<a class="btn btn-small btn-outline" href="${esc(p.steam_url)}" target="_blank" rel="noopener">Steam</a>`:''}
           ${rate && p.id!==d.player.id?`<select class="rate-select" data-player="${p.id}" style="width:auto;padding:6px"><option value="5">5 ★</option><option value="4">4 ★</option><option value="3">3 ★</option><option value="2">2 ★</option><option value="1">1 ★</option></select>
           ${btn('Rate','rate','btn-dark',{id:p.id})}`:''}
         </div>
@@ -619,12 +646,25 @@ const Stack5 = (() => {
       </div>`;
       return;
     }
+    if(d.steam_verification && !d.account.verified_steam_id){
+      box.innerHTML=`<div class="panel" style="max-width:640px">
+        <div class="eyebrow">STEP 1 OF 2</div>
+        <h2 style="margin-top:8px">Link your Steam account</h2>
+        <p class="muted">Sign in on Steam's own website to prove the account is yours. Steam only tells us your SteamID. We never see your password, and nobody can link your account but you.</p>
+        <div class="actions" style="margin-top:16px">${steamButton('Sign in through Steam')}</div>
+      </div>`;
+      return;
+    }
     const cat=await catalog();
+    const steamField=d.steam_verification
+      ? `<div class="full"><label>Steam account</label><div class="input" style="display:flex;justify-content:space-between;align-items:center"><span>✅ Verified · ${esc(d.account.verified_steam_id)}</span><a href="https://steamcommunity.com/profiles/${esc(d.account.verified_steam_id)}" target="_blank" rel="noopener" style="color:var(--green)">View</a></div></div>`
+      : `<div class="full"><label>Steam profile URL</label><input class="input" name="steam_url" placeholder="https://steamcommunity.com/id/yourname" required></div>`;
     box.innerHTML=`<div class="panel" style="max-width:760px">
-      <h2>Set up your player profile</h2>
+      ${d.steam_verification?'<div class="eyebrow">STEP 2 OF 2</div>':''}
+      <h2 style="margin-top:8px">Set up your player profile</h2>
       <p class="muted" style="margin-top:0">This is what teams see when they look for players. STACK5 never asks for your Steam password.</p>
       <form data-form="profile" class="form-grid" style="margin-top:18px">
-        <div class="full"><label>Steam profile URL</label><input class="input" name="steam_url" placeholder="https://steamcommunity.com/id/yourname" required></div>
+        ${steamField}
         <div><label>Display name</label><input class="input" name="display_name" maxlength="40" value="${esc(d.account.username)}" required></div>
         <div><label>Country</label><select name="country" required>${cat.countries.map(c=>`<option value="${c.code}" data-region="${c.region}" ${c.code==='MA'?'selected':''}>${c.flag} ${esc(c.name)}</option>`).join('')}</select></div>
         <div><label>Matchmaking region</label><select name="region" disabled>${cat.regions.map(r=>`<option value="${r.id}">${r.flag} ${esc(r.name)}</option>`).join('')}</select></div>

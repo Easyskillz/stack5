@@ -154,6 +154,8 @@ html{scroll-behavior:smooth}
 .match-panel{border-color:#38533f;background:linear-gradient(180deg,#122016,var(--panel))}
 .versus{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:start;margin-top:14px}
 .versus .vs{font-weight:800;color:var(--muted);padding-top:8px}
+.btn-steam{display:inline-flex;align-items:center;gap:9px;background:#171a21;color:#fff;border:1px solid #2a475e}
+.btn-steam:hover{background:#1b2838}
 .btn-danger{background:transparent;color:var(--danger);border:1px solid #4a2a2e}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#18211c;border:1px solid var(--border);color:#fff;padding:12px 18px;border-radius:9px;z-index:50;font-size:14px;max-width:calc(100% - 32px)}
