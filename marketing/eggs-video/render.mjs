@@ -17,7 +17,7 @@ let DUR = 20;   // read from the page (window.DUR) once loaded
 const CHROME = process.env.CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe";
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const port = 9900 + Math.floor(Math.random() * 90);
-const chrome = spawn(CHROME, ["--headless=new", "--disable-gpu", "--allow-file-access-from-files", `--remote-debugging-port=${port}`, `--user-data-dir=${here}/prof-${port}`, "about:blank"]);
+const chrome = spawn(CHROME, ["--headless=new", "--disable-gpu", "--allow-file-access-from-files", `--remote-debugging-port=${port}`, `--user-data-dir=${process.env.TEMP || process.env.TMPDIR || "/tmp"}/video-prof-${port}`, "about:blank"]);
 try {
   let tg; for (let i = 0; i < 50 && !tg; i++) { await sleep(200); try { tg = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).find(x => x.type === "page"); } catch {} }
   const ws = new WebSocket(tg.webSocketDebuggerUrl); await new Promise(r => ws.onopen = r);

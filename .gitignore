@@ -4,3 +4,5 @@ data/
 *.log
 *.backup*
 .claude/settings.local.json
+# Throwaway headless-Chrome profiles from the video renderers
+marketing/*/prof-*/
