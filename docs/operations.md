@@ -31,6 +31,10 @@ Every setting is listed with a comment in `.env.example`. The server's real `.en
 - The site logs in as contact@ (`SMTP_USER`) and sends everything (email verification, Contact-page messages) from `"STACK5 <contact@stack5cs.com>"`. Hostinger refuses to send from an alias ("553 Sender address rejected: not owned by user"), so `SMTP_FROM` must be the mailbox address.
 - `SMTP_PASS` is wrapped in single quotes in the server `.env` because it contains `#`. When the mailbox password changes, update it there and restart `stack5`.
 
+## Media files (not in git)
+
+`public/media/` on the server holds uploaded files that are not part of the code, served at `https://stack5cs.com/media/...`. Deploys never touch them, and they are included in each deploy backup (`code.tar.gz`). Currently: `stack5-beta-invite.mp4` (beta invite video, source in `marketing/beta-video/`). To replace one, re-upload it with `scp` to the same path.
+
 ## Deploying
 
 The process used so far:

@@ -27,7 +27,7 @@ How every part of STACK5 works: what players see, the rules behind it, and where
 
 ## Marketing
 
-- **Beta invite video:** `marketing/beta-video/` (31 s vertical MP4 made from the site's look and the guide screenshots; see its README to change the text and re-render). Not deployed.
+- **Beta invite video:** https://stack5cs.com/media/stack5-beta-invite.mp4, source in `marketing/beta-video/` (31 s vertical MP4 made from the site's look and the guide screenshots; see its README to change the text and re-render). Not deployed.
 
 ## Known gaps
 
