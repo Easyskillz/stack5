@@ -3,6 +3,7 @@ import express from "express";
 import helmet from "helmet";
 import morgan from "morgan";
 import path from "node:path";
+import fs from "node:fs";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import nodemailer from "nodemailer";
@@ -13,6 +14,7 @@ import { evaluateEligibility, isEligible, eligibilityEnabled, NOT_ELIGIBLE } fro
 import { steamLoginUrl, verifySteamAssertion } from "./steam-auth.js";
 import { expireStale, touchTeam, teamExpiresAt, queueExpiresAt, matchExpiresAt, LIMITS } from "./timers.js";
 import { runMatchmaking } from "./matchmaking.js";
+import { resultDeadline, cleanLobbyCode, submitReport, finishMatch, parseScore } from "./matches.js";
 import { REGION_CATALOG, COUNTRY_CATALOG } from "./regions.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -94,7 +96,7 @@ async function createSession(accountId, res) {
 function sessionAccount(req) {
   const raw = getCookie(req, "stack5_session");
   if (!raw) return null;
-  const session = db.prepare(`SELECT s.*, a.username, a.email, a.email_verified, a.is_admin, a.player_id, a.verified_steam_id FROM sessions s JOIN accounts a ON a.id=s.account_id WHERE s.token_hash=?`).get(hash(raw));
+  const session = db.prepare(`SELECT s.*, a.username, a.email, a.email_verified, a.is_admin, a.player_id, a.verified_steam_id, a.last_seen_at FROM sessions s JOIN accounts a ON a.id=s.account_id WHERE s.token_hash=?`).get(hash(raw));
   return session && session.expires_at >= Date.now() ? session : null;
 }
 
@@ -103,6 +105,8 @@ function auth(req, res, next) {
   const session = sessionAccount(req);
   if (!session) return res.status(401).json({ error: "Session expired. Please log in again." });
   req.account = session;
+  // Counts players online (aggregate only); written at most once a minute per account.
+  if (!session.last_seen_at || Date.now() - session.last_seen_at > 60_000) db.prepare("UPDATE accounts SET last_seen_at=? WHERE id=?").run(Date.now(), session.account_id);
   next();
 }
 function csrf(req, res, next) {
@@ -157,7 +161,7 @@ app.get("/api/admin/stats", auth, adminRequired, (req, res) => {
     readyTeams: count("SELECT COUNT(*) AS count FROM teams WHERE status='READY'"),
     queuedTeams: count("SELECT COUNT(*) AS count FROM queue"),
     matches: count("SELECT COUNT(*) AS count FROM matches"),
-    confirmedMatches: count("SELECT COUNT(*) AS count FROM matches WHERE status='CONFIRMED'")
+    confirmedMatches: count("SELECT COUNT(*) AS count FROM matches WHERE status='COMPLETED'")
   });
 });
 
@@ -407,7 +411,7 @@ app.get("/api/players/:id/faceit", async (req,res) => {
 
 function activeTeamForPlayer(playerId) {
   return db.prepare(`SELECT t.* FROM teams t JOIN team_members tm ON tm.team_id=t.id
-    WHERE tm.player_id=? AND t.status NOT IN ('MATCH_CONFIRMED','CANCELLED') ORDER BY t.id DESC LIMIT 1`).get(playerId);
+    WHERE tm.player_id=? AND t.status NOT IN ('FINISHED','CANCELLED') ORDER BY t.id DESC LIMIT 1`).get(playerId);
 }
 
 app.get("/api/my/teams", auth, profileRequired, (req,res) => {
@@ -549,8 +553,8 @@ app.post("/api/teams/:id/ready", auth, csrf, profileRequired, (req,res)=>{const 
 app.post("/api/teams/:id/queue", auth, csrf, profileRequired, eligibleRequired, (req,res)=>{const team=getTeam(req.params.id);if(!team)return res.status(404).json({error:"Team not found"});if(team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain can queue the team"});if(team.count!==5)return res.status(400).json({error:"Team must have 5 players"});const blocked=team.members.filter(m=>!isEligible(m.id));if(blocked.length)return res.status(409).json({error:`${blocked.map(m=>m.display_name).join(", ")} no longer meet${blocked.length>1?"":"s"} the STACK5 requirements. Remove them to queue.`});if(!["OPEN","READY"].includes(team.status))return res.status(409).json({error:"Team cannot be queued right now."});db.prepare("UPDATE teams SET status='READY' WHERE id=?").run(team.id);db.prepare("INSERT OR IGNORE INTO queue(team_id) VALUES(?)").run(team.id);res.json({queued:true,team:getTeam(team.id)});});
 app.get("/api/queue", (_,res)=>res.json(db.prepare(`SELECT t.id,t.name,t.region,t.min_level,t.max_level,COUNT(tm.player_id) count FROM queue q JOIN teams t ON t.id=q.team_id LEFT JOIN team_members tm ON tm.team_id=t.id GROUP BY t.id ORDER BY q.queued_at`).all()));
 app.post("/api/matchmaking/run", auth, adminRequired, csrf, (_,res)=>res.json({matches:runMatchmaking()}));
-app.get("/api/matches/:id", (req,res)=>{const m=db.prepare("SELECT * FROM matches WHERE id=?").get(req.params.id);if(!m)return res.status(404).json({error:"Match not found"});res.json({...m,team_a:getTeam(m.team_a_id),team_b:getTeam(m.team_b_id)});});
-app.post("/api/matches/:id/accept", auth, csrf, profileRequired, (req,res)=>{if(!requireBody(req,res,["team_id"]))return;const m=db.prepare("SELECT * FROM matches WHERE id=?").get(req.params.id);if(!m)return res.status(404).json({error:"Match not found"});if(m.status!=="PENDING")return res.status(409).json({error:"This match is no longer pending."});const teamId=Number(req.body.team_id);const team=getTeam(teamId);if(!team||team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain of the matched team can accept"});if(teamId===m.team_a_id)db.prepare("UPDATE matches SET accepted_a=1 WHERE id=?").run(m.id);else if(teamId===m.team_b_id)db.prepare("UPDATE matches SET accepted_b=1 WHERE id=?").run(m.id);else return res.status(403).json({error:"Team is not part of this match"});const updated=db.prepare("SELECT * FROM matches WHERE id=?").get(m.id);if(updated.accepted_a&&updated.accepted_b){db.prepare("UPDATE matches SET status='CONFIRMED' WHERE id=?").run(m.id);db.prepare("UPDATE teams SET status='MATCH_CONFIRMED' WHERE id IN (?,?)").run(m.team_a_id,m.team_b_id);for(const p of [...getTeamMembers(m.team_a_id),...getTeamMembers(m.team_b_id)])computeTrust(p.id);}res.json(db.prepare("SELECT * FROM matches WHERE id=?").get(m.id));});
+app.get("/api/matches/:id", (req,res)=>{const m=db.prepare("SELECT * FROM matches WHERE id=?").get(req.params.id);if(!m)return res.status(404).json({error:"Match not found"});res.json({...publicMatch(m),team_a:getTeam(m.team_a_id),team_b:getTeam(m.team_b_id)});});
+app.post("/api/matches/:id/accept", auth, csrf, profileRequired, (req,res)=>{if(!requireBody(req,res,["team_id"]))return;const m=db.prepare("SELECT * FROM matches WHERE id=?").get(req.params.id);if(!m)return res.status(404).json({error:"Match not found"});if(m.status!=="PENDING")return res.status(409).json({error:"This match is no longer pending."});const teamId=Number(req.body.team_id);const team=getTeam(teamId);if(!team||team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain of the matched team can accept"});if(teamId===m.team_a_id)db.prepare("UPDATE matches SET accepted_a=1 WHERE id=?").run(m.id);else if(teamId===m.team_b_id)db.prepare("UPDATE matches SET accepted_b=1 WHERE id=?").run(m.id);else return res.status(403).json({error:"Team is not part of this match"});const updated=db.prepare("SELECT * FROM matches WHERE id=?").get(m.id);if(updated.accepted_a&&updated.accepted_b){db.prepare("UPDATE matches SET status='CONFIRMED', confirmed_at=? WHERE id=?").run(Date.now(),m.id);db.prepare("UPDATE teams SET status='MATCH_CONFIRMED' WHERE id IN (?,?)").run(m.team_a_id,m.team_b_id);for(const p of [...getTeamMembers(m.team_a_id),...getTeamMembers(m.team_b_id)])computeTrust(p.id);}res.json(db.prepare("SELECT * FROM matches WHERE id=?").get(m.id));});
 
 // True if both players were on either side of the same confirmed match.
 function playedTogether(aId, bId) {
@@ -558,10 +562,10 @@ function playedTogether(aId, bId) {
     SELECT 1 FROM matches m
     JOIN team_members x ON x.team_id IN (m.team_a_id, m.team_b_id) AND x.player_id=?
     JOIN team_members y ON y.team_id IN (m.team_a_id, m.team_b_id) AND y.player_id=?
-    WHERE m.status='CONFIRMED' LIMIT 1`).get(aId, bId);
+    WHERE m.status='COMPLETED' LIMIT 1`).get(aId, bId);
 }
 
-app.post("/api/trust", auth, csrf, profileRequired, (req,res)=>{if(!requireBody(req,res,["to_player_id","rating"]))return;const rating=Math.max(1,Math.min(5,Math.round(Number(req.body.rating))||0));req.body.to_player_id=Number(req.body.to_player_id);if(req.body.to_player_id===req.account.player_id)return res.status(400).json({error:"You cannot rate yourself"});if(!playedTogether(req.account.player_id,req.body.to_player_id))return res.status(403).json({error:"You can only rate players you have played a confirmed match with."});db.prepare(`INSERT INTO trust_ratings(from_player_id,to_player_id,rating,tags) VALUES(?,?,?,?) ON CONFLICT(from_player_id,to_player_id) DO UPDATE SET rating=excluded.rating,tags=excluded.tags`).run(req.account.player_id,req.body.to_player_id,rating,req.body.tags||"");const t=computeTrust(req.body.to_player_id);res.json({ok:true,trust_score:t?.total});});
+app.post("/api/trust", auth, csrf, profileRequired, (req,res)=>{if(!requireBody(req,res,["to_player_id","rating"]))return;const rating=Math.max(1,Math.min(5,Math.round(Number(req.body.rating))||0));req.body.to_player_id=Number(req.body.to_player_id);if(req.body.to_player_id===req.account.player_id)return res.status(400).json({error:"You cannot rate yourself"});if(!playedTogether(req.account.player_id,req.body.to_player_id))return res.status(403).json({error:"You can rate players once a match you played together has a result."});db.prepare(`INSERT INTO trust_ratings(from_player_id,to_player_id,rating,tags) VALUES(?,?,?,?) ON CONFLICT(from_player_id,to_player_id) DO UPDATE SET rating=excluded.rating,tags=excluded.tags`).run(req.account.player_id,req.body.to_player_id,rating,req.body.tags||"");const t=computeTrust(req.body.to_player_id);res.json({ok:true,trust_score:t?.total});});
 
 
 // ---- Join requests: a player asks to join an OPEN team; the captain accepts or declines.
@@ -644,6 +648,73 @@ app.post("/api/matches/:id/decline", auth, csrf, profileRequired, (req,res)=>{
   res.json({ok:true});
 });
 
+// ---- Match room (see src/matches.js): CS2 private matchmaking code, result reports, public lists.
+const PRIVATE_MATCH_COLS = ["lobby_code","lobby_code_by","report_a","report_b","reported_a_at","reported_b_at"];
+function publicMatch(m){ const out={...m}; for(const k of PRIVATE_MATCH_COLS) delete out[k]; return out; }
+const captainTeamInMatch=(m,playerId)=>[m.team_a_id,m.team_b_id].map(id=>getTeam(id)).find(t=>t && t.captain_id===playerId);
+const matchById=id=>db.prepare("SELECT * FROM matches WHERE id=?").get(id);
+
+app.post("/api/matches/:id/code", auth, csrf, profileRequired, (req,res)=>{
+  const m=matchById(req.params.id);
+  if(!m) return res.status(404).json({error:"Match not found"});
+  if(m.status!=="CONFIRMED") return res.status(409).json({error:"This match room is closed."});
+  if(!captainTeamInMatch(m, req.account.player_id)) return res.status(403).json({error:"Only a captain of this match can post the code."});
+  const code=cleanLobbyCode(req.body?.code);
+  if(!code) return res.status(400).json({error:"Paste the full private matchmaking code from CS2 (letters, numbers and dashes)."});
+  db.prepare("UPDATE matches SET lobby_code=?, lobby_code_by=? WHERE id=?").run(code, req.account.player_id, m.id);
+  res.json({ok:true});
+});
+
+app.post("/api/matches/:id/result", auth, csrf, profileRequired, (req,res)=>{
+  const m=matchById(req.params.id);
+  if(!m) return res.status(404).json({error:"Match not found"});
+  if(!["CONFIRMED","DISPUTED"].includes(m.status)) return res.status(409).json({error:"This match isn't waiting for a result."});
+  const mine=captainTeamInMatch(m, req.account.player_id);
+  if(!mine) return res.status(403).json({error:"Only a captain of this match can report the result."});
+  const my=Number(req.body?.my_score), their=Number(req.body?.their_score);
+  if(![my,their].every(n=>Number.isInteger(n) && n>=0 && n<=60) || my+their===0) return res.status(400).json({error:"Enter both scores, for example 13 and 9."});
+  const u=submitReport(m, mine.id, my, their);
+  res.json({ok:true, status:u.status, message:u.status==="COMPLETED" ? "Result confirmed. You can now rate the players."
+    : u.status==="DISPUTED" ? "The other captain reported a different score. An admin will check it." : "Result saved. Waiting for the other captain."});
+});
+
+app.post("/api/admin/matches/:id/result", auth, adminRequired, csrf, (req,res)=>{
+  const m=matchById(req.params.id);
+  if(!m) return res.status(404).json({error:"Match not found"});
+  if(!["CONFIRMED","DISPUTED"].includes(m.status)) return res.status(409).json({error:"This match already has a final result."});
+  if(req.body?.no_result===true){ finishMatch(m,"NO_RESULT"); return res.json({ok:true,status:"NO_RESULT"}); }
+  const score=parseScore(`${req.body?.score_a}-${req.body?.score_b}`);
+  if(!score) return res.status(400).json({error:"score_a and score_b are required"});
+  finishMatch(m,"COMPLETED",score[0],score[1]);
+  res.json({ok:true,status:"COMPLETED"});
+});
+
+// Team country/language = the most common one among its players (shown as flags next to matches).
+function teamSummary(teamId){
+  const t=getTeam(teamId);
+  if(!t) return null;
+  const most=k=>{ const c={}; for(const p of t.members) if(p[k]) c[p[k]]=(c[p[k]]||0)+1; return Object.entries(c).sort((a,b)=>b[1]-a[1])[0]?.[0]||null; };
+  return { id:t.id, name:t.name, region:t.region, country:most("country"), language:most("language") };
+}
+app.get("/api/matches", (_,res)=>{
+  const shape=m=>({ id:m.id, status:m.status, score_a:m.score_a, score_b:m.score_b, confirmed_at:m.confirmed_at, completed_at:m.completed_at,
+    team_a:teamSummary(m.team_a_id), team_b:teamSummary(m.team_b_id) });
+  res.json({
+    live: db.prepare("SELECT * FROM matches WHERE status='CONFIRMED' ORDER BY confirmed_at DESC LIMIT 50").all().map(shape),
+    recent: db.prepare("SELECT * FROM matches WHERE status='COMPLETED' ORDER BY completed_at DESC LIMIT 50").all().map(shape)
+  });
+});
+
+app.get("/api/stats/live", (_,res)=>{
+  const c=(sql,...a)=>db.prepare(sql).get(...a).c;
+  res.json({
+    online: c("SELECT COUNT(*) c FROM accounts WHERE last_seen_at>?", Date.now()-5*60_000),
+    queued_teams: c("SELECT COUNT(*) c FROM queue"),
+    recruiting_teams: c("SELECT COUNT(*) c FROM teams WHERE status='OPEN'"),
+    live_matches: c("SELECT COUNT(*) c FROM matches WHERE status='CONFIRMED'")
+  });
+});
+
 // Everything the Play page needs in one call.
 app.get("/api/my/dashboard", auth, (req,res)=>{
   const pid=req.account.player_id;
@@ -671,14 +742,19 @@ app.get("/api/my/dashboard", auth, (req,res)=>{
     out.joinRequests=db.prepare(`SELECT r.id,p.id AS player_id,p.display_name,p.faceit_level,p.role,p.country,p.region,p.trust_score
       FROM team_join_requests r JOIN players p ON p.id=r.player_id WHERE r.team_id=? AND r.status='PENDING' ORDER BY r.id`).all(out.team.id);
   }
-  // Latest pending/confirmed match for the active team, or for the most recent confirmed team.
+  // Latest match the player is in: pending, live or disputed, or one that ended in the last 24 hours
+  // (so they can see the result and rate the players).
   const teamIds=db.prepare("SELECT team_id FROM team_members WHERE player_id=?").all(pid).map(r=>r.team_id);
   if(teamIds.length){
     const ph=teamIds.map(()=>"?").join(",");
-    const m=db.prepare(`SELECT * FROM matches WHERE status IN ('PENDING','CONFIRMED') AND (team_a_id IN (${ph}) OR team_b_id IN (${ph})) ORDER BY id DESC LIMIT 1`).get(...teamIds,...teamIds);
+    const m=db.prepare(`SELECT * FROM matches WHERE (status IN ('PENDING','CONFIRMED','DISPUTED') OR (status IN ('COMPLETED','NO_RESULT') AND completed_at>?))
+      AND (team_a_id IN (${ph}) OR team_b_id IN (${ph})) ORDER BY id DESC LIMIT 1`).get(Date.now()-86_400_000,...teamIds,...teamIds);
     if(m){
       const myTeamId=teamIds.includes(m.team_a_id)?m.team_a_id:m.team_b_id;
-      out.match={...m, my_team_id:myTeamId, expires_at:matchExpiresAt(m), team_a:getTeam(m.team_a_id), team_b:getTeam(m.team_b_id)};
+      const others=db.prepare("SELECT player_id FROM team_members WHERE team_id IN (?,?) AND player_id<>?").all(m.team_a_id,m.team_b_id,pid).map(r=>r.player_id);
+      const rated=others.length ? db.prepare(`SELECT to_player_id id FROM trust_ratings WHERE from_player_id=? AND to_player_id IN (${others.map(()=>"?").join(",")})`).all(pid,...others).map(r=>r.id) : [];
+      out.match={...m, my_team_id:myTeamId, expires_at:matchExpiresAt(m), result_deadline:resultDeadline(m), rated,
+        team_a:getTeam(m.team_a_id), team_b:getTeam(m.team_b_id)};
     }
   }
   res.json(out);
@@ -724,6 +800,7 @@ app.post("/api/account/delete", auth, csrf, async (req,res)=>{
   const pid=account.player_id;
   if(pid){
     const active=activeTeamForPlayer(pid);
+    if(active && active.status==="MATCH_CONFIRMED") return res.status(409).json({error:"You are in a live match. Delete your account once it has a result."});
     if(active && active.status==="MATCHED") return res.status(409).json({error:"You have a pending match. Accept or decline it first."});
   }
   const rated=pid ? db.prepare("SELECT DISTINCT to_player_id id FROM trust_ratings WHERE from_player_id=?").all(pid).map(r=>r.id) : [];
@@ -782,23 +859,86 @@ app.get("/api/discover/teams", (_, res) => {
 
 app.get("/login", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/login.html")));
 app.get("/terms", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/terms.html")));
-app.get("/account", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
 app.get("/privacy", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/privacy.html")));
 app.get(["/register","/forgot-password","/reset-password"], (_,res)=>res.redirect("/login"));
-app.get("/", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
-app.get("/play", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
-app.get("/teams", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
-app.get("/players", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
-app.get("/matches", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
-app.get("/rankings", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
-app.get("/player/:username", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
-app.get("/team/:id", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
 
-app.get("*splat", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
+// ---- App pages: one HTML shell, with per-page title/description/robots for search engines and link previews.
+const APP_SHELL=fs.readFileSync(path.join(__dirname,"../public/pages/app.html"),"utf8");
+const SITE_DESC="Find a trusted five and play CS2 5v5 against complete teams. Steam-verified players, trust scores and team matchmaking for North Africa and worldwide. Free beta.";
+const PAGES={
+  "/":        { title:"STACK5 · Trusted CS2 5v5 team matchmaking", heading:"Tired of cheaters? Find a trusted five.", description:SITE_DESC },
+  "/teams":   { title:"Find a CS2 team · STACK5", heading:"Find a CS2 team", description:"Browse CS2 5-stacks that are recruiting on STACK5 and ask to join. Every player is Steam-verified with a public trust score." },
+  "/players": { title:"Find CS2 players · STACK5", heading:"Find CS2 players", description:"Find Steam-verified CS2 players for your 5-stack by region, level, role and language, with a trust score built from real matches." },
+  "/matches": { title:"CS2 5v5 matches and results · STACK5", heading:"CS2 5v5 matches", description:"Live STACK5 matches and recent results between complete CS2 teams, played through CS2 Private Matchmaking." },
+  "/rankings":{ title:"CS2 team rankings · STACK5", heading:"Rankings", description:"STACK5 rankings for CS2 5v5 teams and players. Coming soon." }
+};
+const htmlAttr=v=>String(v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"})[c]);
+function sendApp(req,res,page,{index=true,status=200}={}){
+  const url=BASE_URL+(req.path==="/"?"/":req.path.replace(/\/$/,""));
+  const jsonld=JSON.stringify({ "@context":"https://schema.org", "@graph":[
+    { "@type":"WebSite", "@id":BASE_URL+"/#website", name:"STACK5", url:BASE_URL+"/", description:SITE_DESC, inLanguage:"en" },
+    { "@type":"WebApplication", name:"STACK5", url:BASE_URL+"/", applicationCategory:"GameApplication", operatingSystem:"Web",
+      description:SITE_DESC, offers:{ "@type":"Offer", price:"0", priceCurrency:"USD" }, about:{ "@type":"VideoGame", name:"Counter-Strike 2" } }
+  ]});   // fixed text only (no user input), safe inside <script>
+  const vals={ title:page.title, description:page.description, heading:page.heading, url, base:BASE_URL, robots:index?"index,follow":"noindex,follow" };
+  let html=APP_SHELL.replace("{{jsonld}}",jsonld);
+  for(const [k,v] of Object.entries(vals)) html=html.split(`{{${k}}}`).join(htmlAttr(v));
+  res.status(status).type("html").send(html);
+}
+app.get("/robots.txt",(_,res)=>res.type("text/plain").send(`User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /auth/
+Disallow: /admin
+Disallow: /account
+Disallow: /play
+Disallow: /welcome
+Disallow: /pages/
+Disallow: /assets/pages/
+
+Sitemap: ${BASE_URL}/sitemap.xml
+`));
+app.get("/sitemap.xml",(_,res)=>res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${[...Object.keys(PAGES),"/login","/terms","/privacy"].map(p=>`  <url><loc>${BASE_URL}${p}</loc></url>`).join("\n")}
+</urlset>
+`));
+// llms.txt: a plain summary for AI assistants and LLM crawlers (llmstxt.org).
+app.get("/llms.txt",(_,res)=>res.type("text/plain").send(`# STACK5
+
+> STACK5 is a free CS2 (Counter-Strike 2) 5v5 team matchmaking platform focused on trust. Complete teams of five play against other complete teams, every player is a Steam-verified account, and a public Trust Score is built from Steam history, peer ratings, reliability and match record. Strong focus on North Africa (Morocco, Algeria, Tunisia, Libya, Egypt), open worldwide. Currently in beta.
+
+## How it works
+
+- Players sign in through Steam (OpenID). STACK5 only receives the public SteamID; it never sees Steam passwords and has no access to inventories, skins or trades.
+- To play, a Steam account must be at least 2 years old, have at least 500 hours of CS2 and no VAC or game ban in the last 2 years.
+- A captain creates a team and invites four players. Full teams queue and are matched with a team from the same region at a similar FACEIT level.
+- Matches are played on Valve servers through CS2 Private Matchmaking: one captain creates a private matchmaking pool and shares its code on STACK5, both 5-player parties join with that code.
+- After the game both captains report the score. Players then rate each other (1-5 stars), which feeds the Trust Score.
+- STACK5 is a reputation layer, not an anti-cheat.
+
+## Pages
+
+- [Home](${BASE_URL}/): what STACK5 is
+- [Find a team](${BASE_URL}/teams): teams that are recruiting
+- [Find players](${BASE_URL}/players): Steam-verified players with trust scores
+- [Matches](${BASE_URL}/matches): live matches and recent results
+- [Sign in with Steam](${BASE_URL}/login)
+- [Terms of Service](${BASE_URL}/terms)
+- [Privacy Policy](${BASE_URL}/privacy)
+
+## Contact
+
+contact@stack5cs.com
+`));
+for(const [p,page] of Object.entries(PAGES)) app.get(p,(req,res)=>sendApp(req,res,page));
+// Personal and per-player pages work normally but stay out of search results.
+for(const p of ["/play","/account","/player/:username","/team/:id"]) app.get(p,(req,res)=>sendApp(req,res,PAGES["/"],{index:false}));
+app.get("*splat",(req,res)=>sendApp(req,res,{ ...PAGES["/"], title:"Page not found · STACK5", heading:"Page not found" },{index:false,status:404}));
 // Time limits (idle teams, queue, match accept window). TIMERS_INTERVAL_SECONDS=0 disables.
 const timersEvery=Number(process.env.TIMERS_INTERVAL_SECONDS ?? 30);
 if(timersEvery>0) setInterval(()=>{
-  try { const r=expireStale(); if(r.teams||r.queue||r.matches) console.log(`[STACK5] timers: disbanded ${r.teams} team(s), ${r.queue} left queue, ${r.matches} match(es) expired`); }
+  try { const r=expireStale(); if(r.teams||r.queue||r.matches||r.results) console.log(`[STACK5] timers: disbanded ${r.teams} team(s), ${r.queue} left queue, ${r.matches} match(es) expired, ${r.results} result(s) closed`); }
   catch(e){ console.error("[STACK5] timers failed:", e); }
 }, timersEvery*1000).unref();
 

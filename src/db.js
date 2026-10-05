@@ -248,6 +248,22 @@ db.exec(`CREATE TABLE IF NOT EXISTS steam_signups (
   steam_id TEXT NOT NULL,
   created_at INTEGER NOT NULL
 )`);
+// Match room: CS2 private matchmaking code + result reporting.
+// Status flow: PENDING -> CONFIRMED (live) -> COMPLETED | DISPUTED -> COMPLETED | NO_RESULT.
+for (const col of [
+  "confirmed_at INTEGER",
+  "lobby_code TEXT",                 // CS2 private matchmaking pool code; only the 10 players see it
+  "lobby_code_by INTEGER",           // player id of the captain who posted it
+  "report_a TEXT",                   // "13-9" as reported by team A's captain (team A score first)
+  "report_b TEXT",                   // same, reported by team B's captain, also team A score first
+  "reported_a_at INTEGER",
+  "reported_b_at INTEGER",
+  "score_a INTEGER",
+  "score_b INTEGER",
+  "completed_at INTEGER"
+]) { try { db.exec(`ALTER TABLE matches ADD COLUMN ${col}`); } catch {} }
+// Last activity, only used to count players online (never shown per player).
+try { db.exec("ALTER TABLE accounts ADD COLUMN last_seen_at INTEGER"); } catch {}
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_steam ON accounts(verified_steam_id) WHERE verified_steam_id IS NOT NULL");
 
 export function getTeamMembers(teamId) {

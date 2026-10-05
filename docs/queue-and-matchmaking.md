@@ -21,13 +21,13 @@ FACEIT level and Elo here are self-reported on the profile.
 
 When a match is found, both captains see it on the Play page with a countdown:
 
-- **Both accept:** the match is **confirmed**. Players can now rate each other, which feeds the [Trust Score](trust-score.md).
+- **Both accept:** the match is **confirmed** and the [match room](match-room.md) opens: the teams play through CS2 Private Matchmaking and report the score.
 - **One declines:** the match is cancelled. The declining team goes back to recruiting and the other team goes back into the queue. Declining counts against the decliner's reliability.
 - **Time runs out (5 minutes):** see [Timers](timers.md).
 
-## Not built yet
+## Matches page
 
-Reporting match results, the Matches page, and Rankings.
+`/matches` lists live matches and recent results, with each team's country and language flags. Rankings are not built yet.
 
 ## Technical notes
 

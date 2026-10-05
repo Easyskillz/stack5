@@ -5,9 +5,11 @@
  *   - found match not accepted within MATCH_ACCEPT_MINUTES (default 5) -> expired;
  *     a team that accepted goes back in the queue, a team that didn't goes back to OPEN
  *     and its captain gets a reliability mark.
+ *   - confirmed match with no agreed result after RESULT_HOURS (default 6) -> closed (see matches.js)
  */
 import { db } from "./db.js";
 import { recordEvent, computeTrust } from "./trust.js";
+import { closeOverdueMatches } from "./matches.js";
 
 const H = 3_600_000, M = 60_000;
 export const LIMITS = {
@@ -36,7 +38,7 @@ function disband(teamId) {
 }
 
 export function expireStale(now = Date.now()) {
-  const out = { teams: 0, queue: 0, matches: 0 };
+  const out = { teams: 0, queue: 0, matches: 0, results: 0 };
   const rescore = new Set();
 
   db.transaction(() => {
@@ -74,5 +76,6 @@ export function expireStale(now = Date.now()) {
   })();
 
   for (const id of rescore) computeTrust(id);
+  out.results = closeOverdueMatches(now);
   return out;
 }

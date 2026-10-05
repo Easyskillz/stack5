@@ -5,7 +5,7 @@
  *                    Only counts once the player proved the Steam account is theirs (Sign in through Steam).
  *   peer        30%  ratings from players you shared a confirmed match with
  *   reliability 25%  accepting matches vs declining / abandoning queued teams
- *   record      10%  confirmed matches played on STACK5
+ *   record      10%  matches played on STACK5 with an agreed result (COMPLETED)
  *
  * Hard caps: recent VAC/game ban -> max 20.
  * Missing data counts as neutral (0.5); hidden-but-requested data as slightly below (0.35),
@@ -62,7 +62,7 @@ function peerPart(playerId, now) {
     const shared = db.prepare(`SELECT COUNT(*) c FROM matches m
       JOIN team_members a ON a.team_id IN (m.team_a_id,m.team_b_id) AND a.player_id=?
       JOIN team_members b ON b.team_id=a.team_id AND b.player_id=?
-      WHERE m.status='CONFIRMED'`).get(r.from_player_id, playerId).c;
+      WHERE m.status='COMPLETED'`).get(r.from_player_id, playerId).c;
     if (shared >= 3) w *= 0.5;
     sum += w * r.rating; wsum += w;
   }
@@ -76,7 +76,7 @@ const BAD_EVENTS = { MATCH_DECLINED: 1, LEFT_QUEUED_TEAM: 1, MATCH_EXPIRED: 1.5 
 function confirmedMatches(playerId) {
   return db.prepare(`SELECT COUNT(DISTINCT m.id) c FROM matches m
     JOIN team_members tm ON tm.team_id IN (m.team_a_id,m.team_b_id) AND tm.player_id=?
-    WHERE m.status='CONFIRMED'`).get(playerId).c;
+    WHERE m.status='COMPLETED'`).get(playerId).c;
 }
 
 function reliabilityPart(playerId, now, played) {

@@ -1,5 +1,5 @@
 const Stack5 = (() => {
-  const state = { lang: localStorage.getItem('stack5_lang') || 'en' };
+  const state = {};
 
   const T = {
     en:{
@@ -10,17 +10,9 @@ const Stack5 = (() => {
       trust:'Trust', reliability:'Reliability', teamplay:'Teamplay',
       search:'Search...', noResults:'Nothing available right now.'
     },
-    fr:{
-      play:'Jouer', teams:'Trouver une équipe', players:'Trouver des joueurs', matches:'Matchs',
-      rankings:'Classement', login:'Connexion avec Steam',
-      profile:'Mon profil', myTeam:'Mon équipe', logout:'Déconnexion',
-      view:'Voir', join:'Demander à rejoindre', invite:'Inviter', challenge:'Défier',
-      trust:'Confiance', reliability:'Fiabilité', teamplay:"Esprit d'équipe",
-      search:'Rechercher...', noResults:'Aucun résultat disponible.'
-    }
   };
 
-  function tr(k){ return T[state.lang][k] || T.en[k] || k; }
+  function tr(k){ return T.en[k] || k; }   // English only for now; T keeps labels in one place
 
   async function get(url, options={}){
     const r=await fetch(url,options);
@@ -29,10 +21,24 @@ const Stack5 = (() => {
     return j;
   }
 
+  // Flags are self-hosted SVGs (public/flags, from flag-icons): emoji flags don't render on Windows.
+  const FLAG_CODES=new Set('ma dz tn ly eg fr es de gb it be nl pt us ca br ar cl au nz jp kr sg my th sa ae il za ng tr ru'.split(' '));
   function countryFlag(code){
-    if(!code || code.length!==2) return '';
-    return [...code.toUpperCase()].map(c=>String.fromCodePoint(127397+c.charCodeAt())).join('');
+    const c=String(code||'').toLowerCase();
+    return FLAG_CODES.has(c)?`<img class="flag" src="/flags/${c}.svg" alt="${esc(c.toUpperCase())}" title="${esc(c.toUpperCase())}">`:'';
   }
+  const LANG_FLAG={EN:'gb',FR:'fr',ES:'es',DE:'de',PT:'pt',IT:'it',NL:'nl',TR:'tr',RU:'ru'};
+  function languageFlag(code){
+    const c=String(code||'').toUpperCase();
+    if(!c) return '';
+    const name=(LANGS.find(l=>l[0]===c)||[c,c])[1];
+    return LANG_FLAG[c]
+      ?`<img class="flag flag-lang" src="/flags/${LANG_FLAG[c]}.svg" alt="${esc(c)}" title="Speaks ${esc(name)}">`
+      :`<span class="lang-chip" title="Speaks ${esc(name)}">${esc(c)}</span>`;   // e.g. Arabic: no single country flag
+  }
+  const flags=(country,language)=>`<span class="flags">${countryFlag(country)}${languageFlag(language)}</span>`;
+  // A team's country/language = the most common one among its players.
+  const mostCommon=(list,k)=>{ const c={}; for(const p of list||[]) if(p[k]) c[p[k]]=(c[p[k]]||0)+1; return Object.entries(c).sort((a,b)=>b[1]-a[1])[0]?.[0]||null; };
 
   function header(active=''){
     return `
@@ -48,7 +54,6 @@ const Stack5 = (() => {
         </nav>
 
         <div class="header-right" id="header-right">
-          <button class="lang" onclick="Stack5.toggleLang()">${state.lang.toUpperCase()}</button>
           <a class="btn btn-green btn-small" href="/login">${tr('login')}</a>
         </div>
       </header>`;
@@ -73,9 +78,6 @@ const Stack5 = (() => {
       state.csrf = data.csrf_token;
 
       headerRight.innerHTML = `
-        <button class="lang" onclick="Stack5.toggleLang()">
-          ${state.lang.toUpperCase()}
-        </button>
 
         <a
           class="header-user"
@@ -106,12 +108,6 @@ const Stack5 = (() => {
     document.title=`${title} · STACK5`;
     document.body.innerHTML=header(active)+`<main>${content}</main>`+footer();
     refreshHeaderAuth();
-  }
-
-  function toggleLang(){
-    state.lang=state.lang==='en'?'fr':'en';
-    localStorage.setItem('stack5_lang',state.lang);
-    location.reload();
   }
 
   async function teams(){
@@ -331,6 +327,7 @@ const Stack5 = (() => {
           <a class="btn btn-dark" href="#how">How STACK5 works</a>
           <a class="btn btn-dark" href="/teams">${tr('teams')}</a>
         </div>
+        ${liveStatsBox()}
         <div class="notice">⚠️ <strong>STACK5 is currently in BETA.</strong> Features, verification layers, data sources and matchmaking rules may change during testing.</div>
       </section>
 
@@ -379,6 +376,7 @@ const Stack5 = (() => {
         </div>
       </div>`);
 
+    fillLiveStats();
     catalog().then(cat=>{
       const box=document.getElementById('home-regions');
       if(box) box.innerHTML=cat.regions.map(r=>`
@@ -390,6 +388,31 @@ const Stack5 = (() => {
       if(!r.ok) return;
       document.querySelectorAll('[data-guest-cta]').forEach(a=>{ a.href='/play'; a.textContent='Go to Play'; });
     }).catch(()=>{});
+  }
+
+  // ---------- Live counters ----------
+  const liveStatsBox=()=>`<div class="live-stats" data-live-stats><span class="muted small">Loading live activity…</span></div>`;
+  async function fillLiveStats(){
+    const els=document.querySelectorAll('[data-live-stats]');
+    if(!els.length) return;
+    try{
+      const s=await get('/api/stats/live');
+      const item=(n,one,many)=>`<span><strong>${n}</strong> ${n===1?one:many}</span>`;
+      els.forEach(el=>el.innerHTML=`<span class="live-dot"></span>${item(s.online,'player online','players online')}${item(s.queued_teams,'team looking for a match','teams looking for a match')}${item(s.recruiting_teams,'team recruiting','teams recruiting')}${item(s.live_matches,'match live','matches live')}`);
+    }catch{ els.forEach(el=>el.remove()); }
+  }
+
+  // ---------- Matches page ----------
+  async function matchesPage(){
+    layout('Matches',`<div class="container"><div class="eyebrow">MATCHES</div><h1>Matches</h1>${liveStatsBox()}<div id="matches"><div class="empty">Loading...</div></div></div>`,'matches');
+    fillLiveStats();
+    const box=document.getElementById('matches');
+    const d=await get('/api/matches').catch(()=>({live:[],recent:[]}));
+    const side=(t,right)=>t?`<a class="match-team${right?' right':''}" href="/team/${t.id}">${right?`<strong>${esc(t.name)}</strong> ${flags(t.country,t.language)}`:`${flags(t.country,t.language)} <strong>${esc(t.name)}</strong>`}</a>`:'<span class="muted">—</span>';
+    const ago=ts=>{ if(!ts) return ''; const m=Math.round((Date.now()-ts)/60000); return m<60?`${m} min ago`:m<1440?`${Math.round(m/60)} h ago`:`${Math.round(m/1440)} d ago`; };
+    const row=(m,live)=>`<div class="match-row">${side(m.team_a)}<div class="match-mid">${live?'<span class="status green">LIVE</span>':`<span class="score">${m.score_a} – ${m.score_b}</span>`}<div class="muted small">${live?'Started '+ago(m.confirmed_at):ago(m.completed_at)}</div></div>${side(m.team_b,true)}</div>`;
+    box.innerHTML=`<div class="panel"><h2>Live now</h2>${d.live.length?d.live.map(m=>row(m,true)).join(''):'<p class="muted">No match is being played right now.</p>'}</div>
+      <div class="panel"><h2>Recent results</h2>${d.recent.length?d.recent.map(m=>row(m,false)).join(''):'<p class="muted">No finished matches yet.</p>'}</div>`;
   }
 
   // ---------- API helpers ----------
@@ -423,7 +446,7 @@ const Stack5 = (() => {
 
   const STATUS={
     OPEN:['Building roster',''], READY:['In queue','amber'], MATCHED:['Match found','green'],
-    MATCH_CONFIRMED:['Match confirmed','green'], CANCELLED:['Disbanded','']
+    MATCH_CONFIRMED:['In a live match','green'], FINISHED:['Finished',''], CANCELLED:['Disbanded','']
   };
   function statusBadge(s){ const [label,cls]=STATUS[s]||[s,'']; return `<span class="status ${cls}">${esc(label)}</span>`; }
   const ROLES=['Rifler','AWPer','Entry','IGL','Support','Lurker'];
@@ -440,6 +463,7 @@ const Stack5 = (() => {
       <div class="container">
         <div class="eyebrow">PLAY</div>
         <h1>Find your match.</h1>
+        ${liveStatsBox()}
         <div id="play"><div class="empty">Loading...</div></div>
       </div>`,'play');
     const box=document.getElementById('play');
@@ -450,6 +474,7 @@ const Stack5 = (() => {
     if(qs.get('steam')==='linked') toast('Steam account verified ✓');
     if(qs.get('steam')==='error') toast(qs.get('reason')||'Steam sign-in failed.',true);
     if(qs.has('steam')) history.replaceState(null,'','/play');
+    fillLiveStats();
     await renderPlay();
   }
 
@@ -479,8 +504,8 @@ const Stack5 = (() => {
     startCountdowns();
 
     // Keep the page live while waiting on the queue or the other captain (no text inputs are shown then).
-    const waiting=(d.team && d.team.status==='READY') || (d.match && d.match.status==='PENDING');
-    if(waiting) pollTimer=setTimeout(renderPlay,8000);
+    const waiting=(d.team && d.team.status==='READY') || (d.match && ['PENDING','CONFIRMED','DISPUTED'].includes(d.match.status));
+    if(waiting) pollTimer=setTimeout(refreshUnlessTyping,8000);
   }
 
   // ---------- Eligibility + countdowns ----------
@@ -497,6 +522,14 @@ const Stack5 = (() => {
         <a href="https://steamcommunity.com/my/edit/settings" target="_blank" rel="noopener" style="color:var(--green)">Open Steam privacy settings</a></p>
       <div class="actions" style="margin-top:12px">${(e.checks||[]).some(c=>c.key==='steam_owner'&&!c.ok)?steamButton('Verify with Steam'):''}${btn('Check again','recheck','btn-green')}</div>
     </div>${inTeam?'<div style="height:16px"></div>':''}`;
+  }
+
+  function refreshUnlessTyping(){
+    const box=document.getElementById('play');
+    if(!box) return;
+    const typing=[...box.querySelectorAll('input')].some(el=>el===document.activeElement || el.value) || box.contains(document.activeElement) && document.activeElement.tagName==='SELECT';
+    if(typing){ pollTimer=setTimeout(refreshUnlessTyping,8000); return; }
+    renderPlay();
   }
 
   function fmtLeft(ms){
@@ -522,39 +555,82 @@ const Stack5 = (() => {
   function matchPanel(d){
     const m=d.match;
     if(!m) return '';
-    const mine=m.my_team_id===m.team_a_id?m.team_a:m.team_b;
-    const other=m.my_team_id===m.team_a_id?m.team_b:m.team_a;
-    const myAccepted=m.my_team_id===m.team_a_id?m.accepted_a:m.accepted_b;
+    const iAmA=m.my_team_id===m.team_a_id;
+    const mine=iAmA?m.team_a:m.team_b, other=iAmA?m.team_b:m.team_a;
+    const myAccepted=iAmA?m.accepted_a:m.accepted_b;
     const isCaptain=mine && mine.captain_id===d.player.id;
+    const rated=new Set(m.rated||[]);
+    // Scores are stored team A first; show them from this player's side.
+    const mySide=([a,b])=>iAmA?[a,b]:[b,a];
+    const parse=r=>{ const x=/^(\d+)-(\d+)$/.exec(r||''); return x?[Number(x[1]),Number(x[2])]:null; };
+    const myReport=parse(iAmA?m.report_a:m.report_b), theirReport=parse(iAmA?m.report_b:m.report_a);
+
+    const teamHead=t=>`<h3>${flags(mostCommon(t?.members,'country'),mostCommon(t?.members,'language'))} ${esc(t?.name)}</h3>`;
     const roster=(t,rate)=>(t?.members||[]).map(p=>`
       <div class="row">
-        <div>${playerLink(p)}<div class="muted small">FACEIT ${p.faceit_level??'—'} · ${esc(p.role||'—')}${t.captain_id===p.id?' · Captain':''}</div></div>
+        <div>${flags(p.country,p.language)} ${playerLink(p)}<div class="muted small">FACEIT ${p.faceit_level??'—'} · ${esc(p.role||'—')}${t.captain_id===p.id?' · Captain':''}</div></div>
         <div class="row-actions">
           ${realSteam(p)?`<a class="btn btn-small btn-outline" href="${esc(p.steam_url)}" target="_blank" rel="noopener">Steam</a>`:''}
           ${rate && p.id!==d.player.id?`<select class="rate-select" data-player="${p.id}" style="width:auto;padding:6px"><option value="5">5 ★</option><option value="4">4 ★</option><option value="3">3 ★</option><option value="2">2 ★</option><option value="1">1 ★</option></select>
-          ${btn('Rate','rate','btn-dark',{id:p.id})}`:''}
+          ${btn(rated.has(p.id)?'Rated ✓ · change':'Rate','rate',rated.has(p.id)?'btn-outline':'btn-dark',{id:p.id})}`:''}
         </div>
       </div>`).join('');
+    const reportForm=label=>`<form data-form="report" data-id="${m.id}" class="score-form">
+        <label><span class="muted small">${esc(mine?.name)}</span><input class="input" name="my_score" type="number" inputmode="numeric" min="0" max="60" placeholder="13" required></label>
+        <span class="score-dash">–</span>
+        <label><span class="muted small">${esc(other?.name)}</span><input class="input" name="their_score" type="number" inputmode="numeric" min="0" max="60" placeholder="9" required></label>
+        <button class="btn btn-green btn-small">${label}</button></form>`;
 
-    let head, actions='';
+    let head, body='';
     if(m.status==='PENDING'){
       head=`<div class="eyebrow">MATCH FOUND · ${m.compatibility}% COMPATIBLE</div><h2 style="margin-top:8px">${esc(mine?.name)} vs ${esc(other?.name)}</h2>`;
-      const timer=m.expires_at?`<p class="muted" style="margin-top:14px">Both captains must accept within ${countdown(m.expires_at)}. If time runs out, a team that didn't accept goes back to recruiting.</p>`:'';
-      actions=timer;
-      if(isCaptain && !myAccepted) actions+=`<div class="actions" style="margin-top:12px">${btn('Accept match','accept-match','btn-green',{id:m.id,arg:m.my_team_id})}${btn('Decline','decline-match','btn-danger',{id:m.id,confirm:'Decline this match? Your team will leave the queue.'})}</div>`;
-      else if(myAccepted) actions+=`<p class="muted" style="margin-top:14px">Your team accepted. Waiting for the other captain…</p>`;
-      else actions+=`<p class="muted" style="margin-top:14px">Waiting for your captain to accept…</p>`;
-    } else {
-      head=`<div class="eyebrow">MATCH CONFIRMED</div><h2 style="margin-top:8px">${esc(mine?.name)} vs ${esc(other?.name)}</h2>
-        <p class="muted">Both teams are in. Captains: add each other on Steam (links below) and set up the server. After the game, rate the players you played with.</p>`;
+      body=m.expires_at?`<p class="muted" style="margin-top:14px">Both captains must accept within ${countdown(m.expires_at)}. If time runs out, a team that didn't accept goes back to recruiting.</p>`:'';
+      if(isCaptain && !myAccepted) body+=`<div class="actions" style="margin-top:12px">${btn('Accept match','accept-match','btn-green',{id:m.id,arg:m.my_team_id})}${btn('Decline','decline-match','btn-danger',{id:m.id,confirm:'Decline this match? Your team will leave the queue.'})}</div>`;
+      else if(myAccepted) body+=`<p class="muted" style="margin-top:14px">Your team accepted. Waiting for the other captain…</p>`;
+      else body+=`<p class="muted" style="margin-top:14px">Waiting for your captain to accept…</p>`;
+    } else if(m.status==='CONFIRMED'){
+      head=`<div class="eyebrow">MATCH LIVE</div><h2 style="margin-top:8px">${esc(mine?.name)} vs ${esc(other?.name)}</h2>
+        <p class="muted" style="margin-top:0">You play through CS2's own <strong>Private Matchmaking</strong>. Follow these steps:</p>
+        <ol class="match-steps">
+          <li><strong>Each captain:</strong> invite your 4 teammates to your CS2 party (Steam buttons below). Each team must be <strong>one 5-player party</strong>, or CS2 may mix players between teams.</li>
+          <li><strong>One captain hosts:</strong> in CS2, open <em>Play → Matchmaking → Private Matchmaking → Create a Private Matchmaking Pool</em>, copy the full code and paste it below.</li>
+          <li><strong>The other captain:</strong> <em>Private Matchmaking → Manually Enter a Code</em>, paste the code.</li>
+          <li><strong>Both parties press GO.</strong> The match starts when all 10 players are searching. It's unrated in CS2; STACK5 records the result.</li>
+        </ol>`;
+      const code=m.lobby_code
+        ? `<div class="code-box"><div><div class="muted small">Private matchmaking code</div><code>${esc(m.lobby_code)}</code></div>${btn('Copy','copy-code','btn-green',{arg:m.lobby_code})}</div>`
+          + (isCaptain?`<details class="muted small" style="margin-top:6px"><summary>Wrong code? Replace it</summary><form data-form="code" data-id="${m.id}" class="inline-form"><input class="input" name="code" placeholder="Paste the new code" required><button class="btn btn-dark btn-small">Replace</button></form></details>`:'')
+        : isCaptain
+          ? `<form data-form="code" data-id="${m.id}" class="inline-form"><input class="input" name="code" placeholder="Paste the CS2 private matchmaking code" required><button class="btn btn-green btn-small">Post code</button></form>`
+          : `<p class="muted">Waiting for a captain to post the private matchmaking code…</p>`;
+      body=`<div class="match-room">${code}</div>`;
+      const deadline=`<p class="muted small">Report within ${countdown(m.result_deadline)}. If only one captain reports by then, that score counts. With no report, the match doesn't count.</p>`;
+      if(isCaptain){
+        body+=`<h3 style="margin:18px 0 6px">After the game: report the score</h3>`
+          +(myReport?`<p>You reported <strong>${myReport[0]}–${myReport[1]}</strong>. ${theirReport?'':'Waiting for the other captain.'}</p><details class="muted small"><summary>Change your report</summary>${reportForm('Update')}</details>`:reportForm('Report result'))+deadline;
+      } else {
+        body+=`<p class="muted" style="margin-top:16px">After the game, your captain reports the score. Then you can rate everyone you played with.</p>`;
+      }
+    } else if(m.status==='DISPUTED'){
+      head=`<div class="eyebrow" style="color:#ffb3b9">RESULT DISPUTED</div><h2 style="margin-top:8px">${esc(mine?.name)} vs ${esc(other?.name)}</h2>
+        <p class="muted">The captains reported different scores${myReport&&theirReport?` (your side: ${myReport[0]}–${myReport[1]}, other side: ${theirReport[0]}–${theirReport[1]})`:''}. An admin will decide. Until then the match doesn't count.</p>`;
+      if(isCaptain) body=`<p class="muted small">Made a mistake? Correct your report. If both reports match, the result is confirmed.</p>${reportForm('Correct report')}`;
+    } else if(m.status==='COMPLETED'){
+      const [me,them]=mySide([m.score_a,m.score_b]);
+      head=`<div class="eyebrow">MATCH FINISHED</div>
+        <h2 style="margin-top:8px">${esc(mine?.name)} <span class="score">${me} – ${them}</span> ${esc(other?.name)}</h2>
+        <p class="muted">${me>them?'🏆 Your team won.':me<them?'Your team lost.':'Draw.'} Rate the players you played with, teammates and opponents. Ratings build their Trust Score.</p>`;
+    } else if(m.status==='NO_RESULT'){
+      head=`<div class="eyebrow">MATCH CLOSED</div><h2 style="margin-top:8px">${esc(mine?.name)} vs ${esc(other?.name)}</h2>
+        <p class="muted">No result was reported in time, so this match doesn't count for anyone.</p>`;
     }
-    const confirmed=m.status==='CONFIRMED';
+    const canRate=m.status==='COMPLETED';
     return `<div class="panel match-panel">${head}
       <div class="versus">
-        <div><h3>${esc(mine?.name)}</h3>${roster(mine,confirmed)}</div>
+        <div>${teamHead(mine)}${roster(mine,canRate)}</div>
         <div class="vs">VS</div>
-        <div><h3>${esc(other?.name)}</h3>${roster(other,confirmed)}</div>
-      </div>${actions}</div><div style="height:16px"></div>`;
+        <div>${teamHead(other)}${roster(other,canRate)}</div>
+      </div>${body}</div><div style="height:16px"></div>`;
   }
 
   function teamPanel(d){
@@ -688,6 +764,11 @@ const Stack5 = (() => {
       const e=await post('/api/me/eligibility/recheck');
       return {message:e.eligible?'All checks passed. You can play!':'Still missing some requirements.'};
     },
+    'copy-code': async (_,code)=>{
+      try{ await navigator.clipboard.writeText(code); }
+      catch{ const t=document.createElement('textarea'); t.value=code; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
+      return {message:'Code copied. Paste it in CS2: Private Matchmaking → Manually Enter a Code.', keep:true};
+    },
     'rate': async id=>{
       const rating=Number(document.querySelector(`.rate-select[data-player="${id}"]`).value);
       await post('/api/trust',{to_player_id:Number(id),rating});
@@ -715,6 +796,8 @@ const Stack5 = (() => {
     const button=form.querySelector('button');
     if(button) button.disabled=true;
     try{
+      if(form.dataset.form==='code'){ await post(`/api/matches/${form.dataset.id}/code`,data); toast('Code posted. All 10 players can see it now.'); }
+      if(form.dataset.form==='report'){ const r=await post(`/api/matches/${form.dataset.id}/result`,{my_score:Number(data.my_score),their_score:Number(data.their_score)}); toast(r.message); }
       if(form.dataset.form==='create-team'){ await post('/api/teams',data); toast('Team created. Invite your players.'); }
       if(form.dataset.form==='invite'){ const r=await post(`/api/teams/${form.dataset.id}/invite`,data); toast(r.message||'Invitation sent.'); }
       if(form.dataset.form==='profile'){
@@ -815,7 +898,7 @@ const Stack5 = (() => {
     if(p.startsWith('/player/')) return playerProfile(decodeURIComponent(p.split('/')[2]));
     if(p==='/play') return play();
     if(p==='/account') return account();
-    if(p==='/matches') return layout('Matches',`<div class="container"><div class="eyebrow">MATCHES</div><h1>My matches</h1><div class="empty">Your matches will appear here.</div></div>`,'matches');
+    if(p==='/matches') return matchesPage();
     if(p==='/rankings') return layout('Rankings',`<div class="container"><div class="eyebrow">RANKINGS</div><h1>Rankings</h1><div class="empty">Rankings coming next.</div></div>`,'rankings');
     if(p.startsWith('/team/')) return teamProfile(p.split('/')[2]);
     return home();
@@ -856,7 +939,6 @@ const Stack5 = (() => {
 
   return {
     route,
-    toggleLang,
     logout,
     requestJoin,
     invitePlayer
