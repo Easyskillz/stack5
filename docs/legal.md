@@ -8,7 +8,7 @@ Both are linked from the sign-up checkbox, which players must tick, and from the
 ## Key points
 
 - **Operator:** an individual based in Morocco; Moroccan law applies.
-- **Contact:** contact@stack5cs.com (alias set up 2026-10-05).
+- **Contact:** contact@stack5cs.com (alias set up 2026-10-05), and the [Contact page](https://stack5cs.com/contact) (`/contact`, linked in every footer). Its form emails messages to `CONTACT_EMAIL` (default contact@stack5cs.com) with the topic, an optional reply-to address and the sender's username if signed in; nothing is stored in the database. Spam protection: a hidden trap field and at most 3 messages per hour per IP. Without SMTP in production the form asks people to email directly.
 - **Minimum age:** 16. One account per person.
 - **Terms cover:** the requirements to play, team and match rules including the timers, conduct (no cheating, boosting, smurfing or rating manipulation), the "not an anti-cheat" disclaimer, suspension, and that the beta is provided "as is".
 - **Privacy covers:** what is stored (account, email, Steam data, ratings), Steam sign-in, the eligibility checks, live-only third-party data (Leetify, FACEIT), what is public, and self-service [account deletion](account-deletion.md).

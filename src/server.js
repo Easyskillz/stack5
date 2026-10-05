@@ -80,10 +80,13 @@ async function sendVerificationEmail(account, rawToken) {
     if (isProduction) throw new Error("Email delivery is not configured yet. Set SMTP_HOST/SMTP_USER/SMTP_PASS and restart STACK5.");
     return url;
   }
-  const transporter = nodemailer.createTransport({ host: process.env.SMTP_HOST, port: Number(process.env.SMTP_PORT || 587), secure: String(process.env.SMTP_SECURE) === "true", auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
-  await transporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to: account.email, subject: "Verify your STACK5 account", text: `Verify your STACK5 account: ${url}` });
+  await mailTransport().sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to: account.email, subject: "Verify your STACK5 account", text: `Verify your STACK5 account: ${url}` });
   return null;
 }
+function mailTransport() {
+  return nodemailer.createTransport({ host: process.env.SMTP_HOST, port: Number(process.env.SMTP_PORT || 587), secure: String(process.env.SMTP_SECURE) === "true", auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
+}
+const CONTACT_EMAIL = process.env.CONTACT_EMAIL || "contact@stack5cs.com";
 
 async function createSession(accountId, res) {
   const raw = randomToken(32), csrf = randomToken(24);
@@ -777,6 +780,39 @@ app.post("/api/admin/players/:id/eligibility", auth, adminRequired, csrf, (req,r
   res.json(evaluateEligibility(Number(req.params.id)));
 });
 
+// ---- Contact form: delivered by email to CONTACT_EMAIL (nothing is stored in the database).
+const CONTACT_TOPICS = ["Help with my account","Report a player","Disputed match result","Partnership or sponsoring","My data (privacy request)","Something else"];
+const contactHits = new Map();   // ip -> timestamps of recent messages (max 3 per hour)
+app.post("/api/contact", async (req, res) => {
+  if (req.body?.website) return res.json({ ok: true });   // hidden field only bots fill in
+  const topic = CONTACT_TOPICS.includes(req.body?.topic) ? req.body.topic : null;
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  const message = String(req.body?.message || "").trim();
+  if (!topic) return res.status(400).json({ error: "Choose what your message is about." });
+  if (email && !emailValid(email)) return res.status(400).json({ error: "Check your email address, or leave it empty." });
+  if (message.length < 10) return res.status(400).json({ error: "Write a few more words so we can help." });
+  if (message.length > 4000) return res.status(400).json({ error: "Keep your message under 4000 characters." });
+  const now = Date.now(), recent = (contactHits.get(req.ip) || []).filter(t => now - t < 3_600_000);
+  if (recent.length >= 3) return res.status(429).json({ error: `You've sent 3 messages in the last hour. Email ${CONTACT_EMAIL} directly if it's urgent.` });
+  const who = sessionAccount(req);
+  const text = [`Topic: ${topic}`, `Reply to: ${email || "(no email given)"}`, `STACK5 account: ${who ? who.username : "(not signed in)"}`, "", message].join("\n");
+  if (!process.env.SMTP_HOST) {
+    if (isProduction) return res.status(503).json({ error: `The form isn't available right now. Email ${CONTACT_EMAIL} instead.` });
+    console.log(`[STACK5 DEV] Contact message:\n${text}`);
+  } else {
+    try {
+      await mailTransport().sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to: CONTACT_EMAIL, replyTo: email || undefined,
+        subject: `[STACK5 contact] ${topic}${who ? ` · ${who.username}` : ""}`, text });
+    } catch (e) {
+      console.error("[STACK5] contact email failed:", e.message);
+      return res.status(502).json({ error: `Your message couldn't be sent. Email ${CONTACT_EMAIL} instead.` });
+    }
+  }
+  recent.push(now); contactHits.set(req.ip, recent);
+  res.json({ ok: true, message: email ? "Message sent. We'll reply to your email." : "Message sent. Add an email next time if you want a reply." });
+});
+app.get("/api/contact/info", (_, res) => res.json({ email: CONTACT_EMAIL, topics: CONTACT_TOPICS }));
+
 // ---- Optional email (notifications, contact). Empty removes it; a new one needs verifying.
 app.post("/api/account/email", auth, csrf, async (req,res)=>{
   const email=String(req.body?.email||"").trim().toLowerCase()||null;
@@ -870,7 +906,8 @@ const PAGES={
   "/teams":   { title:"Find a CS2 team · STACK5", heading:"Find a CS2 team", description:"Browse CS2 5-stacks that are recruiting on STACK5 and ask to join. Every player is Steam-verified with a public trust score." },
   "/players": { title:"Find CS2 players · STACK5", heading:"Find CS2 players", description:"Find Steam-verified CS2 players for your 5-stack by region, level, role and language, with a trust score built from real matches." },
   "/matches": { title:"CS2 5v5 matches and results · STACK5", heading:"CS2 5v5 matches", description:"Live STACK5 matches and recent results between complete CS2 teams, played through CS2 Private Matchmaking." },
-  "/rankings":{ title:"CS2 team rankings · STACK5", heading:"Rankings", description:"STACK5 rankings for CS2 5v5 teams and players. Coming soon." }
+  "/rankings":{ title:"CS2 team rankings · STACK5", heading:"Rankings", description:"STACK5 rankings for CS2 5v5 teams and players. Coming soon." },
+  "/contact": { title:"Contact · STACK5", heading:"Contact STACK5", description:"Contact the STACK5 team: help with your account, report a player, a disputed match result, partnerships or privacy requests. Email contact@stack5cs.com." }
 };
 const htmlAttr=v=>String(v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"})[c]);
 function sendApp(req,res,page,{index=true,status=200}={}){

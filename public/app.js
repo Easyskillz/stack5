@@ -101,7 +101,7 @@ const Stack5 = (() => {
 
 
   function footer(){
-    return `<footer><div style="max-width:1180px;margin:auto">STACK5 · Build. Match. Play. · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></div></footer>`;
+    return `<footer><div style="max-width:1180px;margin:auto">STACK5 · Build. Match. Play. · <a href="/contact">Contact</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></div></footer>`;
   }
 
   function layout(title,content,active=''){
@@ -400,6 +400,44 @@ const Stack5 = (() => {
       const item=(n,one,many)=>`<span><strong>${n}</strong> ${n===1?one:many}</span>`;
       els.forEach(el=>el.innerHTML=`<span class="live-dot"></span>${item(s.online,'player online','players online')}${item(s.queued_teams,'team looking for a match','teams looking for a match')}${item(s.recruiting_teams,'team recruiting','teams recruiting')}${item(s.live_matches,'match live','matches live')}`);
     }catch{ els.forEach(el=>el.remove()); }
+  }
+
+  // ---------- Contact page ----------
+  async function contactPage(){
+    layout('Contact',`<div class="container" style="max-width:760px">
+      <div class="eyebrow">CONTACT</div><h1>Contact STACK5</h1>
+      <p class="subtitle">Questions, problems or ideas: we read every message.</p>
+      <div class="panel">
+        <div class="code-box"><div><div class="muted small">Email us</div><code id="contact-email">contact@stack5cs.com</code></div><button class="btn btn-small btn-green" type="button" id="copy-email">Copy</button></div>
+        <ul class="contact-topics">
+          <li><strong>Help with your account</strong>: sign-in, profile, Steam checks</li>
+          <li><strong>Report a player</strong>: cheating, smurfing, abuse. Include their STACK5 name and the match.</li>
+          <li><strong>Disputed match result</strong>: tell us the match and the real score</li>
+          <li><strong>Partnerships and sponsoring</strong>: creators, communities, brands</li>
+          <li><strong>Your data</strong>: a copy of it or a correction. You can delete your account yourself on the <a href="/account" style="color:var(--green)">Account page</a>.</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h2>Send a message</h2>
+        <form id="contact-form" class="form-grid">
+          <div><label for="contact-topic">What's it about?</label><select id="contact-topic" name="topic" required></select></div>
+          <div><label for="contact-reply">Your email (to get a reply)</label><input class="input" id="contact-reply" name="email" type="email" placeholder="you@example.com" autocomplete="email"></div>
+          <div class="full"><label for="contact-message">Message</label><textarea class="input" id="contact-message" name="message" rows="6" minlength="10" maxlength="4000" required placeholder="What happened, and what can we do?"></textarea></div>
+          <div class="hp" aria-hidden="true"><label>Leave this empty<input name="website" tabindex="-1" autocomplete="off"></label></div>
+          <div class="full"><button class="btn btn-green">Send message</button> <span class="muted small" style="margin-left:8px">Signed in? We'll see your STACK5 username, so you don't need to explain who you are.</span></div>
+        </form>
+      </div></div>`);
+    const info=await get('/api/contact/info').catch(()=>null);
+    if(info){ document.getElementById('contact-email').textContent=info.email; document.getElementById('contact-topic').innerHTML=info.topics.map(t=>`<option>${esc(t)}</option>`).join(''); }
+    document.getElementById('copy-email').onclick=()=>ACTIONS['copy-code'](null,document.getElementById('contact-email').textContent).then(()=>toast('Email address copied.'));
+    const form=document.getElementById('contact-form');
+    form.onsubmit=async e=>{
+      e.preventDefault();
+      const b=form.querySelector('button'); b.disabled=true;
+      try{ const r=await post('/api/contact',Object.fromEntries(new FormData(form))); toast(r.message); form.reset(); }
+      catch(err){ toast(err.message,true); }
+      b.disabled=false;
+    };
   }
 
   // ---------- Matches page ----------
@@ -899,6 +937,7 @@ const Stack5 = (() => {
     if(p==='/play') return play();
     if(p==='/account') return account();
     if(p==='/matches') return matchesPage();
+    if(p==='/contact') return contactPage();
     if(p==='/rankings') return layout('Rankings',`<div class="container"><div class="eyebrow">RANKINGS</div><h1>Rankings</h1><div class="empty">Rankings coming next.</div></div>`,'rankings');
     if(p.startsWith('/team/')) return teamProfile(p.split('/')[2]);
     return home();
