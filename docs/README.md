@@ -38,6 +38,7 @@ How every part of CleanLobby works: what players see, the rules behind it, and w
 
 ## Changelog
 
+- **2026-10-05:** Language between teammates, distance between teams. Players list every language they speak; teams show the languages all members share (warning if none); Find Players filters by language; join requests say if the player speaks the team's language. Matchmaking no longer requires the same region: teams are matched if their players' countries are within 2,500 km (good ping), closer is better. Terms, Privacy (also fixed: still mentioned the FACEIT level) and llms.txt updated.
 - **2026-10-05:** SEO: home description now leads with the slogan and mentions Premier rating; keywords updated (Premier, cheater-free CS2).
 - **2026-10-05:** "We don't want eggs" short video in English and French (`marketing/eggs-video/`), call to action to cleanlobby.com.
 - **2026-10-05:** New look and slogan: **"We don't want eggs. We want a cheater-free game."** Home page rebuilt around it (caution-tape banner, cracked-egg art, "Their update / our update", patch notes). New palette: near-black, cream, hazard yellow, CS2 Premier tier colours (stripe under every header); Anton for page titles (self-hosted). **CS2 Premier rating replaces the FACEIT level** for profiles, team ranges, matchmaking and Find Players (tier filter); players can update it any time; old self-entered FACEIT levels are deleted. FACEIT stays as the live panel on profiles. Privacy Policy updated. New link-preview image and icons (`scripts/brand-images.mjs`), guide screenshots regenerated.

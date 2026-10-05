@@ -50,7 +50,14 @@ const Stack5 = (() => {
     if(!min && max>=40000) return '<span class="muted">Any Premier rating</span>';
     return `${premier(min)}<span class="muted">–</span>${max>=40000?'<span class="muted">any</span>':premier(max)}`;
   }
-  const flags=(country,language)=>`<span class="flags">${countryFlag(country)}${languageFlag(language)}</span>`;
+  // A player can speak several languages ("FR,AR,EN"); older rows only have `language`.
+  const langsOf=p=>String(p?.languages||p?.language||'').split(',').map(x=>x.trim()).filter(Boolean);
+  const languageFlags=codes=>(Array.isArray(codes)?codes:String(codes||'').split(',')).filter(Boolean).map(languageFlag).join('');
+  const flags=(country,languages)=>`<span class="flags">${countryFlag(country)}${languageFlags(languages)}</span>`;
+  // Languages every member of a team speaks (teammates need one; opponents don't).
+  const sharedLangs=members=>{ const sets=(members||[]).map(langsOf).filter(l=>l.length); return sets.length?sets.reduce((a,b)=>a.filter(x=>b.includes(x))):[]; };
+  const langNames=codes=>codes.map(c=>(LANGS.find(l=>l[0]===c)||[c,c])[1]).join(', ');
+  const languageBoxes=(selected=[])=>`<div class="lang-pick">${LANGS.map(([c,n])=>`<label><input type="checkbox" name="languages" value="${c}" ${selected.includes(c)?'checked':''}> ${languageFlag(c)} ${n}</label>`).join('')}</div>`;
   // A team's country/language = the most common one among its players.
   const mostCommon=(list,k)=>{ const c={}; for(const p of list||[]) if(p[k]) c[p[k]]=(c[p[k]]||0)+1; return Object.entries(c).sort((a,b)=>b[1]-a[1])[0]?.[0]||null; };
 
@@ -158,7 +165,7 @@ const Stack5 = (() => {
           </div>
           <div class="meta">
             <span>${premierRange(t.min_rating,t.max_rating)}</span>
-            <span>${esc(t.language||'—')}</span>
+            <span>${t.languages?.length?`Speaks ${languageFlags(t.languages)}`:'<span class="muted">No shared language yet</span>'}</span>
           </div>
           <div class="card-actions">
             <a class="btn btn-dark btn-small" href="/team/${t.id}">${tr('view')}</a>
@@ -175,11 +182,12 @@ const Stack5 = (() => {
       <div class="container">
         <div class="eyebrow">CleanLobby MARKETPLACE</div>
         <h1>${tr('players')}</h1>
-        <p class="subtitle">Browse available players and discover teammates by role, Premier rating and reputation.</p>
+        <p class="subtitle">Browse available players and discover teammates by language, role, Premier rating and reputation.</p>
         <div class="filters">
           <input id="q" placeholder="${tr('search')}">
           <select id="region"><option value="">Region</option><option>EU</option><option>NA</option><option>SA</option><option>LATAM</option><option>ASIA</option><option>SEA</option><option>OCE</option><option>MENA</option><option>NAFR</option><option>AFRICA</option></select>
           <select id="role"><option value="">Role</option><option>AWPer</option><option>Rifler</option><option>Entry</option><option>IGL</option><option>Support</option></select>
+          <select id="lang"><option value="">Language</option>${LANGS.map(([c,n])=>`<option value="${c}">${n}</option>`).join('')}</select>
           <select id="tier"><option value="">Premier tier</option>${PREMIER_TIERS.map(([min,cls,name])=>`<option value="${cls}">${name} (${min===1?'under 5,000':min.toLocaleString('en-US')+'+'})</option>`).join('')}<option value="unrated">Unrated</option></select>
         </div>
         <div id="results" class="grid"><div class="empty">Loading...</div></div>
@@ -191,7 +199,9 @@ const Stack5 = (() => {
       const region=document.getElementById('region').value;
       const role=document.getElementById('role').value;
       const tier=document.getElementById('tier').value;
+      const lang=document.getElementById('lang').value;
       let rows=data.filter(p=>
+        (!lang || langsOf(p).includes(lang)) &&
         (!tier || (tier==='unrated'?!p.premier_rating:premierTier(p.premier_rating||0)?.[1]===tier)) &&
         (!q || String(p.display_name||'').toLowerCase().includes(q)) &&
         (!region || p.region===region) &&
@@ -204,7 +214,7 @@ const Stack5 = (() => {
             <img class="avatar" src="${esc(p.avatar_url||'')}" onerror="this.style.display='none'">
             <div>
               <h3>${esc(p.display_name||'Player')}</h3>
-              <div class="muted small">${countryFlag(p.country)} ${esc(p.country||'')} · ${esc(p.region||'')}</div>
+              <div class="muted small">${flags(p.country,langsOf(p))} ${esc(p.country||'')} · ${esc(p.region||'')}</div>
             </div>
           </div>
           <div class="meta">
@@ -246,7 +256,7 @@ const Stack5 = (() => {
           <div class="detail-grid">
             <div class="detail"><label>CS2 Premier rating <span class="muted small">(self-reported)</span></label><strong>${premier(p.premier_rating)}</strong></div>
             <div class="detail"><label>Role</label><strong>${esc(p.role||'—')}</strong></div>
-            <div class="detail"><label>Language</label><strong>${esc(p.language||'—')}</strong></div>
+            <div class="detail"><label>Speaks</label><strong>${langsOf(p).length?`${languageFlags(langsOf(p))} ${esc(langNames(langsOf(p)))}`:'—'}</strong></div>
           </div>
           ${realSteam(p)?`<div class="actions"><a class="btn btn-dark" href="${esc(p.steam_url)}" target="_blank" rel="noopener">View Steam profile</a></div>`:''}
           <div id="leetify-box"></div>
@@ -322,12 +332,12 @@ const Stack5 = (() => {
     const track=`<div class="ne-track">${tape.map(t=>`<span>${t}</span>`).join('')}</div>`;
     const swap=[
       ['Drop eggs','Drop the cheaters','var(--tier-red)','Every player signs in through Steam and must pass the bar: account at least 2 years old, 500+ hours of CS2, no recent VAC or game ban.'],
-      ['Hatch them','Match them','var(--tier-blue)','Only complete 5-stacks, only against other complete 5-stacks from your region with a similar Premier rating. Played on Valve servers through CS2 Private Matchmaking.'],
+      ['Hatch them','Match them','var(--tier-blue)','Only complete 5-stacks, only against other complete 5-stacks close enough for good ping, with a similar Premier rating. Played on Valve servers through CS2 Private Matchmaking.'],
       ['Feed them','Rate them','var(--tier-purple)','After the match, players rate each other. Ratings, reliability and match record build a public Trust Score that follows you.']
     ];
     const steps=[
       ['Sign in with Steam','On Steam’s own website, then pick a username.'],
-      ['Complete profile','Country, Premier rating, role and language.'],
+      ['Complete profile','Country, Premier rating, role and the languages you speak.'],
       ['Build your five','Invite friends or find missing players.'],
       ['Find your match','Queue as a full team and meet a comparable five.'],
       ['Play & report','Private Matchmaking code, then both captains report the score.']
@@ -468,10 +478,10 @@ const Stack5 = (() => {
   const GUIDE_STEPS=[
     ['1-sign-in',496,434,'Sign in with Steam','Click <strong>Sign in with Steam</strong>. You log in on Steam’s own website: check the address bar says <code>steamcommunity.com</code>. CleanLobby only receives your public SteamID. It never sees your password and can’t touch your inventory or trades.'],
     ['2-pick-username',436,366,'Pick your username','First time only: choose a CleanLobby username. Email is optional (for match notifications). Confirm you’re 16 or older and accept the Terms.'],
-    ['3-profile-setup',784,627,'Set up your player profile','Country (this sets your matchmaking region), CS2 Premier rating, main role and language. Teams see this when they look for players.'],
-    ['4-build-team',1061,566,'Build your five','Create a team and invite players by their CleanLobby username, or find them on <a href="/players">Find Players</a>. Prefer joining a team? Browse <a href="/teams">Find a Team</a> and ask to join. An open team disbands after 6 hours without a new player.'],
-    ['5-full-team-queue',705,581,'Five players? Find a match','When your team has 5 players, the captain clicks <strong>Find match</strong>. Everyone must meet the CleanLobby requirements: Steam account at least 2 years old, 500+ hours of CS2, no recent VAC or game ban.'],
-    ['6-searching',705,619,'Searching for an opponent','CleanLobby looks for another full team in your region at a similar level. This runs every 30 seconds. After 2 hours without a match, your team leaves the queue.'],
+    ['3-profile-setup',784,725,'Set up your player profile','Country (this decides which teams you can play: only ones close enough for good ping), CS2 Premier rating, main role and the languages you speak (your teammates need one in common). Teams see this when they look for players.'],
+    ['4-build-team',1061,755,'Build your five','Create a team and invite players by their CleanLobby username, or find them on <a href="/players">Find Players</a>. Prefer joining a team? Browse <a href="/teams">Find a Team</a> and ask to join. An open team disbands after 6 hours without a new player.'],
+    ['5-full-team-queue',705,609,'Five players? Find a match','When your team has 5 players, the captain clicks <strong>Find match</strong>. Everyone must meet the CleanLobby requirements: Steam account at least 2 years old, 500+ hours of CS2, no recent VAC or game ban.'],
+    ['6-searching',705,647,'Searching for an opponent','CleanLobby looks for another full team close enough for good ping (their players’ countries within about 2,500 km of yours) with a similar Premier rating. This runs every 30 seconds. After 2 hours without a match, your team leaves the queue.'],
     ['7-match-found',1061,594,'Match found: captains accept','Both captains have <strong>5 minutes</strong> to accept. Declining or letting the time run out counts against the captain’s reliability.'],
     ['8-match-room',1061,1088,'Play through CS2 Private Matchmaking','Each captain invites their 4 teammates to a <strong>CS2 party</strong> (use the Steam buttons). One captain creates a <em>Private Matchmaking Pool</em> in CS2 and pastes the code here. The other captain enters it with <em>Manually Enter a Code</em>. Both parties press <strong>GO</strong>. Optional: a captain can share a Discord voice channel that only their own team sees.'],
     ['9-result-and-ratings',1061,550,'Report the score, then rate everyone','After the game, both captains report the score. When they match, the result is final and everyone can rate the players they played with, teammates and opponents. Different scores go to an admin.'],
@@ -700,10 +710,10 @@ const Stack5 = (() => {
     const parse=r=>{ const x=/^(\d+)-(\d+)$/.exec(r||''); return x?[Number(x[1]),Number(x[2])]:null; };
     const myReport=parse(iAmA?m.report_a:m.report_b), theirReport=parse(iAmA?m.report_b:m.report_a);
 
-    const teamHead=t=>`<h3>${flags(mostCommon(t?.members,'country'),mostCommon(t?.members,'language'))} ${esc(t?.name)}</h3>`;
+    const teamHead=t=>`<h3>${flags(mostCommon(t?.members,'country'),sharedLangs(t?.members))} ${esc(t?.name)}</h3>`;
     const roster=(t,rate)=>(t?.members||[]).map(p=>`
       <div class="row">
-        <div>${flags(p.country,p.language)} ${playerLink(p)}<div class="muted small">${premier(p.premier_rating)} · ${esc(p.role||'—')}${t.captain_id===p.id?' · Captain':''}</div></div>
+        <div>${flags(p.country,langsOf(p))} ${playerLink(p)}<div class="muted small">${premier(p.premier_rating)} · ${esc(p.role||'—')}${t.captain_id===p.id?' · Captain':''}</div></div>
         <div class="row-actions">
           ${realSteam(p)?`<a class="btn btn-small btn-outline" href="${esc(p.steam_url)}" target="_blank" rel="noopener">Steam</a>`:''}
           ${rate && p.id!==d.player.id?`<select class="rate-select" data-player="${p.id}" style="width:auto;padding:6px"><option value="5">5 ★</option><option value="4">4 ★</option><option value="3">3 ★</option><option value="2">2 ★</option><option value="1">1 ★</option></select>
@@ -795,7 +805,7 @@ const Stack5 = (() => {
     const editable=['OPEN','READY'].includes(t.status);
     const members=t.members.map(p=>`
       <div class="row">
-        <div>${playerLink(p)} ${p.id===t.captain_id?'<span class="status green">CAPTAIN</span>':''}
+        <div>${playerLink(p)} ${languageFlags(langsOf(p))} ${p.id===t.captain_id?'<span class="status green">CAPTAIN</span>':''}
           <div class="muted small">${premier(p.premier_rating)} · ${esc(p.role||'—')} · Trust ${p.trust_score??'—'}</div></div>
         ${captain && p.id!==me && editable?`<div class="row-actions">
           ${btn('Make captain','transfer','btn-dark',{id:t.id,arg:p.id,confirm:`Make ${p.display_name} the captain?`})}
@@ -815,7 +825,7 @@ const Stack5 = (() => {
         : `<div class="actions" style="margin-top:16px">${btn('Find match','queue','btn-green',{id:t.id})}</div>`;
     }
     if(t.status==='READY'){
-      controls+=`<p style="margin-top:16px"><strong>Searching for an opponent…</strong> <span class="muted">Teams in your region are matched automatically.</span></p>`;
+      controls+=`<p style="margin-top:16px"><strong>Searching for an opponent…</strong> <span class="muted">Teams close enough for good ping are matched automatically.</span></p>`;
       if(t.queue_expires_at) controls+=`<p class="muted small">⏳ Leaves the queue in ${countdown(t.queue_expires_at)} if no match is found.</p>`;
       if(captain) controls+=`<div class="actions" style="margin-top:10px">${btn('Leave queue','unqueue','btn-dark',{id:t.id})}</div>`;
     }
@@ -826,6 +836,9 @@ const Stack5 = (() => {
     }
     return `<div class="panel">
       <div class="card-top"><div><h2 style="margin:0">${esc(t.name)}</h2><div class="muted small">${esc(t.region)} · ${t.count}/5 players · ${premierRange(t.min_rating,t.max_rating)}</div></div>${statusBadge(t.status)}</div>
+      ${(()=>{ const sh=sharedLangs(t.members); return t.count<2?'':sh.length
+        ?`<p class="small" style="margin:12px 0 0">🗣️ Everyone speaks ${languageFlags(sh)} <span class="muted">${esc(langNames(sh))}</span></p>`
+        :'<p class="small" style="margin:12px 0 0;color:#f2c94c">⚠️ Your players don\'t share a language. Comms will be hard: check the flags before inviting more.</p>'; })()}
       <div style="margin-top:14px">${members}${empty}</div>
       ${controls}
     </div>`;
@@ -839,7 +852,7 @@ const Stack5 = (() => {
     let html=`<div class="panel"><h2>Invitations</h2>${invites}</div>`;
     if(d.team && d.team.captain_id===d.player.id && d.team.status==='OPEN'){
       const reqs=d.joinRequests.length?d.joinRequests.map(r=>`
-        <div class="row"><div>${playerLink(r)}<div class="muted small">${premier(r.premier_rating)} · ${esc(r.role||'—')} · Trust ${r.trust_score??'—'}</div></div>
+        <div class="row"><div>${playerLink(r)} ${languageFlags(langsOf(r))}<div class="muted small">${premier(r.premier_rating)} · ${esc(r.role||'—')} · Trust ${r.trust_score??'—'}${(()=>{ const sh=sharedLangs(d.team.members); return !sh.length?'':langsOf(r).some(x=>sh.includes(x))?' · <span style="color:var(--ok)">speaks your team\'s language</span>':' · <span style="color:#f2c94c">no shared language</span>'; })()}</div></div>
           <div class="row-actions">${btn('Accept','accept-request','btn-green',{id:r.id})}${btn('Decline','decline-request','btn-dark',{id:r.id})}</div></div>`).join('')
         :'<p class="muted small">No one has asked to join yet.</p>';
       html+=`<div class="panel"><h2>Join requests</h2>${reqs}</div>`;
@@ -850,6 +863,7 @@ const Stack5 = (() => {
     html+=`<div class="panel"><h2>Your profile</h2>
       <div class="muted small">${countryFlag(d.player.country)} ${esc(d.player.region)} · ${premier(d.player.premier_rating)} · ${esc(d.player.role)}</div>
       ${d.player.premier_rating==null?'<p class="small" style="color:#f2c94c;margin:10px 0 0">Add your CS2 Premier rating so we can match your team fairly.</p>':''}
+      <form data-form="languages" style="margin-top:12px"><label class="field-label">Languages you speak</label>${languageBoxes(langsOf(d.player))}<button class="btn btn-dark btn-small" style="margin-top:8px">Save languages</button></form>
       <form data-form="premier" class="inline-form"><input class="input" name="premier_rating" type="number" inputmode="numeric" min="0" max="40000" placeholder="Premier rating" value="${d.player.premier_rating??''}" aria-label="CS2 Premier rating"><button class="btn btn-dark btn-small">Update</button></form>
       <div class="muted small" style="margin-top:6px">${d.eligibility?.eligible?'<span class="status green">VERIFIED</span> Meets CleanLobby requirements':'<span class="status amber">NOT VERIFIED</span>'}</div>
       <div class="actions" style="margin-top:12px"><a class="btn btn-small btn-dark" href="/player/${encodeURIComponent(d.player.display_name)}">View public profile</a><a class="btn btn-small btn-outline" href="/account">Account</a></div></div>`;
@@ -880,7 +894,7 @@ const Stack5 = (() => {
         <div><label>CS2 Premier rating</label><input class="input" name="premier_rating" type="number" inputmode="numeric" min="0" max="40000" placeholder="e.g. 12450" required>
           <div class="muted small" style="margin-top:5px">In CS2: Play → Premier. Enter 0 if you don't have one yet.</div></div>
         <div><label>Main role</label><select name="role">${ROLES.map(r=>`<option>${r}</option>`).join('')}</select></div>
-        <div><label>Language</label><select name="language">${LANGS.map(([c,n])=>`<option value="${c}">${n}</option>`).join('')}</select></div>
+        <div class="full"><label>Languages you speak (teammates need one in common)</label>${languageBoxes(['FR'])}</div>
         <div class="full"><label>Avatar URL (optional, https)</label><input class="input" name="avatar_url" type="url" placeholder="https://..."></div>
         <div class="full"><button class="btn btn-green">Save profile</button></div>
       </form>
@@ -943,11 +957,14 @@ const Stack5 = (() => {
       if(form.dataset.form==='code'){ await post(`/api/matches/${form.dataset.id}/code`,data); toast('Code posted. All 10 players can see it now.'); }
       if(form.dataset.form==='voice'){ const r=await post(`/api/matches/${form.dataset.id}/voice`,data); toast(r.message); }
       if(form.dataset.form==='report'){ const r=await post(`/api/matches/${form.dataset.id}/result`,{my_score:Number(data.my_score),their_score:Number(data.their_score)}); toast(r.message); }
+      const checked=()=>[...form.querySelectorAll('input[name="languages"]:checked')].map(x=>x.value);
+      if(form.dataset.form==='languages'){ const r=await post('/api/profile/languages',{languages:checked()}); toast(r.message); }
       if(form.dataset.form==='premier'){ const r=await post('/api/profile/premier',data); toast(r.message); }
       if(form.dataset.form==='create-team'){ await post('/api/teams',data); toast('Team created. Invite your players.'); }
       if(form.dataset.form==='invite'){ const r=await post(`/api/teams/${form.dataset.id}/invite`,data); toast(r.message||'Invitation sent.'); }
       if(form.dataset.form==='profile'){
         data.region=form.region.value;
+        data.languages=checked();
         if(!data.avatar_url) delete data.avatar_url;
         await post('/api/profile',data); toast('Profile saved. Welcome to CleanLobby!');
       }

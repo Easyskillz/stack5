@@ -15,7 +15,7 @@ import { steamLoginUrl, verifySteamAssertion } from "./steam-auth.js";
 import { expireStale, touchTeam, teamExpiresAt, queueExpiresAt, matchExpiresAt, LIMITS } from "./timers.js";
 import { runMatchmaking } from "./matchmaking.js";
 import { resultDeadline, cleanLobbyCode, cleanVoiceLink, submitReport, finishMatch, parseScore } from "./matches.js";
-import { REGION_CATALOG, COUNTRY_CATALOG } from "./regions.js";
+import { REGION_CATALOG, COUNTRY_CATALOG, parseLanguages } from "./regions.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -356,7 +356,9 @@ async function linkVerifiedSteam(account, steamId) {
 }
 
 app.post("/api/profile", auth, csrf, async (req, res) => {
-  if (!requireBody(req, res, ["country","region","role","language"])) return;
+  if (!requireBody(req, res, ["country","region","role"])) return;
+  const languages = parseLanguages(req.body.languages ?? req.body.language);
+  if (!languages.length) return res.status(400).json({ error: "Pick at least one language you speak." });
   const premier = premierRating(req.body.premier_rating);
   if (premier === null) return res.status(400).json({ error: PREMIER_ERROR });
   if (!req.account.verified_steam_id) return res.status(403).json({ error: "Sign in through Steam first to prove the account is yours.", code: "STEAM_NOT_LINKED" });
@@ -373,7 +375,7 @@ app.post("/api/profile", auth, csrf, async (req, res) => {
     const result = db.transaction(() => {
       const existing = db.prepare("SELECT id FROM players WHERE steam_url=? OR (steam_id IS NOT NULL AND steam_id=?)").get(steamUrl, steamId);
       if (existing) throw new Error("This Steam profile is already linked to a CleanLobby player.");
-      const r = db.prepare(`INSERT INTO players(steam_url,steam_id,steam_verified,steam_verified_at,display_name,avatar_url,premier_rating,region,country,language,role) VALUES(?,?,?,?,?,?,?,?,?,?,?)`).run(steamUrl,steamId,1,Date.now(),name,safeAvatarUrl(req.body.avatar_url),premier,region.id,country[0],String(req.body.language).slice(0,10),String(req.body.role).slice(0,20));
+      const r = db.prepare(`INSERT INTO players(steam_url,steam_id,steam_verified,steam_verified_at,display_name,avatar_url,premier_rating,region,country,language,languages,role) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`).run(steamUrl,steamId,1,Date.now(),name,safeAvatarUrl(req.body.avatar_url),premier,region.id,country[0],languages[0],languages.join(","),String(req.body.role).slice(0,20));
       db.prepare("UPDATE accounts SET player_id=? WHERE id=?").run(r.lastInsertRowid, req.account.account_id);
       return r.lastInsertRowid;
     })();
@@ -400,7 +402,14 @@ app.post("/api/profile/premier", auth, csrf, profileRequired, (req, res) => {
   res.json({ premier_rating: premier, message: premier ? `Premier rating saved: ${premier.toLocaleString("en-US")}.` : "Saved: no Premier rating yet." });
 });
 
-const PUBLIC_PLAYER_COLS = "id,steam_url,steam_verified,display_name,avatar_url,premier_rating,region,country,language,role,trust_score,reliability_score,teamplay_score,trust_confidence";
+app.post("/api/profile/languages", auth, csrf, profileRequired, (req, res) => {
+  const languages = parseLanguages(req.body.languages);
+  if (!languages.length) return res.status(400).json({ error: "Pick at least one language you speak." });
+  db.prepare("UPDATE players SET language=?, languages=? WHERE id=?").run(languages[0], languages.join(","), req.account.player_id);
+  res.json({ languages, message: "Languages saved." });
+});
+
+const PUBLIC_PLAYER_COLS = "id,steam_url,steam_verified,display_name,avatar_url,premier_rating,region,country,language,languages,role,trust_score,reliability_score,teamplay_score,trust_confidence";
 app.get("/api/players", (_, res) => res.json(db.prepare(`SELECT ${PUBLIC_PLAYER_COLS},eligible FROM players WHERE deleted_at IS NULL ORDER BY id DESC`).all()));
 app.get("/api/players/:id", (req,res) => { const p=db.prepare(`SELECT ${PUBLIC_PLAYER_COLS},eligible,created_at FROM players WHERE id=? AND deleted_at IS NULL`).get(req.params.id); if(!p) return res.status(404).json({error:"Player not found"}); res.json(p); });
 
@@ -773,7 +782,7 @@ app.get("/api/my/dashboard", auth, (req,res)=>{
   out.myRequests=db.prepare(`SELECT r.id,r.team_id,t.name AS team_name FROM team_join_requests r JOIN teams t ON t.id=r.team_id
     WHERE r.player_id=? AND r.status='PENDING' AND t.status='OPEN'`).all(pid);
   if(out.team && out.team.captain_id===pid){
-    out.joinRequests=db.prepare(`SELECT r.id,p.id AS player_id,p.display_name,p.premier_rating,p.role,p.country,p.region,p.trust_score
+    out.joinRequests=db.prepare(`SELECT r.id,p.id AS player_id,p.display_name,p.premier_rating,p.languages,p.role,p.country,p.region,p.trust_score
       FROM team_join_requests r JOIN players p ON p.id=r.player_id WHERE r.team_id=? AND r.status='PENDING' ORDER BY r.id`).all(out.team.id);
   }
   // Latest match the player is in: pending, live or disputed, or one that ended in the last 24 hours
@@ -891,7 +900,7 @@ app.post("/api/account/delete", auth, csrf, async (req,res)=>{
       db.prepare("DELETE FROM player_events WHERE player_id=?").run(pid);
       // Past teams/matches keep a placeholder row so history stays consistent; nothing identifies the person.
       db.prepare(`UPDATE players SET steam_url=?, steam_id=NULL, steam_verified=0, display_name='Deleted player', avatar_url=NULL, country=NULL,
-        language=NULL, role=NULL, faceit_level=0, faceit_elo=0, faceit_verified=0, premier_rating=NULL, availability='', trust_breakdown=NULL,
+        language=NULL, languages=NULL, role=NULL, faceit_level=0, faceit_elo=0, faceit_verified=0, premier_rating=NULL, availability='', trust_breakdown=NULL,
         eligibility=NULL, eligible=0, deleted_at=? WHERE id=?`).run(`deleted:${pid}`, Date.now(), pid);
     }
     db.prepare("DELETE FROM sessions WHERE account_id=?").run(account.id);
@@ -921,7 +930,12 @@ app.get("/api/discover/teams", (_, res) => {
     HAVING count < 5
     ORDER BY t.created_at DESC
   `).all();
-
+  // Languages every current member speaks, so players can pick a team they can talk to.
+  const langs = db.prepare("SELECT p.languages FROM team_members tm JOIN players p ON p.id=tm.player_id WHERE tm.team_id=?");
+  for (const t of teams) {
+    const sets = langs.all(t.id).map(r => (r.languages || "").split(",").filter(Boolean));
+    t.languages = sets.length ? sets.reduce((a, b) => a.filter(x => b.includes(x))) : [];
+  }
   res.json(teams);
 });
 
@@ -983,7 +997,7 @@ app.get("/llms.txt",(_,res)=>res.type("text/plain").send(`# CleanLobby
 - Teams are matched by CS2 Premier rating (entered by players), region and Trust Score.
 - Players sign in through Steam (OpenID). CleanLobby only receives the public SteamID; it never sees Steam passwords and has no access to inventories, skins or trades.
 - To play, a Steam account must be at least 2 years old, have at least 500 hours of CS2 and no VAC or game ban in the last 2 years.
-- A captain creates a team and invites four players. Full teams queue and are matched with a team from the same region at a similar FACEIT level.
+- A captain creates a team and invites four players. Teammates pick each other by language (players list the languages they speak). Full teams queue and are matched with a team whose players' countries are close enough for good ping (up to about 2,500 km apart), at a similar CS2 Premier rating.
 - Matches are played on Valve servers through CS2 Private Matchmaking: one captain creates a private matchmaking pool and shares its code on CleanLobby, both 5-player parties join with that code.
 - After the game both captains report the score. Players then rate each other (1-5 stars), which feeds the Trust Score.
 - CleanLobby is a reputation layer, not an anti-cheat.

@@ -270,6 +270,9 @@ try { db.exec("ALTER TABLE accounts ADD COLUMN last_seen_at INTEGER"); } catch {
 try { db.exec("ALTER TABLE players ADD COLUMN premier_rating INTEGER"); } catch {}
 try { db.exec("ALTER TABLE teams ADD COLUMN min_rating INTEGER DEFAULT 0"); } catch {}
 try { db.exec("ALTER TABLE teams ADD COLUMN max_rating INTEGER DEFAULT 40000"); } catch {}
+// Players can speak several languages ("FR,AR,EN"); the first one is also kept in `language` (flags, older code).
+try { db.exec("ALTER TABLE players ADD COLUMN languages TEXT"); } catch {}
+db.exec("UPDATE players SET languages=language WHERE languages IS NULL AND language IS NOT NULL AND language<>''");
 // The self-reported FACEIT level/Elo is no longer collected or used: clear what older versions stored.
 db.exec("UPDATE players SET faceit_level=0, faceit_elo=0 WHERE faceit_level<>0 OR faceit_elo<>0");
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_steam ON accounts(verified_steam_id) WHERE verified_steam_id IS NOT NULL");

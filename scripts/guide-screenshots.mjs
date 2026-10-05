@@ -34,7 +34,7 @@ function browser() {
     async get(url) { return (await req(url)).json(); },
     async steamToWelcome(steamId) { let r = await req("/auth/steam/start"); r = await req(r.headers.get("location") + "&steamid=" + steamId); await req(r.headers.get("location")); },
     async signup(username) { const s = await b.post("/api/auth/signup", { username, terms: true }); csrf = s.csrf_token; },
-    async profile(role, rating, country = "MA", lang = "FR") { return b.post("/api/profile", { country, region: "NAFR", premier_rating: rating, role, language: lang }); }
+    async profile(role, rating, country = "MA", lang = "FR") { return b.post("/api/profile", { country, region: "NAFR", premier_rating: rating, role, languages: lang }); }
   };
   return b;
 }
@@ -84,7 +84,7 @@ try {
   for (let i = 1; i < 10; i++) {
     const b = browser(); await b.steamToWelcome(`765611980000020${String(i + 1).padStart(2, "0")}`);
     const name = i < 5 ? A[i] : Bn[i - 5];
-    await b.signup(name); await b.profile(roles[i % 5], [9800, 13420, 17950, 21300, 26700, 31250][i % 6], i < 5 ? "MA" : "DZ", i < 5 ? "FR" : "AR"); players.push(b);
+    await b.signup(name); await b.profile(roles[i % 5], [9800, 13420, 17950, 21300, 26700, 31250][i % 6], i < 5 ? "MA" : "DZ", i < 5 ? "FR,EN" : "FR,AR"); players.push(b);
   }
   // Realistic Steam history for trust scores (fictional numbers).
   const db = new Database(DB);

@@ -373,3 +373,9 @@ footer{border-top:1px solid #1c1c21;margin-top:70px;padding:30px 24px;color:#757
   .ne-bar{grid-template-columns:96px 1fr 28px}
 }
 @media(prefers-reduced-motion:reduce){.ne-track,.ne-ring,.ne-egg,.ne-shard,.ne-stamp{animation:none}.ne-eggs::after{animation:none;transform:rotate(-4deg)}}
+
+/* Language checkboxes (profile) */
+.lang-pick{display:flex;flex-wrap:wrap;gap:6px}
+.lang-pick label{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;color:#d6d1c7;cursor:pointer;text-transform:none;letter-spacing:0;margin:0}
+.lang-pick label:has(input:checked){border-color:var(--accent);color:var(--text);background:#2a2310}
+.lang-pick input{accent-color:var(--accent);margin:0}

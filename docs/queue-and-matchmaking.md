@@ -6,13 +6,13 @@ The captain of a full team (5 players) clicks **Queue**. All five members are re
 
 ## How opponents are picked
 
-Matchmaking runs automatically every 30 seconds. Queued teams are processed first-come, first-served. Each team is paired with the best-scoring team **from the same region**, using a compatibility score (0–100):
+Matchmaking runs automatically every 30 seconds. Queued teams are processed first-come, first-served. Each team is paired with the best-scoring team **close enough for good ping**, using a compatibility score (0–100). A team's home point is the average location of its players' countries (each country has one point, its main player hub, in `src/regions.js`). Teams more than **2,500 km** apart are never matched (`MATCH_MAX_KM` to change it): from Morocco that allows Algeria, Tunisia, Libya, Spain, Portugal, France, Italy, the UK, Belgium, the Netherlands and Germany, but not Egypt or the Gulf. Language plays no part here: it matters between teammates, not opponents.
 
 | Factor | Weight |
 |---|---|
-| Average CS2 Premier rating gap (5,000 points apart = 0) | 60% |
+| Average CS2 Premier rating gap (5,000 points apart = 0) | 55% |
 | Average Trust Score gap | 20% |
-| Same region | 20% |
+| Distance between the teams (0 km = 100, 2,500 km = 0) | 25% |
 
 The Premier rating is self-reported on the profile (Leetify's terms don't allow storing or matching on their copy; the live Leetify panel on each profile shows the real one, so anyone can compare). Players with no rating yet (0) are left out of their team's average; if either team has no rated player, the rating part counts as a neutral 50. Code: `src/matchmaking.js`.
 

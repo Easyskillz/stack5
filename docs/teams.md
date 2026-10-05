@@ -6,6 +6,8 @@ CleanLobby is built around full 5-player teams ("5-stacks"). Everything happens 
 
 An [eligible](eligibility.md) player with no active team can create one with a name (2–40 characters), a region (their own by default) and an optional CS2 Premier rating range (0–40,000, default any). The range is shown on the team, it doesn't block anyone from joining. The creator becomes the **captain**.
 
+The team panel shows the languages **every** member speaks. If there is none, the captain sees a warning (nothing is blocked). Join requests show whether the player speaks the team's language, and Find a Team lists the languages each team shares.
+
 A player can be in only one active team at a time.
 
 ## Getting players in

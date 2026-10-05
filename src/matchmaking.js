@@ -1,4 +1,8 @@
 import { db, getTeam, getTeamMembers } from "./db.js";
+import { distanceKm, homePoint } from "./regions.js";
+
+// Teams further apart than this (between their players' countries) are never matched: ping gets too high.
+export const MAX_MATCH_KM = Number(process.env.MATCH_MAX_KM || 2500);
 
 function avg(numbers) {
   return numbers.length ? numbers.reduce((a,b) => a+b, 0) / numbers.length : 0;
@@ -12,12 +16,19 @@ export function teamProfile(teamId) {
     teamId: team.id,
     region: team.region,
     count: team.members.length,
+    home: homePoint(team.members.map(p => p.country)),
     // Players without a Premier rating yet (0/empty) don't count towards the team's average.
     avgRating: avg(team.members.map(p => p.premier_rating).filter(r => r > 0)) || null,
     avgTrust: avg(team.members.map(p => p.trust_score || 50)),
     avgReliability: avg(team.members.map(p => p.reliability_score || 50)),
     avgTeamplay: avg(team.members.map(p => p.teamplay_score || 50))
   };
+}
+
+// Unknown locations (no country) only match within the same region.
+function teamDistanceKm(a, b) {
+  if (a.home && b.home) return distanceKm(a.home, b.home);
+  return a.region === b.region ? 0 : Infinity;
 }
 
 export function compatibility(aId, bId) {
@@ -28,12 +39,14 @@ export function compatibility(aId, bId) {
   // 5,000 Premier points apart (one colour tier) = no skill compatibility left. Unknown = neutral.
   const skillScore = a.avgRating && b.avgRating ? Math.max(0, 100 - Math.abs(a.avgRating - b.avgRating) / 50) : 50;
   const trustScore = Math.max(0, 100 - Math.abs(a.avgTrust - b.avgTrust));
-  const regionScore = a.region === b.region ? 100 : 50;
+  const km = teamDistanceKm(a, b);
+  if (km > MAX_MATCH_KM) return 0;
+  const distanceScore = Math.max(0, 100 - km / (MAX_MATCH_KM / 100));
 
   return Math.round(
-    skillScore * 0.6 +
+    skillScore * 0.55 +
     trustScore * 0.2 +
-    regionScore * 0.2
+    distanceScore * 0.25
   );
 }
 
@@ -59,9 +72,10 @@ export function runMatchmaking() {
       const bId = queued[j].team_id;
       const b = getTeam(bId);
 
-      if (!b || b.count !== 5 || b.region !== a.region) continue;
+      if (!b || b.count !== 5) continue;
 
       const score = compatibility(aId, bId);
+      if (!score) continue;   // too far apart (or not two full teams)
 
       if (!best || score > best.score) {
         best = { bId, score };
