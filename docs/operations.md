@@ -25,6 +25,12 @@ STEAM_OPENID_ENDPOINT=http://localhost:3999/openid/login npm start
 
 Every setting is listed with a comment in `.env.example`. The server's real `.env` holds the secrets (SMTP password, Steam/FACEIT/Leetify keys) and is never committed.
 
+## Email
+
+- Hostinger Email, one mailbox: **contact@stack5cs.com** (read in Outlook). **no-reply@stack5cs.com** is an alias that delivers to it.
+- The site logs in as contact@ (`SMTP_USER`) and sends everything (email verification, Contact-page messages) from `"STACK5 <contact@stack5cs.com>"`. Hostinger refuses to send from an alias ("553 Sender address rejected: not owned by user"), so `SMTP_FROM` must be the mailbox address.
+- `SMTP_PASS` is wrapped in single quotes in the server `.env` because it contains `#`. When the mailbox password changes, update it there and restart `stack5`.
+
 ## Deploying
 
 The process used so far:
