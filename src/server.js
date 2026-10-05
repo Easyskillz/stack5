@@ -214,7 +214,7 @@ app.get("/verify-email", (req, res) => {
   const account = db.prepare("SELECT id FROM accounts WHERE verification_token_hash=? AND verification_expires_at>? AND email_verified=0").get(hash(token), Date.now());
   if (!account) return res.status(400).send("This verification link is invalid or expired.");
   db.prepare("UPDATE accounts SET email_verified=1, verification_token_hash=NULL, verification_expires_at=NULL WHERE id=?").run(account.id);
-  res.redirect("/account?email=verified");
+  res.redirect(langPrefix(req)+"/account?email=verified");
 });
 
 app.post("/api/auth/logout", auth, csrf, (req, res) => {
@@ -238,7 +238,7 @@ const usernameTaken = name => !!db.prepare("SELECT 1 FROM accounts WHERE lower(u
 
 app.get("/auth/steam/start", (req, res) => {
   const account = sessionAccount(req);
-  if (account?.verified_steam_id) return res.redirect("/play");
+  if (account?.verified_steam_id) return res.redirect(langPrefix(req)+"/play");
   const state = randomToken(16);
   db.prepare("DELETE FROM steam_auth_states WHERE created_at < ?").run(Date.now() - STEAM_STATE_MINUTES * 60_000);
   db.prepare("INSERT INTO steam_auth_states(state,account_id,created_at) VALUES(?,?,?)").run(state, account?.account_id ?? null, Date.now());
@@ -253,7 +253,7 @@ app.get(STEAM_RETURN_PATH, async (req, res) => {
   const row = db.prepare("SELECT * FROM steam_auth_states WHERE state=?").get(state);
   db.prepare("DELETE FROM steam_auth_states WHERE state=?").run(state);
   res.append("Set-Cookie", `stack5_steam_state=; ${cookieOptions(0)}`);
-  const fail = msg => res.redirect(`/login?error=${encodeURIComponent(msg)}`);
+  const fail = msg => res.redirect(`${langPrefix(req)}/login?error=${encodeURIComponent(msg)}`);
   if (!row || getCookie(req, "stack5_steam_state") !== state || Date.now() - row.created_at > STEAM_STATE_MINUTES * 60_000) return fail("Steam sign-in expired. Please try again.");
   try {
     const steamId = await verifySteamAssertion(params, `${BASE_URL}${STEAM_RETURN_PATH}?state=${state}`);
@@ -264,7 +264,7 @@ app.get(STEAM_RETURN_PATH, async (req, res) => {
       if (account?.account_id !== row.account_id) return fail("Steam sign-in expired. Please try again.");
       if (owner && owner.id !== account.account_id) return fail("This Steam account already has a CleanLobby account. Log out and sign in with it instead.");
       await linkVerifiedSteam(account, steamId);
-      return res.redirect("/play?steam=linked");
+      return res.redirect(langPrefix(req)+"/play?steam=linked");
     }
 
     let accountId = owner?.id;
@@ -278,13 +278,13 @@ app.get(STEAM_RETURN_PATH, async (req, res) => {
         accountId = legacy.id;
       }
     }
-    if (accountId) { await createSession(accountId, res); return res.redirect("/play"); }
+    if (accountId) { await createSession(accountId, res); return res.redirect(langPrefix(req)+"/play"); }
 
     const token = randomToken(32);
     db.prepare("DELETE FROM steam_signups WHERE created_at < ?").run(Date.now() - SIGNUP_MINUTES * 60_000);
     db.prepare("INSERT INTO steam_signups(token_hash,steam_id,created_at) VALUES(?,?,?)").run(hash(token), steamId, Date.now());
     res.append("Set-Cookie", `stack5_signup=${token}; ${cookieOptions(SIGNUP_MINUTES * 60)}`);
-    res.redirect("/welcome");
+    res.redirect(langPrefix(req)+"/welcome");
   } catch (e) { fail(e.message); }
 });
 
@@ -987,11 +987,15 @@ app.get("/api/discover/teams", (_, res) => {
 app.get("/login", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/login.html")));
 app.get("/terms", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/terms.html")));
 app.get("/privacy", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/privacy.html")));
+app.get("/fr/login", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/login.fr.html")));
+app.get("/fr/terms", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/terms.fr.html")));
+app.get("/fr/privacy", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/privacy.fr.html")));
+app.get("/fr/welcome", (req, res) => pendingSignup(req) ? res.sendFile(path.join(__dirname, "../public/pages/welcome.fr.html")) : res.redirect("/fr/login"));
 app.get(["/register","/forgot-password","/reset-password"], (_,res)=>res.redirect("/login"));
 
 // ---- App pages: one HTML shell, with per-page title/description/robots for search engines and link previews.
 const APP_SHELL=fs.readFileSync(path.join(__dirname,"../public/pages/app.html"),"utf8");
-const SITE_DESC="We don’t want eggs, we want a cheater-free game. CS2 5v5 for full teams: Steam-verified players, matched by Premier rating, public Trust Score. Free beta.";
+const SITE_DESC="We don’t want eggs, we want a cheater-free game. CS2 5v5 for full teams: Steam-verified players, matched by Premier rating, public Trust Score. Free.";
 const PAGES={
   "/":        { title:"CleanLobby · Trusted CS2 5v5 team matchmaking", heading:"We don’t want eggs. We want a cheater-free game.", description:SITE_DESC },
   "/teams":   { title:"Find a CS2 team · CleanLobby", heading:"Find a CS2 team", description:"Browse CS2 5-stacks that are recruiting on CleanLobby and ask to join. Every player is Steam-verified with a public trust score." },
@@ -1001,16 +1005,36 @@ const PAGES={
   "/guide":   { title:"How CleanLobby works: CS2 5v5 player guide · CleanLobby", heading:"How CleanLobby works", description:"Step-by-step guide to CleanLobby: sign in with Steam, build your CS2 5-stack, find a match, play through CS2 Private Matchmaking, report the score and build your Trust Score." },
   "/contact": { title:"Contact · CleanLobby", heading:"Contact CleanLobby", description:"Contact the CleanLobby team: help with your account, report a player, a disputed match result, partnerships or privacy requests. Email contact@cleanlobby.com." }
 };
+// French site under /fr (same app; public/i18n/fr.js translates it in the browser).
+const SITE_DESC_FR="On veut pas d’œufs, on veut des games sans cheaters. CS2 5v5 entre équipes complètes : joueurs vérifiés via Steam, matchés par rating Premier, Trust Score public. Gratuit.";
+const PAGES_FR={
+  "/":        { title:"CleanLobby · Matchmaking CS2 5v5 entre équipes de confiance", heading:"On veut pas d’œufs. On veut des games sans cheaters.", description:SITE_DESC_FR },
+  "/teams":   { title:"Trouver une équipe CS2 · CleanLobby", heading:"Trouver une équipe CS2", description:"Parcours les 5-stacks CS2 qui recrutent sur CleanLobby et demande à les rejoindre. Chaque joueur est vérifié via Steam, avec un Trust Score public." },
+  "/players": { title:"Trouver des joueurs CS2 · CleanLobby", heading:"Trouver des joueurs CS2", description:"Trouve des joueurs CS2 vérifiés via Steam pour ton 5-stack, par pays, rating Premier, rôle et langue, avec un Trust Score construit sur de vrais matchs." },
+  "/matches": { title:"Matchs et résultats CS2 5v5 · CleanLobby", heading:"Matchs CS2 5v5", description:"Les matchs CleanLobby en direct et les derniers résultats entre équipes CS2 complètes, joués via le Private Matchmaking de CS2." },
+  "/rankings":{ title:"Classements des équipes CS2 · CleanLobby", heading:"Classements", description:"Les classements CleanLobby des équipes et joueurs CS2 5v5. Bientôt disponibles." },
+  "/guide":   { title:"Comment marche CleanLobby : guide du joueur CS2 5v5 · CleanLobby", heading:"Comment marche CleanLobby", description:"Le guide CleanLobby étape par étape : connexion Steam, monter ton 5-stack CS2, trouver un match, jouer via le Private Matchmaking, déclarer le score et construire ton Trust Score." },
+  "/contact": { title:"Contact · CleanLobby", heading:"Contacter CleanLobby", description:"Contacte l’équipe CleanLobby : aide avec ton compte, signaler un joueur, résultat contesté, devenir admin Premium, partenariats ou confidentialité. contact@cleanlobby.com." }
+};
+const STATIC={ en:fs.readFileSync(path.join(__dirname,"../public/pages/static.en.html"),"utf8"), fr:fs.readFileSync(path.join(__dirname,"../public/pages/static.fr.html"),"utf8") };
+const enPath=p=>p.replace(/^\/fr(?=\/|$)/,"")||"/";
+const frPath=p=>"/fr"+(enPath(p)==="/"?"":enPath(p));
+// The language chosen with the header switch (cookie cl_lang), used after Steam sign-in.
+const langPrefix=req=>getCookie(req,"cl_lang")==="fr"?"/fr":"";
 const htmlAttr=v=>String(v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"})[c]);
-function sendApp(req,res,page,{index=true,status=200}={}){
+function sendApp(req,res,page,{index=true,status=200,lang="en"}={}){
   const url=BASE_URL+(req.path==="/"?"/":req.path.replace(/\/$/,""));
+  const p=req.path.replace(/\/$/,"")||"/";
+  const alternates=`<link rel="alternate" hreflang="en" href="${BASE_URL}${enPath(p)}"><link rel="alternate" hreflang="fr" href="${BASE_URL}${frPath(p)}"><link rel="alternate" hreflang="x-default" href="${BASE_URL}${enPath(p)}">`;
   const jsonld=JSON.stringify({ "@context":"https://schema.org", "@graph":[
-    { "@type":"WebSite", "@id":BASE_URL+"/#website", name:"CleanLobby", url:BASE_URL+"/", description:SITE_DESC, inLanguage:"en" },
+    { "@type":"WebSite", "@id":BASE_URL+"/#website", name:"CleanLobby", url:BASE_URL+"/", description:SITE_DESC, inLanguage:["en","fr"] },
     { "@type":"WebApplication", name:"CleanLobby", url:BASE_URL+"/", applicationCategory:"GameApplication", operatingSystem:"Web",
       description:SITE_DESC, offers:{ "@type":"Offer", price:"0", priceCurrency:"USD" }, about:{ "@type":"VideoGame", name:"Counter-Strike 2" } }
   ]});   // fixed text only (no user input), safe inside <script>
   const vals={ title:page.title, description:page.description, heading:page.heading, url, base:BASE_URL, robots:index?"index,follow":"noindex,follow" };
-  let html=APP_SHELL.replace("{{jsonld}}",jsonld);
+  let html=APP_SHELL.replace("{{jsonld}}",jsonld).replace("{{static}}",STATIC[lang]).replace("{{alternates}}",alternates)
+    .replace("{{i18n}}",lang==="fr"?'<script src="/i18n/fr.js"></script>':"");
+  html=html.split("{{lang}}").join(lang).split("{{locale}}").join(lang==="fr"?"fr_FR":"en_US");
   for(const [k,v] of Object.entries(vals)) html=html.split(`{{${k}}}`).join(htmlAttr(v));
   res.status(status).type("html").send(html);
 }
@@ -1022,14 +1046,17 @@ Disallow: /admin
 Disallow: /account
 Disallow: /play
 Disallow: /welcome
+Disallow: /fr/account
+Disallow: /fr/play
+Disallow: /fr/welcome
 Disallow: /pages/
 Disallow: /assets/pages/
 
 Sitemap: ${BASE_URL}/sitemap.xml
 `));
 app.get("/sitemap.xml",(_,res)=>res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${[...Object.keys(PAGES),"/login","/terms","/privacy"].map(p=>`  <url><loc>${BASE_URL}${p}</loc></url>`).join("\n")}
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+${[...Object.keys(PAGES),"/login","/terms","/privacy"].flatMap(p=>[enPath(p),frPath(p)].map(u=>`  <url><loc>${BASE_URL}${u}</loc><xhtml:link rel="alternate" hreflang="en" href="${BASE_URL}${enPath(p)}"/><xhtml:link rel="alternate" hreflang="fr" href="${BASE_URL}${frPath(p)}"/></url>`)).join("\n")}
 </urlset>
 `));
 // llms.txt: a plain summary for AI assistants and LLM crawlers (llmstxt.org).
@@ -1063,6 +1090,9 @@ app.get("/llms.txt",(_,res)=>res.type("text/plain").send(`# CleanLobby
 contact@cleanlobby.com
 `));
 for(const [p,page] of Object.entries(PAGES)) app.get(p,(req,res)=>sendApp(req,res,page));
+for(const [p,page] of Object.entries(PAGES_FR)) app.get(p==="/"?"/fr":"/fr"+p,(req,res)=>sendApp(req,res,page,{lang:"fr"}));
+for(const p of ["/fr/play","/fr/account","/fr/player/:username","/fr/team/:id"]) app.get(p,(req,res)=>sendApp(req,res,PAGES_FR["/"],{index:false,lang:"fr"}));
+app.get("/fr/*splat",(req,res)=>sendApp(req,res,{ ...PAGES_FR["/"], title:"Page introuvable · CleanLobby", heading:"Page introuvable" },{index:false,status:404,lang:"fr"}));
 // Personal and per-player pages work normally but stay out of search results.
 for(const p of ["/play","/account","/player/:username","/team/:id"]) app.get(p,(req,res)=>sendApp(req,res,PAGES["/"],{index:false}));
 app.get("*splat",(req,res)=>sendApp(req,res,{ ...PAGES["/"], title:"Page not found · CleanLobby", heading:"Page not found" },{index:false,status:404}));

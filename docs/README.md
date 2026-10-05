@@ -23,6 +23,7 @@ How every part of CleanLobby works: what players see, the rules behind it, and w
 | [Admin](admin.md) | Admin dashboard and manual overrides | Live |
 | [External data sources](data-sources.md) | Steam, FACEIT and Leetify, and the rules each one imposes | Live |
 | [SEO & discoverability](seo.md) | Page titles and descriptions, sitemap, robots.txt, llms.txt, link previews | Live |
+| [French version](french.md) | The whole site in French under /fr, the EN/FR switch, the dictionary and how to keep it complete | Live (after deploy) |
 | [Operations](operations.md) | Configuration, deploying, backups | — |
 
 ## Marketing
@@ -38,6 +39,7 @@ How every part of CleanLobby works: what players see, the rules behind it, and w
 
 ## Changelog
 
+- **2026-10-05:** French version of the whole site under `/fr` (including sign-in, welcome, Terms and Privacy), 🇺🇸/🇫🇷 switch in every header, `cl_lang` cookie to come back to the chosen language after Steam sign-in, French titles/descriptions/crawler text, hreflang and sitemap. "Closed beta" and "free during the beta" wording removed (CleanLobby stays free; Premium will be an optional extra). Terms and Privacy corrected (votes instead of ratings, no regions, Trust Score weight 20%). Eggs videos re-rendered without "free beta".
 - **2026-10-05:** Beta limited to 12 countries (Morocco + English, French, Spanish, Portuguese-speaking Europe; new eligibility check) and 4 languages; regions removed from the site (filters by country). Premier rating can no longer be typed: only read from Leetify ("Check Leetify again" button; typed ratings deleted). Home: beta countries section and **Premium · coming soon** (private servers with an admin; "Become a Premium match admin" contact topic). Terms, Privacy, guide FAQ updated.
 - **2026-10-05:** Votes replace star ratings: 👍/👎 per aspect after each match for 48 hours (teammates: comms, teamplay, attitude; opponents: attitude, sportsmanship; skill is left to the Premier rating), one set per match, "👍 everyone" shortcut, % of 👍 per aspect on profiles, weakest-aspect tip. Privacy Policy and guide updated.
 - **2026-10-05:** Premier rating copied from Leetify when a player leaves it empty (sign-up and a daily job for everyone, labelled "Data Provided by Leetify"; a typed rating always wins; operator accepted that this bends Leetify's "don't store" guideline). Live FACEIT level/Elo in the Play page's profile box. Trust Score explained: Good/Excellent bands (60+ is good), personal "How to raise it" tips on every score, a full section in the guide, FAQ entries, and a note at the rating step. Privacy Policy updated.

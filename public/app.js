@@ -1,6 +1,64 @@
 const Stack5 = (() => {
   const state = {};
 
+  // ---------- Language: /fr/... is the French site ----------
+  // The pages are written in English; on /fr the dictionary in /i18n/fr.js (window.CL_FR) replaces each text
+  // fragment, placeholder and tooltip as soon as it appears (MutationObserver, before the browser paints).
+  const LANG=/^\/fr(\/|$)/.test(location.pathname)?'fr':'en';
+  const PREFIX=LANG==='fr'?'/fr':'';
+  const appPath=()=>location.pathname.replace(/^\/fr(?=\/|$)/,'')||'/';
+  const localPath=p=>PREFIX+(p==='/'&&PREFIX?'':p);           // '/teams' -> '/fr/teams', '/' -> '/fr'
+  const go=p=>{ location.href=localPath(p); };
+  const DICT={}, PATTERNS=[];
+  const normText=t=>t.replace(/\s+/g,' ').trim();
+  if(LANG==='fr'){
+    for(const [en,fr] of Object.entries(window.CL_FR||{})){
+      const k=normText(en);
+      if(k.includes('{x}')) PATTERNS.push([new RegExp('^'+k.split('{x}').map(x=>x.replace(/[.*+?^$()|[\]\\]/g,'\\$&')).join('(.+?)')+'$'),fr]);
+      else DICT[k]=fr;
+    }
+    PATTERNS.sort((a,b)=>b[0].source.length-a[0].source.length);   // most specific first
+  }
+  function t(text){
+    if(LANG!=='fr' || text==null) return text;
+    const core=normText(String(text));
+    if(!core) return text;
+    let out=DICT[core];
+    if(out==null) for(const [re,fr] of PATTERNS){ const m=re.exec(core); if(m){ let i=1; out=fr.replace(/\{x\}/g,()=>m[i++]??''); break; } }
+    if(out==null) return text;
+    const str=String(text);
+    return (/^[.,)]/.test(out)?'':str.match(/^\s*/)[0])+out+str.match(/\s*$/)[0];   // "cheaters" + "." stay together
+  }
+  // Internal links stay on the French site (static files, API and Steam sign-in don't).
+  const LOCAL_LINK=/^\/(?!fr(\/|$)|api\/|auth\/|assets\/|flags\/|img\/|media\/|i18n\/|favicon|apple-touch|og\.png|robots|sitemap|llms)/;
+  function translateTree(root){
+    if(LANG!=='fr' || !root) return;
+    if(root.nodeType===3){ if(root.parentElement?.closest('.logo,[data-no-i18n]')) return; const v=t(root.nodeValue); if(v!==root.nodeValue) root.nodeValue=v; return; }
+    if(root.nodeType!==1) return;
+    const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>/^(SCRIPT|STYLE|CODE)$/.test(n.parentNode?.nodeName)||n.parentElement?.closest('.logo,[data-no-i18n]')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
+    for(let n=walker.nextNode(); n; n=walker.nextNode()){ const v=t(n.nodeValue); if(v!==n.nodeValue) n.nodeValue=v; }
+    const els=root.querySelectorAll?[root,...root.querySelectorAll('[placeholder],[title],[aria-label],[alt],a[href]')]:[];
+    for(const el of els){
+      for(const a of ['placeholder','title','aria-label','alt']) if(el.hasAttribute?.(a)){ const v=t(el.getAttribute(a)); if(v!==el.getAttribute(a)) el.setAttribute(a,v); }
+      if(el.tagName==='A' && !el.hasAttribute('data-lang')){ const h=el.getAttribute('href'); if(h && LOCAL_LINK.test(h)) el.setAttribute('href','/fr'+(h==='/'?'':h)); }
+    }
+  }
+  // Remember the language being viewed, so Steam sign-in brings the player back to it.
+  try{ document.cookie=`cl_lang=${LANG}; path=/; max-age=31536000; samesite=lax`; }catch{}
+  if(LANG==='fr'){
+    document.documentElement.lang='fr';
+    new MutationObserver(list=>{ for(const m of list){
+      if(m.type==='characterData') translateTree(m.target);
+      else m.addedNodes.forEach(translateTree);
+    } }).observe(document.documentElement,{childList:true,subtree:true,characterData:true});
+  }
+  // 🇫🇷 / 🇺🇸 switch: same page in the other language; the choice is remembered (cookie cl_lang) for Steam sign-in.
+  function langSwitch(){
+    const p=appPath()+location.search+location.hash;
+    const opt=(code,flag,label,href)=>`<a class="lang-opt${LANG===code?' on':''}" data-lang href="${href}" onclick="document.cookie='cl_lang=${code}; path=/; max-age=31536000; samesite=lax'" title="${label}" aria-label="${label}"><img src="/flags/${flag}.svg" alt=""><span>${code.toUpperCase()}</span></a>`;
+    return `<div class="lang-switch">${opt('en','us','English',p)}${opt('fr','fr','Français','/fr'+(p.startsWith('/?')||p==='/'?p.slice(1):p))}</div>`;
+  }
+
   const T = {
     en:{
       play:'Play', teams:'Find a Team', players:'Find Players', matches:'Matches',
@@ -70,13 +128,14 @@ const Stack5 = (() => {
 
         <nav class="nav">
           <a class="${active==='play'?'active':''}" href="/play">${tr('play')}</a>
-          <a class="${active==='teams'?'active':''}" href="/teams">${tr('teams')}</a>
-          <a class="${active==='players'?'active':''}" href="/players">${tr('players')}</a>
+          <a class="${active==='teams'?'active':''}" href="/teams">${LANG==='fr'?'Équipes':tr('teams')}</a>
+          <a class="${active==='players'?'active':''}" href="/players">${LANG==='fr'?'Joueurs':tr('players')}</a>
           <a class="${active==='matches'?'active':''}" href="/matches">${tr('matches')}</a>
           <a class="${active==='rankings'?'active':''}" href="/rankings">${tr('rankings')}</a>
           <a class="${active==='guide'?'active':''}" href="/guide">How it works</a>
         </nav>
 
+        ${langSwitch()}
         <div class="header-right" id="header-right">
           <a class="btn btn-green btn-small" href="/login">${tr('login')}</a>
         </div>
@@ -129,7 +188,7 @@ const Stack5 = (() => {
   }
 
   function layout(title,content,active=''){
-    document.title=`${title} · CleanLobby`;
+    document.title=`${t(title)} · CleanLobby`;
     document.body.innerHTML=header(active)+`<main>${content}</main>`+footer();
     refreshHeaderAuth();
   }
@@ -160,7 +219,7 @@ const Stack5 = (() => {
         <article class="card">
           <div class="card-top">
             <div>
-              <h3>${esc(t.name)}</h3>
+              <h3>${nm(t.name)}</h3>
               <div class="muted small">${countryFlag(t.country)} ${esc(countryName(t.country))} · ${t.count}/5 players</div>
             </div>
             <span class="badge">OPEN</span>
@@ -215,7 +274,7 @@ const Stack5 = (() => {
           <div class="profile-head">
             <img class="avatar" src="${esc(p.avatar_url||'')}" onerror="this.style.display='none'">
             <div>
-              <h3>${esc(p.display_name||'Player')}</h3>
+              <h3>${nm(p.display_name||'Player')}</h3>
               <div class="muted small">${flags(p.country,langsOf(p))} ${esc(countryName(p.country))}</div>
             </div>
           </div>
@@ -249,7 +308,7 @@ const Stack5 = (() => {
             <img class="avatar" src="${esc(p.avatar_url||'')}" onerror="this.style.display='none'">
             <div>
               <div class="eyebrow">CleanLobby PLAYER</div>
-              <h1 class="name-title" style="font-size:38px;margin:5px 0">${esc(p.display_name)}</h1>
+              <h1 class="name-title" style="font-size:38px;margin:5px 0">${nm(p.display_name)}</h1>
               <div class="muted">${countryFlag(p.country)} ${esc(countryName(p.country))} · ${esc(p.role||'')}</div>
               <div class="meta">${p.steam_verified?'<span class="status green">STEAM VERIFIED</span>':'<span class="status">Steam not verified</span>'}${p.eligible?'<span class="status green">MEETS REQUIREMENTS</span>':''}</div>
             </div>
@@ -549,7 +608,7 @@ const Stack5 = (() => {
   const GUIDE_FAQ=[
     ['Is signing in with Steam safe?','Yes. You sign in on steamcommunity.com, never on CleanLobby. We only receive your public SteamID. CleanLobby will never ask for your Steam Guard code, an API key or your trade link. If a page asks for those, it isn’t us.'],
     ['Why can’t I play yet?','Your Steam profile and game details must be public so we can check the requirements (2+ year old account, 500+ hours of CS2, no VAC or game ban in the last 2 years). The Play page shows which check is missing. After changing your Steam privacy, wait a few minutes and click Check again.'],
-    ['Does it cost anything?','No. CleanLobby is free during the beta.'],
+    ['Does it cost anything?','No. CleanLobby is free and stays free. Premium officiated matches, when they launch, will be an optional extra.'],
     ['Does a CleanLobby match change my CS Rating?','No. CS2 Private Matchmaking is unrated in CS2. CleanLobby keeps its own results and Trust Score.'],
     ['What if the other team doesn’t show up, or the captains disagree?','If only one captain reports a score within 6 hours, that score counts. If the scores don’t match, an admin decides. You can also <a href="/contact">contact us</a> with details.'],
     ['What is a good Trust Score?','<strong>60 and above is good</strong>, 75 and above is excellent. 40–59 is fair, under 40 is low. A new player with a solid Steam account usually starts around 65. A VAC or game ban in the last 2 years caps the score at 20. <a href="#trust-score">How it’s calculated</a>.'],
@@ -635,7 +694,7 @@ const Stack5 = (() => {
     fillLiveStats();
     const box=document.getElementById('matches');
     const d=await get('/api/matches').catch(()=>({live:[],recent:[]}));
-    const side=(t,right)=>t?`<a class="match-team${right?' right':''}" href="/team/${t.id}">${right?`<strong>${esc(t.name)}</strong> ${flags(t.country,t.language)}`:`${flags(t.country,t.language)} <strong>${esc(t.name)}</strong>`}</a>`:'<span class="muted">—</span>';
+    const side=(t,right)=>t?`<a class="match-team${right?' right':''}" href="/team/${t.id}">${right?`<strong>${nm(t.name)}</strong> ${flags(t.country,t.language)}`:`${flags(t.country,t.language)} <strong>${nm(t.name)}</strong>`}</a>`:'<span class="muted">—</span>';
     const ago=ts=>{ if(!ts) return ''; const m=Math.round((Date.now()-ts)/60000); return m<60?`${m} min ago`:m<1440?`${Math.round(m/60)} h ago`:`${Math.round(m/1440)} d ago`; };
     const row=(m,live)=>`<div class="match-row">${side(m.team_a)}<div class="match-mid">${live?'<span class="status green">LIVE</span>':`<span class="score">${m.score_a} – ${m.score_b}</span>`}<div class="muted small">${live?'Started '+ago(m.confirmed_at):ago(m.completed_at)}</div></div>${side(m.team_b,true)}</div>`;
     box.innerHTML=`<div class="panel"><h2>Live now</h2>${d.live.length?d.live.map(m=>row(m,true)).join(''):'<p class="muted">No match is being played right now.</p>'}</div>
@@ -666,7 +725,7 @@ const Stack5 = (() => {
     document.querySelector('.toast')?.remove();
     const t=document.createElement('div');
     t.className='toast'+(bad?' bad':'');
-    t.textContent=text;
+    t.textContent=window.Stack5T?window.Stack5T(text):text;
     document.body.appendChild(t);
     setTimeout(()=>t.remove(),4000);
   }
@@ -684,7 +743,9 @@ const Stack5 = (() => {
   const countryOptions=(label)=>`<option value="">${label}</option>${BETA.map(([c,n])=>`<option value="${c}">${n}</option>`).join('')}`;
   const btn=(label,act,cls='btn-dark',data={})=>`<button class="btn btn-small ${cls}" data-act="${act}" ${Object.entries(data).map(([k,v])=>`data-${k}="${esc(v)}"`).join(' ')}>${esc(label)}</button>`;
   const realSteam=p=>/^https:\/\/(www\.)?steamcommunity\.com\//.test(p?.steam_url||'');
-  const playerLink=p=>`<a href="/player/${encodeURIComponent(p.display_name)}"><strong>${esc(p.display_name)}</strong></a>`;
+  // Names are shown as typed, never translated.
+  const nm=x=>`<span data-no-i18n>${esc(x)}</span>`;
+  const playerLink=p=>`<a href="/player/${encodeURIComponent(p.display_name)}"><strong>${nm(p.display_name)}</strong></a>`;
 
   // ---------- Play hub ----------
   let pollTimer=null;
@@ -812,20 +873,20 @@ const Stack5 = (() => {
           return `<span class="vote"><span class="vote-label">${i} ${n}</span><button class="vbtn${v===1?' on-up':''}" data-act="vote" data-id="${m.id}" data-arg="${p.id}:${a}:${v===1?0:1}" aria-label="${n} thumbs up for ${esc(p.display_name)}" aria-pressed="${v===1}">👍</button><button class="vbtn${v===-1?' on-down':''}" data-act="vote" data-id="${m.id}" data-arg="${p.id}:${a}:${v===-1?0:-1}" aria-label="${n} thumbs down for ${esc(p.display_name)}" aria-pressed="${v===-1}">👎</button></span>`; }).join('')}</div>`:''}
       </div>`).join('');
     const reportForm=label=>`<form data-form="report" data-id="${m.id}" class="score-form">
-        <label><span class="muted small">${esc(mine?.name)}</span><input class="input" name="my_score" type="number" inputmode="numeric" min="0" max="60" placeholder="13" required></label>
+        <label><span class="muted small">${nm(mine?.name)}</span><input class="input" name="my_score" type="number" inputmode="numeric" min="0" max="60" placeholder="13" required></label>
         <span class="score-dash">–</span>
-        <label><span class="muted small">${esc(other?.name)}</span><input class="input" name="their_score" type="number" inputmode="numeric" min="0" max="60" placeholder="9" required></label>
+        <label><span class="muted small">${nm(other?.name)}</span><input class="input" name="their_score" type="number" inputmode="numeric" min="0" max="60" placeholder="9" required></label>
         <button class="btn btn-green btn-small">${label}</button></form>`;
 
     let head, body='';
     if(m.status==='PENDING'){
-      head=`<div class="eyebrow">MATCH FOUND · ${m.compatibility}% COMPATIBLE</div><h2 style="margin-top:8px">${esc(mine?.name)} vs ${esc(other?.name)}</h2>`;
+      head=`<div class="eyebrow">MATCH FOUND · ${m.compatibility}% COMPATIBLE</div><h2 style="margin-top:8px">${nm(mine?.name)} vs ${esc(other?.name)}</h2>`;
       body=m.expires_at?`<p class="muted" style="margin-top:14px">Both captains must accept within ${countdown(m.expires_at)}. If time runs out, a team that didn't accept goes back to recruiting.</p>`:'';
       if(isCaptain && !myAccepted) body+=`<div class="actions" style="margin-top:12px">${btn('Accept match','accept-match','btn-green',{id:m.id,arg:m.my_team_id})}${btn('Decline','decline-match','btn-danger',{id:m.id,confirm:'Decline this match? Your team will leave the queue.'})}</div>`;
       else if(myAccepted) body+=`<p class="muted" style="margin-top:14px">Your team accepted. Waiting for the other captain…</p>`;
       else body+=`<p class="muted" style="margin-top:14px">Waiting for your captain to accept…</p>`;
     } else if(m.status==='CONFIRMED'){
-      head=`<div class="eyebrow">MATCH LIVE</div><h2 style="margin-top:8px">${esc(mine?.name)} vs ${esc(other?.name)}</h2>
+      head=`<div class="eyebrow">MATCH LIVE</div><h2 style="margin-top:8px">${nm(mine?.name)} vs ${esc(other?.name)}</h2>
         <p class="muted" style="margin-top:0">You play through CS2's own <strong>Private Matchmaking</strong>. Follow these steps:</p>
         <ol class="match-steps">
           <li><strong>Each captain:</strong> invite your 4 teammates to your CS2 party (Steam buttons below). Each team must be <strong>one 5-player party</strong>, or CS2 may mix players between teams.</li>
@@ -855,17 +916,17 @@ const Stack5 = (() => {
         body+=`<p class="muted" style="margin-top:16px">After the game, your captain reports the score. Then you can vote 👍/👎 on everyone you played with (48 hours): votes are 30% of the Trust Score.</p>`;
       }
     } else if(m.status==='DISPUTED'){
-      head=`<div class="eyebrow" style="color:#ffb3b9">RESULT DISPUTED</div><h2 style="margin-top:8px">${esc(mine?.name)} vs ${esc(other?.name)}</h2>
+      head=`<div class="eyebrow" style="color:#ffb3b9">RESULT DISPUTED</div><h2 style="margin-top:8px">${nm(mine?.name)} vs ${esc(other?.name)}</h2>
         <p class="muted">The captains reported different scores${myReport&&theirReport?` (your side: ${myReport[0]}–${myReport[1]}, other side: ${theirReport[0]}–${theirReport[1]})`:''}. An admin will decide. Until then the match doesn't count.</p>`;
       if(isCaptain) body=`<p class="muted small">Made a mistake? Correct your report. If both reports match, the result is confirmed.</p>${reportForm('Correct report')}`;
     } else if(m.status==='COMPLETED'){
       const [me,them]=mySide([m.score_a,m.score_b]);
       head=`<div class="eyebrow">MATCH FINISHED</div>
-        <h2 style="margin-top:8px">${esc(mine?.name)} <span class="score">${me} – ${them}</span> ${esc(other?.name)}</h2>
+        <h2 style="margin-top:8px">${nm(mine?.name)} <span class="score">${me} – ${them}</span> ${esc(other?.name)}</h2>
         <p class="muted">${me>them?'🏆 Your team won.':me<them?'Your team lost.':'Draw.'} Vote 👍 or 👎 on the players you played with: teammates on comms, teamplay and attitude, opponents on attitude and sportsmanship. Votes are 30% of everyone’s Trust Score, and they vote on you too. <a href="/guide#trust-score" style="color:var(--accent)">How it works</a></p>
         <div class="actions" style="margin-top:10px">${btn('👍 Everyone I haven’t voted on','votes-all-up','btn-green',{id:m.id})}<span class="muted small" style="align-self:center">⏳ Voting closes in ${countdown(m.vote_deadline)}. You can change any vote until then.</span></div>`;
     } else if(m.status==='NO_RESULT'){
-      head=`<div class="eyebrow">MATCH CLOSED</div><h2 style="margin-top:8px">${esc(mine?.name)} vs ${esc(other?.name)}</h2>
+      head=`<div class="eyebrow">MATCH CLOSED</div><h2 style="margin-top:8px">${nm(mine?.name)} vs ${esc(other?.name)}</h2>
         <p class="muted">No result was reported in time, so this match doesn't count for anyone.</p>`;
     }
     const canRate=m.status==='COMPLETED' && (!m.vote_deadline || m.vote_deadline>Date.now());
@@ -926,7 +987,7 @@ const Stack5 = (() => {
         : btn('Leave team','leave','btn-danger',{id:t.id,confirm:'Leave this team?'})}</div>`;
     }
     return `<div class="panel">
-      <div class="card-top"><div><h2 style="margin:0">${esc(t.name)}</h2><div class="muted small">${t.count}/5 players · ${premierRange(t.min_rating,t.max_rating)}</div></div>${statusBadge(t.status)}</div>
+      <div class="card-top"><div><h2 style="margin:0">${nm(t.name)}</h2><div class="muted small">${t.count}/5 players · ${premierRange(t.min_rating,t.max_rating)}</div></div>${statusBadge(t.status)}</div>
       ${(()=>{ const sh=sharedLangs(t.members); return t.count<2?'':sh.length
         ?`<p class="small" style="margin:12px 0 0">🗣️ Everyone speaks ${languageFlags(sh)} <span class="muted">${esc(langNames(sh))}</span></p>`
         :'<p class="small" style="margin:12px 0 0;color:#f2c94c">⚠️ Your players don\'t share a language. Comms will be hard: check the flags before inviting more.</p>'; })()}
@@ -937,7 +998,7 @@ const Stack5 = (() => {
 
   function sidePanel(d){
     const invites=d.invites.length?d.invites.map(i=>`
-      <div class="row"><div><strong>${esc(i.team_name)}</strong><div class="muted small">${i.count}/5 · from ${esc(i.invited_by)}</div></div>
+      <div class="row"><div><strong>${nm(i.team_name)}</strong><div class="muted small">${i.count}/5 · from ${esc(i.invited_by)}</div></div>
         <div class="row-actions">${btn('Accept','accept-invite','btn-green',{id:i.id})}${btn('Decline','decline-invite','btn-dark',{id:i.id})}</div></div>`).join('')
       :'<p class="muted small">No pending invitations.</p>';
     let html=`<div class="panel"><h2>Invitations</h2>${invites}</div>`;
@@ -949,7 +1010,7 @@ const Stack5 = (() => {
       html+=`<div class="panel"><h2>Join requests</h2>${reqs}</div>`;
     }
     if(d.myRequests.length){
-      html+=`<div class="panel"><h2>Your requests</h2>${d.myRequests.map(r=>`<div class="row"><span>${esc(r.team_name)}</span><span class="status amber">Pending</span></div>`).join('')}</div>`;
+      html+=`<div class="panel"><h2>Your requests</h2>${d.myRequests.map(r=>`<div class="row"><span>${nm(r.team_name)}</span><span class="status amber">Pending</span></div>`).join('')}</div>`;
     }
     html+=`<div class="panel"><h2>Your profile</h2>
       <div class="muted small">${countryFlag(d.player.country)} ${esc(countryName(d.player.country))} · ${esc(d.player.role)}</div>
@@ -1110,14 +1171,14 @@ const Stack5 = (() => {
 
   // ---------- Marketplace buttons ----------
   async function requestJoin(teamId, b){
-    if(!window.Stack5CurrentAccount){ location.href='/login'; return; }
+    if(!window.Stack5CurrentAccount){ go('/login'); return; }
     b.disabled=true;
     try{ const r=await post(`/api/teams/${teamId}/request-join`); toast(r.message); b.textContent='Requested'; }
     catch(err){ toast(err.message,true); b.disabled=false; }
   }
 
   async function invitePlayer(playerId, b){
-    if(!window.Stack5CurrentAccount){ location.href='/login'; return; }
+    if(!window.Stack5CurrentAccount){ go('/login'); return; }
     b.disabled=true;
     try{
       const d=await get('/api/my/dashboard',{credentials:'include'});
@@ -1132,7 +1193,7 @@ const Stack5 = (() => {
   }
 
   function route(){
-    const p=location.pathname.replace(/\/$/,'')||'/';
+    const p=appPath().replace(/\/$/,'')||'/';
     if(p==='/') return home();
     if(p==='/teams') return teams();
     if(p==='/players') return players();
@@ -1152,13 +1213,13 @@ const Stack5 = (() => {
     layout(t.name,`
       <div class="container">
         <div class="eyebrow">CleanLobby TEAM</div>
-        <h1 class="name-title" style="font-size:40px">${esc(t.name)}</h1>
+        <h1 class="name-title" style="font-size:40px">${nm(t.name)}</h1>
         <p class="subtitle">${t.count}/5 players · ${premierRange(t.min_rating,t.max_rating)}</p>
         <div class="section">
           <h2>Roster</h2>
           <div class="grid">${(t.members||[]).map(p=>`
             <a class="card" href="/player/${encodeURIComponent(p.display_name)}">
-              <h3>${esc(p.display_name)}</h3>
+              <h3>${nm(p.display_name)}</h3>
               <div class="meta"><span>${premier(p.premier_rating)}</span><span>${esc(p.role||'—')}</span></div>
             </a>`).join('')}</div>
         </div>
@@ -1177,10 +1238,11 @@ const Stack5 = (() => {
     }
 
     window.Stack5CurrentAccount = null;
-    location.href = '/';
+    go('/');
   }
 
   return {
+    t,
     route,
     logout,
     requestJoin,
@@ -1188,4 +1250,5 @@ const Stack5 = (() => {
   };
 })();
 
+window.Stack5T=Stack5.t;
 Stack5.route();

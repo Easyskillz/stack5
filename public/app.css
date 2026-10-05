@@ -421,3 +421,13 @@ footer{border-top:1px solid #1c1c21;margin-top:70px;padding:30px 24px;color:#757
 .premium-badge{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.16em;color:#111;background:var(--accent);padding:4px 10px;border-radius:6px}
 @media(max-width:900px){.premium{grid-template-columns:1fr}}
 .tourney{padding:30px;border-radius:18px;border:1px solid #2a2a30;background:radial-gradient(circle at 100% 0,rgba(160,112,255,.18),transparent 55%),linear-gradient(160deg,#1b1b20,#121215)}
+
+/* Language switch (header) */
+.lang-switch{display:flex;gap:2px;margin-left:auto;margin-right:10px;padding:3px;border:1px solid var(--border);border-radius:9px}
+.lang-opt{display:inline-flex;align-items:center;gap:5px;padding:4px 7px;border-radius:6px;font-size:11px;font-weight:800;color:var(--muted)}
+.lang-opt img{width:18px;height:13px;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.4)}
+.lang-opt.on{background:#2a2310;color:var(--text)}
+.lang-opt:not(.on){opacity:.7}.lang-opt:hover{opacity:1}
+.header-right{margin-left:0}
+@media(max-width:850px){.lang-switch{margin-left:auto;margin-right:6px}}
+.nav a,.header-right .btn{white-space:nowrap}

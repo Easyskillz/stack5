@@ -24,6 +24,7 @@
 <body>
 <header class="header">
 <a class="logo" href="/">Clean<span>Lobby</span></a>
+<div class="lang-switch"><a class="lang-opt on" href="/login" aria-label="English"><img src="/flags/us.svg" alt=""><span>EN</span></a><a class="lang-opt" href="/fr/login" onclick="document.cookie='cl_lang=fr; path=/; max-age=31536000; samesite=lax'" aria-label="Français"><img src="/flags/fr.svg" alt=""><span>FR</span></a></div>
 </header>
 <main class="container" style="max-width:520px">
 <div class="eyebrow">CleanLobby</div>
@@ -46,6 +47,7 @@ You sign in on <strong>Steam's own website</strong>. Before typing your password
 </main>
 <footer><div style="max-width:1180px;margin:auto">CleanLobby · Build. Match. Play. · <a href="/guide">How it works</a> · <a href="/contact">Contact</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></div></footer>
 <script>
+document.cookie = 'cl_lang=en; path=/; max-age=31536000; samesite=lax';
 const error = new URLSearchParams(location.search).get('error');
 if (error) { const box = document.getElementById('error'); box.textContent = error; box.hidden = false; }
 </script>

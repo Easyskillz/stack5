@@ -1,6 +1,8 @@
 // Regenerates the player-guide screenshots (public/img/guide/*.webp): plays one full match on a
 // throwaway local CleanLobby with fictional example players and captures each step.
 // usage: node scripts/guide-screenshots.mjs   (needs Google Chrome; uses scripts/fake-steam.js)
+// French audit: I18N_AUDIT=1 node scripts/guide-screenshots.mjs  -> plays the same match on the /fr pages and
+// lists text that still looks English (no screenshots are written).
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -40,7 +42,17 @@ function browser() {
 }
 
 // One CDP session per screenshot: emulate width, set cookies, clip to an element.
+const AUDIT = !!process.env.I18N_AUDIT;
+// Text nodes that still look English on a French page (ignores names, codes and numbers).
+const AUDIT_JS = String.raw`(()=>{const EN=/\b(the|and|your|you|to|of|is|are|with|for|player|players|team|teams|not|can|this|that|from|will|has|have|we|our|be|it|by|yet|here|now|only|after|before|until|sign|join|find|play|loading|no|yes|what|how|why|who|when|which|more|less|every|each|first|last|out|back|over|still)\b/i;   // English-only words (not "match", "score", "vote": French uses them too)
+  const out=new Set(), w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+  for(let n=w.nextNode();n;n=w.nextNode()){ const p=n.parentElement; if(!p||p.closest("script,style,code,.premier,.flags,.logo,.leetify-attr,#static-content")) continue;
+    const t=n.nodeValue.replace(/\s+/g," ").trim(); if(t.length>2 && EN.test(t) && getComputedStyle(p).display!=="none") out.add(t); }
+  for(const el of document.querySelectorAll("[placeholder],[title],[aria-label]")) for(const a of ["placeholder","title","aria-label"]){ const v=el.getAttribute(a); if(v && EN.test(v)) out.add(a+": "+v); }
+  return [...out];})()`;
+const auditFound = {};
 async function shot(name, url, selector, cookies = {}, { width = 1100, pad = 12 } = {}) {
+  if (AUDIT) url = "/fr" + (url === "/" ? "" : url);
   const port = 9600 + Math.floor(Math.random() * 300);
   const chrome = spawn(CHROME, ["--headless=new", "--disable-gpu", `--remote-debugging-port=${port}`, `--user-data-dir=${SCRATCH}/chrome-guide-${port}`, "about:blank"]);
   try {
@@ -53,6 +65,11 @@ async function shot(name, url, selector, cookies = {}, { width = 1100, pad = 12 
     for (const [n, v] of Object.entries(cookies)) await send("Network.setCookie", { name: n, value: v, url: B });
     await send("Page.enable"); await send("Page.navigate", { url: B + url }); await sleep(2500);
     const rect = (await send("Runtime.evaluate", { returnByValue: true, expression: `(()=>{document.querySelector('.toast')?.remove();const e=document.querySelector(${JSON.stringify(selector)});if(!e)return null;const r=e.getBoundingClientRect();return {x:r.left+scrollX,y:r.top+scrollY,w:r.width,h:r.height}})()` })).result.result.value;
+    if (AUDIT) {
+      const found = (await send("Runtime.evaluate", { returnByValue: true, expression: AUDIT_JS })).result.result.value || [];
+      auditFound[url + " (" + name + ")"] = found; console.log(`  audit ${url}: ${found.length} English-looking text(s)`);
+      ws.close(); return;
+    }
     if (!rect) throw new Error(`${name}: selector ${selector} not found`);
     const clip = { x: Math.max(0, rect.x - pad), y: Math.max(0, rect.y - pad), width: Math.min(width, rect.w + pad * 2), height: rect.h + pad * 2, scale: 1 };
     const img = await send("Page.captureScreenshot", { format: "webp", quality: 82, clip, captureBeyondViewport: true });
@@ -145,5 +162,11 @@ try {
   await shot("9-result-and-ratings", "/play", ".match-panel", players[1].jar);
   await players[0].post("/api/admin/trust/recompute");
   await shot("10-trust-score", `/player/${A[1]}`, ".trust-panel", players[0].jar);
+  if (AUDIT) {
+    for (const p of ["/", "/teams", "/players", "/matches", "/rankings", "/guide", "/contact", "/terms", "/privacy", `/team/${m.my_team_id}`, "/nope"]) await shot("page", p, "body", players[0].jar);
+    await shot("account", "/account", "body", players[0].jar);
+    fs.writeFileSync(`${SCRATCH}/i18n-audit.json`, JSON.stringify(auditFound, null, 1));
+    console.log(`audit written: ${SCRATCH}/i18n-audit.json`);
+  }
 } catch (e) { console.error(e); process.exitCode = 1; }
 finally { for (const p of procs) try { p.kill(); } catch {} }

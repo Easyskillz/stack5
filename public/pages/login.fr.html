@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Connexion · CleanLobby</title>
+<meta name="description" content="Connecte-toi à CleanLobby avec ton compte Steam. CleanLobby reçoit seulement ton SteamID public : pas de mot de passe, aucun accès à ton inventaire ni à tes échanges.">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="https://cleanlobby.com/fr/login">
+<link rel="alternate" hreflang="en" href="https://cleanlobby.com/login"><link rel="alternate" hreflang="fr" href="https://cleanlobby.com/fr/login"><link rel="alternate" hreflang="x-default" href="https://cleanlobby.com/login">
+<meta name="theme-color" content="#0c0c0e">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:title" content="Connexion · CleanLobby"><meta property="og:type" content="website"><meta property="og:site_name" content="CleanLobby"><meta property="og:url" content="https://cleanlobby.com/fr/login"><meta property="og:locale" content="fr_FR">
+<meta property="og:description" content="Connecte-toi à CleanLobby avec ton compte Steam. CleanLobby reçoit seulement ton SteamID public : pas de mot de passe, aucun accès à ton inventaire ni à tes échanges."><meta property="og:image" content="https://cleanlobby.com/og.png"><meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="/assets/app.css">
+<style>
+.safe{margin-top:22px;padding:16px 18px;border:1px solid #2e2e35;border-radius:10px;background:#0f0f12;font-size:13px;line-height:1.6}
+.safe h3{margin:0 0 8px;font-size:15px}
+.safe ul{margin:8px 0 0;padding-left:18px}
+.safe code{color:var(--accent)}
+#error{color:#ff6b6b;margin-top:14px}
+</style>
+</head>
+<body>
+<header class="header">
+<a class="logo" href="/fr">Clean<span>Lobby</span></a>
+<div class="lang-switch"><a class="lang-opt" href="/login" onclick="document.cookie='cl_lang=en; path=/; max-age=31536000; samesite=lax'" aria-label="English"><img src="/flags/us.svg" alt=""><span>EN</span></a><a class="lang-opt on" href="/fr/login" aria-label="Français"><img src="/flags/fr.svg" alt=""><span>FR</span></a></div>
+</header>
+<main class="container" style="max-width:520px">
+<div class="eyebrow">CleanLobby</div>
+<h1 style="font-size:40px">Connecte-toi avec Steam.</h1>
+<p class="subtitle">Nouveau ou déjà inscrit, c’est le même bouton. Première fois ? Tu choisiras ton pseudo juste après.</p>
+<div class="card" style="margin-top:25px">
+<a class="btn btn-steam" href="/auth/steam/start" style="width:100%;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="15.5" cy="9" r="3" fill="currentColor"/><circle cx="8.5" cy="15.5" r="2.2" fill="currentColor"/><path d="M8.5 15.5 15.5 9" stroke="currentColor" stroke-width="2"/></svg> Se connecter via Steam</a>
+<div id="error" hidden></div>
+<div class="safe">
+<h3>🔐 C’est sûr ?</h3>
+Tu te connectes sur <strong>le site officiel de Steam</strong>. Avant de taper ton mot de passe ou de scanner le QR code, vérifie que la barre d’adresse affiche <code>https://steamcommunity.com</code>.
+<ul>
+<li>CleanLobby reçoit seulement ton SteamID public. On ne voit jamais ton mot de passe.</li>
+<li>CleanLobby n’a aucun accès à ton inventaire, tes skins ou tes échanges.</li>
+<li>CleanLobby ne te demandera <strong>jamais</strong> ton code Steam Guard, une clé API ou ton lien d’échange.</li>
+<li>Tu valides dans l’appli Steam ? Steam indique d’où vient la demande. Si ce n’est pas là où tu es, refuse-la.</li>
+</ul>
+</div>
+</div>
+</main>
+<footer><div style="max-width:1180px;margin:auto">CleanLobby · Crée. Matche. Joue. · <a href="/fr/guide">Comment ça marche</a> · <a href="/fr/contact">Contact</a> · <a href="/fr/terms">Conditions</a> · <a href="/fr/privacy">Confidentialité</a></div></footer>
+<script src="/i18n/fr.js"></script>
+<script>
+document.cookie = 'cl_lang=fr; path=/; max-age=31536000; samesite=lax';   // come back to the French site after Steam
+const error = new URLSearchParams(location.search).get('error');
+if (error) { const box = document.getElementById('error'); box.textContent = (window.CL_FR || {})[error] || error; box.hidden = false; }
+</script>
+</body>
+</html>

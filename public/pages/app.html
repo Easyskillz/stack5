@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{lang}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -8,6 +8,7 @@
   <meta name="keywords" content="CleanLobby, CS2 5v5, CS2 team matchmaking, CS2 Premier, CS2 Premier rating, Counter-Strike 2 5-stack, find CS2 team, CS2 premade teams, CS2 private matchmaking, CS2 without cheaters, cheater-free CS2, trusted CS2 players, CS2 trust score, CS2 Morocco, CS2 France, CS2 Belgium, CS2 Switzerland, CS2 Spain, CS2 Portugal, CS2 UK, CS2 Ireland, CS2 Maroc, CS2 équipe 5v5">
   <meta name="robots" content="{{robots}}">
   <link rel="canonical" href="{{url}}">
+  {{alternates}}
   <meta name="theme-color" content="#0c0c0e">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -19,7 +20,7 @@
   <meta property="og:image" content="{{base}}/og.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:locale" content="en_US">
+  <meta property="og:locale" content="{{locale}}">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="{{title}}">
   <meta name="twitter:description" content="{{description}}">
@@ -30,21 +31,7 @@
 </head>
 <body>
 <!-- Readable without JavaScript (search engines, LLM crawlers); app.js replaces it on load. -->
-<main class="container" id="static-content">
-  <h1>{{heading}}</h1>
-  <p>{{description}}</p>
-  <h2>How CleanLobby works</h2>
-  <ol>
-    <li><strong>Sign in through Steam.</strong> Every account is a real, proven Steam account. CleanLobby never sees your Steam password and has no access to your inventory or trades.</li>
-    <li><strong>Pass the trust checks.</strong> Steam account at least 2 years old, at least 500 hours of CS2, no recent VAC or game ban.</li>
-    <li><strong>Build your five.</strong> Create a team and invite players, or ask to join a team that is recruiting.</li>
-    <li><strong>Queue as a full team.</strong> CleanLobby matches you with another complete 5-stack close enough for good ping, with a similar CS2 Premier rating. Teammates find each other by the languages they speak.</li>
-    <li><strong>Play through CS2 Private Matchmaking.</strong> One captain shares the private matchmaking code, both teams join on Valve servers, then the captains report the score.</li>
-    <li><strong>Build your reputation.</strong> After the match, players vote 👍/👎 on each other’s comms, teamplay, attitude and sportsmanship (skill is the CS2 Premier rating). The CleanLobby Trust Score (0–100) combines Steam account history (35%), votes from teammates and opponents (30%), reliability (25%) and matches played (10%). 60 and above is good, 75 and above is excellent. Raise it by playing matches to the end, rating everyone after each match and accepting matches in time.</li>
-  </ol>
-  <p>Beta countries: Morocco, France, Belgium, Switzerland, Luxembourg, Monaco, Spain, Andorra, Portugal, the United Kingdom, Ireland and Malta. More countries later. Languages: English, French, Spanish and Portuguese. CS2 Premier ratings are read from Leetify. Coming soon: Premium officiated matches on private servers with a real admin who can ask any player to stream their screen and can kick cheaters, plus 5v5 tournaments. CleanLobby is a reputation layer, not an anti-cheat.</p>
-  <p><a href="/login">Sign in with Steam</a> · <a href="/teams">Find a team</a> · <a href="/players">Find players</a> · <a href="/matches">Matches</a> · <a href="/guide">How it works</a> · <a href="/contact">Contact</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></p>
-</main>
-<script src="/assets/app.js"></script>
+{{static}}
+{{i18n}}<script src="/assets/app.js"></script>
 </body>
 </html>

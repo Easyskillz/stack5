@@ -7,6 +7,7 @@
 <meta name="description" content="What data CleanLobby collects, why, who it is shared with and how long it is kept. Sign-in through Steam, no passwords stored.">
 <meta name="robots" content="index,follow">
 <link rel="canonical" href="https://cleanlobby.com/privacy">
+<link rel="alternate" hreflang="en" href="https://cleanlobby.com/privacy"><link rel="alternate" hreflang="fr" href="https://cleanlobby.com/fr/privacy"><link rel="alternate" hreflang="x-default" href="https://cleanlobby.com/privacy">
 <meta name="theme-color" content="#0c0c0e">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -33,6 +34,7 @@
 <body>
 <header class="header">
 <a class="logo" href="/">Clean<span>Lobby</span></a>
+<div class="lang-switch"><a class="lang-opt on" href="/privacy" aria-label="English"><img src="/flags/us.svg" alt=""><span>EN</span></a><a class="lang-opt" href="/fr/privacy" onclick="document.cookie='cl_lang=fr; path=/; max-age=31536000; samesite=lax'" aria-label="Français"><img src="/flags/fr.svg" alt=""><span>FR</span></a></div>
 <div class="header-right"><a class="btn btn-dark btn-small" href="/login">Login</a></div>
 </header>
 
@@ -63,7 +65,7 @@
 <div class="table-wrap"><table>
 <tr><th>Data</th><th>Why</th></tr>
 <tr><td><strong>Account:</strong> username, the SteamID64 you sign in with, and optionally an email address</td><td>To create your account and sign you in. CleanLobby has no passwords: you sign in through Steam. The email is optional; if you add one, we verify it and use it only for match notifications and important account news.</td></tr>
-<tr><td><strong>Player profile:</strong> link to your Steam profile, display name, optional avatar URL, country, CS2 Premier rating (copied from your Leetify profile), main role, the languages you speak</td><td>To show your profile to other players and to match teams by region and level.</td></tr>
+<tr><td><strong>Player profile:</strong> link to your Steam profile, display name, optional avatar URL, country, CS2 Premier rating (copied from your Leetify profile), main role, the languages you speak</td><td>To show your profile to other players and to match teams that are close enough for good ping and at a similar level.</td></tr>
 <tr><td><strong>Terms acceptance:</strong> the date you accepted our terms</td><td>To record your agreement.</td></tr>
 </table></div>
 
@@ -71,7 +73,7 @@
 <div class="table-wrap"><table>
 <tr><th>Data</th><th>Why</th></tr>
 <tr><td>Teams you create or join, invitations, join requests, queue entries, matches found, accepted, declined and confirmed</td><td>To run team building and matchmaking.</td></tr>
-<tr><td>Ratings you give to and receive from players you played a confirmed match with</td><td>To calculate peer reputation in the CleanLobby Trust Score.</td></tr>
+<tr><td>👍/👎 votes you give to and receive from players you played a completed match with (and older 1–5★ ratings from before votes existed)</td><td>To calculate peer reputation in the CleanLobby Trust Score.</td></tr>
 <tr><td>Reliability events: declining a found match or letting it expire (as captain), and leaving a team while it is queued</td><td>To calculate the reliability part of the Trust Score.</td></tr>
 <tr><td>Your CleanLobby Trust Score, its breakdown and confidence level</td><td>Shown on your profile and used in matchmaking (see section 4).</td></tr>
 </table></div>
@@ -105,17 +107,17 @@
 <h2>3. What is public</h2>
 <p>CleanLobby is built around players being able to see who they will play with. The following is visible to <strong>anyone</strong>, including people who are not logged in:</p>
 <ul>
-<li>your display name, avatar, country, region, role, the languages you speak and your CS2 Premier rating;</li>
+<li>your display name, avatar, country, role, the languages you speak and your CS2 Premier rating;</li>
 <li>a link to your Steam profile, and whether your Steam account is verified;</li>
 <li>information from Leetify and FACEIT about your Steam account, if those services have it (see section 2), including <strong>any FACEIT bans</strong>;</li>
-<li>your CleanLobby Trust Score, reliability and teamplay scores, confidence level and score breakdown. The breakdown can include your Steam account age, CS2 hours, the number of ratings you've received and their average, and <strong>any VAC, game or community bans on your Steam account</strong>;</li>
-<li>teams you belong to (name, region, roster) and match pairings you take part in.</li>
+<li>your CleanLobby Trust Score, reliability and teamplay scores, confidence level and score breakdown. The breakdown can include your Steam account age, CS2 hours, the number of votes you've received and the share of 👍 per aspect, and <strong>any VAC, game or community bans on your Steam account</strong>;</li>
+<li>teams you belong to (name, roster) and match pairings you take part in.</li>
 </ul>
-<p>Never public: your email address, individual ratings (who rated you and how), and server logs.</p>
+<p>Never public: your email address, individual votes (who voted for you and how), and server logs.</p>
 
 <h2>4. The CleanLobby Trust Score</h2>
 <p>The Trust Score (0–100) is calculated automatically from four parts: <strong>identity</strong> (35%, from the public Steam data above), <strong>peer reputation</strong> (30%, 👍/👎 votes on communication, teamplay, attitude and sportsmanship from players you actually played with, weighted by the voter's own trust and how recent the vote is; your profile shows the share of 👍 per aspect, never who voted), <strong>reliability</strong> (25%) and <strong>track record</strong> (10%, confirmed matches on CleanLobby). A recent VAC, game or cheating-related ban caps the score.</p>
-<p>The score is used to describe players on their profile and as one factor (15%) when matchmaking compares two teams. It does not ban or exclude anyone from CleanLobby by itself.</p>
+<p>The score is used to describe players on their profile and as one factor (20%) when matchmaking compares two teams. It does not ban or exclude anyone from CleanLobby by itself.</p>
 <p><strong>CleanLobby is a reputation layer, not an anti-cheat.</strong> A score is not a finding that anyone is or isn't cheating. If you think your score is wrong, for example because of incorrect data, email us and a person will review it.</p>
 
 <h2>5. Legal bases</h2>
@@ -141,13 +143,13 @@
 <h2>7. Cookies and local storage</h2>
 <ul>
 <li><strong><code>stack5_session</code></strong>: a strictly necessary cookie that keeps you logged in (HttpOnly, lasts up to 30 days, removed when you log out).</li>
-<li><strong><code>stack5_lang</code></strong>: saved in your browser's local storage to remember your language choice.</li>
+<li><strong><code>cl_lang</code></strong>: remembers whether you use the English or French site (up to 1 year), so Steam sign-in brings you back to the same language. Contains only "en" or "fr".</li>
 </ul>
 <p>We don't use advertising, analytics or third-party tracking cookies, and our pages load no third-party scripts or fonts.</p>
 
 <h2>8. How long we keep data</h2>
 <ul>
-<li><strong>Account, profile, teams, matches, ratings, Trust Score:</strong> for as long as your account exists. When you delete your account (from your <a href="/account">account page</a>), we immediately delete your account, email, ratings, Steam data and reliability history, and replace your player profile with an anonymous "Deleted player" placeholder so past team and match records stay consistent. Copies in backups disappear when those backups are deleted (within 30 days).</li>
+<li><strong>Account, profile, teams, matches, votes, Trust Score:</strong> for as long as your account exists. When you delete your account (from your <a href="/account">account page</a>), we immediately delete your account, email, votes, Steam data and reliability history, and replace your player profile with an anonymous "Deleted player" placeholder so past team and match records stay consistent. Copies in backups disappear when those backups are deleted (within 30 days).</li>
 <li><strong>Steam data:</strong> refreshed about weekly; deleted with your account.</li>
 <li><strong>Login sessions:</strong> up to 30 days, or until you log out.</li>
 <li><strong>Email verification links:</strong> 24 hours. <strong>Unfinished first sign-ins</strong> (Steam sign-in done, username not picked yet): 30 minutes.</li>
