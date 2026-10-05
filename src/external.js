@@ -62,6 +62,15 @@ export async function fetchSteam(steamId64) {
   };
 }
 
+/** Public Steam display name, used only to suggest a username at first sign-in. Never throws. */
+export async function steamPersonaName(steamId64) {
+  if (!process.env.STEAM_API_KEY) return null;
+  try {
+    const j = await getJson(`${STEAM}/ISteamUser/GetPlayerSummaries/v2/?key=${process.env.STEAM_API_KEY}&steamids=${steamId64}`);
+    return j?.response?.players?.[0]?.personaname || null;
+  } catch { return null; }
+}
+
 // ---------- FACEIT (live, not stored) ----------
 const faceitCache = new Map();   // steamId -> { at, data } ; in memory only, cleared on restart
 export const faceitEnabled = () => !!process.env.FACEIT_API_KEY;

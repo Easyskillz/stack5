@@ -25,10 +25,8 @@ export function evaluateEligibility(playerId, now = Date.now()) {
   const haveSteam = !!(e && e.steam_fetched_at && !e.steam_error);
   const checks = [];
 
-  if (process.env.STEAM_VERIFICATION !== "off") {
-    checks.push({ key: "steam_owner", label: "Steam account verified as yours", ok: p.steam_verified === 1,
-      detail: p.steam_verified === 1 ? "Signed in through Steam" : "Sign in through Steam to prove this account is yours" });
-  }
+  checks.push({ key: "steam_owner", label: "Steam account verified as yours", ok: p.steam_verified === 1,
+    detail: p.steam_verified === 1 ? "Signed in through Steam" : "Sign in through Steam to prove this account is yours" });
 
   const years = d => (d / 365).toFixed(d >= 365 ? 1 : 2).replace(/\.0$/, "");
   checks.push({ key: "steam_found", label: "Steam profile found", ok: haveSteam,

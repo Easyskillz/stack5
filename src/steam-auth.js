@@ -1,5 +1,5 @@
 /**
- * "Sign in through Steam" (OpenID 2.0) — proves a player owns the Steam account they link.
+ * "Sign in through Steam" (OpenID 2.0) — the only way to sign in to STACK5. It proves the player owns the Steam account.
  * The player logs in on steamcommunity.com; Steam sends them back with a signed assertion,
  * which we confirm directly with Steam (check_authentication) before trusting the SteamID.
  * We never see the player's Steam password.
@@ -7,7 +7,6 @@
 const NS = "http://specs.openid.net/auth/2.0";
 const IDENTIFIER_SELECT = "http://specs.openid.net/auth/2.0/identifier_select";
 export const steamOpenIdEndpoint = () => process.env.STEAM_OPENID_ENDPOINT || "https://steamcommunity.com/openid/login";
-export const steamVerificationEnabled = () => process.env.STEAM_VERIFICATION !== "off";
 
 export function steamLoginUrl(returnTo, realm) {
   const p = new URLSearchParams({

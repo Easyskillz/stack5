@@ -8,8 +8,8 @@ How every part of STACK5 works: what players see, the rules behind it, and where
 
 | Page | What it covers | Status |
 |---|---|---|
-| [Accounts & login](accounts-and-login.md) | Sign-up, email verification, login, password reset, sessions | Live |
-| [Steam verification](steam-verification.md) | "Sign in through Steam": proving a Steam account is yours | Live |
+| [Accounts & login](accounts-and-login.md) | Steam-only sign-in, first-time username, optional email, sessions | Live |
+| [Steam verification](steam-verification.md) | "Sign in through Steam": how it works and why it's safe | Live |
 | [Player eligibility](eligibility.md) | Who is allowed to play (account age, hours, bans) | Live |
 | [Player profile](player-profile.md) | Profile setup, regions, public profile page, Leetify and FACEIT panels | Live (FACEIT panel needs `FACEIT_API_KEY` on the server) |
 | [Trust Score](trust-score.md) | The 0–100 reputation score and how it is calculated | Live |
@@ -30,6 +30,7 @@ How every part of STACK5 works: what players see, the rules behind it, and where
 
 ## Changelog
 
+- **2026-10-05:** "Sign in through Steam" is now the only way to sign in. Passwords, sign-up, password reset and Steam-URL pasting removed (stored passwords deleted). First sign-in picks a username; email is optional and can be managed on the Account page. "Is this safe?" box on the sign-in page. Trust Score only uses verified Steam data. Fake Steam sign-in for local testing (`scripts/fake-steam.js`).
 - **2026-10-05:** Terms · Privacy footer added to the login, forgot-password and sign-up pages. Code backed up to a private GitHub repo; each deploy also copies the database backup to the operator's PC.
 
 - **2026-10-05:** "Sign in through Steam" (ownership proof) and the live FACEIT profile panel; FACEIT removed from the Trust Score per FACEIT's API terms (`043bea2`). Wiki created; Terms and Privacy updated for both features. Deployed 2026-10-05.

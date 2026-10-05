@@ -1,7 +1,8 @@
 /**
  * STACK5 Trust Score (0-100).
  *
- *   identity    35%  Steam account age, CS2 hours, Steam level (FACEIT share held neutral: API terms)
+ *   identity    35%  Steam account age, CS2 hours, Steam level (FACEIT share held neutral: API terms).
+ *                    Only counts once the player proved the Steam account is theirs (Sign in through Steam).
  *   peer        30%  ratings from players you shared a confirmed match with
  *   reliability 25%  accepting matches vs declining / abandoning queued teams
  *   record      10%  confirmed matches played on STACK5
@@ -105,12 +106,14 @@ function caps(ext, now) {
 
 // ---------- main ----------
 export function computeTrust(playerId, now = Date.now()) {
-  const player = db.prepare("SELECT id FROM players WHERE id=?").get(playerId);
+  const player = db.prepare("SELECT id, steam_verified FROM players WHERE id=?").get(playerId);
   if (!player) return null;
-  const ext = db.prepare("SELECT * FROM player_external WHERE player_id=?").get(playerId);
+  // Steam data from an unproven (pasted) profile could belong to anyone, so it is ignored.
+  const ext = player.steam_verified ? db.prepare("SELECT * FROM player_external WHERE player_id=?").get(playerId) : null;
   const played = confirmedMatches(playerId);
 
   const identity = identityPart(ext, now);
+  if (!player.steam_verified) identity.notes = ["Steam account not verified"];
   const peer = peerPart(playerId, now);
   const reliability = reliabilityPart(playerId, now, played);
   const record = { score: 100 * logScale(played, 30), played };

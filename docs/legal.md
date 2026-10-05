@@ -3,7 +3,7 @@
 - **Terms of Service:** [stack5cs.com/terms](https://stack5cs.com/terms) (`public/pages/terms.html`)
 - **Privacy Policy:** [stack5cs.com/privacy](https://stack5cs.com/privacy) (`public/pages/privacy.html`)
 
-Both are linked from the sign-up checkbox, which players must tick, and from the footer of every page (the app, login, forgot-password and sign-up).
+Both are linked from the sign-up checkbox, which players must tick, and from the footer of every page (the app, sign-in and first-time welcome page).
 
 ## Key points
 

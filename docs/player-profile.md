@@ -12,7 +12,7 @@ Players create it on the Play page after verifying their email (and, once deploy
 - **Role**: Rifler, AWPer, Entry, IGL, Support or Lurker
 - **Language**: English, French, Arabic, Spanish, German, Portuguese, Italian, Dutch, Turkish or Russian
 
-Before Steam verification goes live, players paste their Steam profile link here instead.
+The Steam account is the one they signed in with. It's shown as verified and can't be changed here.
 
 A Steam account can belong to only one STACK5 profile, and each account has one profile.
 

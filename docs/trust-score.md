@@ -13,6 +13,7 @@ A 0–100 reputation score on every player, shown on their profile with a breakd
 
 ## Rules
 
+- **Only proven Steam data counts.** Identity (and the ban caps) use Steam data only once the player signed in through Steam. An unverified Steam link, which only old test accounts can have, counts as neutral, because it could be anyone's.
 - **Bans cap the score.** A VAC or game ban in the last 2 years caps it at 20; an older ban subtracts points. A Steam community ban caps it at 40.
 - **New players start near the middle.** Missing data counts as neutral, and hidden data (a private profile) counts as slightly below neutral. Nobody is punished for a source STACK5 doesn't have.
 - **Ratings only after a confirmed match.** Players can only rate people they shared a confirmed match with. Ratings from older accounts and from players who shared more matches count more, and scores move toward neutral until enough ratings exist.

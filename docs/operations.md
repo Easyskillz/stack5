@@ -12,7 +12,14 @@ cp .env.example .env   # then set NODE_ENV=development, PUBLIC_BASE_URL=http://l
 npm start
 ```
 
-For local testing, `STACK5_ELIGIBILITY=off` and `STEAM_VERIFICATION=off` skip the Steam checks.
+Signing in needs Steam. To test without real Steam accounts, run the fake Steam sign-in next to the app. It lets you sign in as any SteamID64:
+
+```bash
+node scripts/fake-steam.js                     # http://localhost:3999
+STEAM_OPENID_ENDPOINT=http://localhost:3999/openid/login npm start
+```
+
+`STACK5_ELIGIBILITY=off` skips the Steam history checks (account age, hours, bans). Never set `STEAM_OPENID_ENDPOINT` in production.
 
 ## Configuration
 

@@ -90,15 +90,15 @@ db.exec(`
 CREATE TABLE IF NOT EXISTS accounts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT NOT NULL UNIQUE,
-  email TEXT NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL,
-  password_salt TEXT NOT NULL,
+  email TEXT UNIQUE,
   email_verified INTEGER DEFAULT 0,
   verification_token_hash TEXT,
   verification_expires_at INTEGER,
   terms_accepted_at TEXT,
   player_id INTEGER UNIQUE,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  verified_steam_id TEXT,
+  is_admin INTEGER NOT NULL DEFAULT 0,
   FOREIGN KEY(player_id) REFERENCES players(id) ON DELETE SET NULL
 );
 
@@ -199,20 +199,56 @@ try { db.exec("ALTER TABLE teams ADD COLUMN last_activity_at INTEGER"); } catch 
 try { db.exec("ALTER TABLE players ADD COLUMN steam_verified INTEGER DEFAULT 0"); } catch {}
 try { db.exec("ALTER TABLE players ADD COLUMN steam_verified_at INTEGER"); } catch {}
 try { db.exec("ALTER TABLE accounts ADD COLUMN verified_steam_id TEXT"); } catch {}
-db.exec(`CREATE TABLE IF NOT EXISTS steam_auth_states (
-  state TEXT PRIMARY KEY,
-  account_id INTEGER NOT NULL,
-  created_at INTEGER NOT NULL,
-  FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE CASCADE
-)`);
 // FACEIT data is live-only (FACEIT API terms 5.4): wipe anything an earlier version stored.
 db.exec(`UPDATE player_external SET faceit_id=NULL, faceit_nickname=NULL, faceit_level=NULL, faceit_elo=NULL, faceit_matches=NULL,
   faceit_activated_at=NULL, faceit_bans=NULL, faceit_fetched_at=NULL, faceit_error=NULL WHERE faceit_fetched_at IS NOT NULL OR faceit_id IS NOT NULL`);
 try { db.exec("ALTER TABLE trust_ratings ADD COLUMN match_id INTEGER"); } catch {}
 try { db.exec("ALTER TABLE matches ADD COLUMN declined_by_team_id INTEGER"); } catch {}
 try { db.exec("ALTER TABLE accounts ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0"); } catch {}
-try { db.exec("ALTER TABLE accounts ADD COLUMN reset_token_hash TEXT"); } catch {}
-try { db.exec("ALTER TABLE accounts ADD COLUMN reset_expires_at INTEGER"); } catch {}
+
+// Steam is the only way to sign in: email becomes optional and passwords are no longer stored.
+// SQLite can't drop NOT NULL in place, so the accounts table is rebuilt once (standard 12-step recipe).
+if (db.prepare("SELECT \"notnull\" FROM pragma_table_info('accounts') WHERE name='email'").get()?.notnull) {
+  db.pragma("foreign_keys = OFF");
+  db.transaction(() => {
+    db.exec(`CREATE TABLE accounts_new (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL UNIQUE,
+      email TEXT UNIQUE,
+      email_verified INTEGER DEFAULT 0,
+      verification_token_hash TEXT,
+      verification_expires_at INTEGER,
+      terms_accepted_at TEXT,
+      player_id INTEGER UNIQUE,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      verified_steam_id TEXT,
+      is_admin INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY(player_id) REFERENCES players(id) ON DELETE SET NULL
+    )`);
+    db.exec(`INSERT INTO accounts_new(id,username,email,email_verified,verification_token_hash,verification_expires_at,terms_accepted_at,player_id,created_at,verified_steam_id,is_admin)
+      SELECT id,username,email,email_verified,verification_token_hash,verification_expires_at,terms_accepted_at,player_id,created_at,verified_steam_id,is_admin FROM accounts`);
+    db.exec("DROP TABLE accounts");
+    db.exec("ALTER TABLE accounts_new RENAME TO accounts");
+    // Sign-in states now also exist before an account does (first Steam sign-in).
+    db.exec("DROP TABLE IF EXISTS steam_auth_states");
+    const broken = db.prepare("PRAGMA foreign_key_check").all();
+    if (broken.length) throw new Error(`accounts migration left ${broken.length} broken reference(s)`);
+  })();
+  db.pragma("foreign_keys = ON");
+}
+db.exec(`CREATE TABLE IF NOT EXISTS steam_auth_states (
+  state TEXT PRIMARY KEY,
+  account_id INTEGER,                 -- set when an already signed-in account links Steam
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE CASCADE
+)`);
+// First Steam sign-in: the proven SteamID waits here while the player picks a username.
+db.exec(`CREATE TABLE IF NOT EXISTS steam_signups (
+  token_hash TEXT PRIMARY KEY,
+  steam_id TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+)`);
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_steam ON accounts(verified_steam_id) WHERE verified_steam_id IS NOT NULL");
 
 export function getTeamMembers(teamId) {
   return db.prepare(`

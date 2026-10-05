@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Welcome · STACK5</title>
+<link rel="stylesheet" href="/assets/app.css">
+<style>
+.field{width:100%;box-sizing:border-box;padding:13px;margin-bottom:10px;background:#0b100d;border:1px solid #28352e;color:#fff;border-radius:7px}
+.terms{display:flex;gap:10px;align-items:flex-start;margin:6px 0 15px;font-size:13px}
+.terms input{margin-top:3px}
+label.small{display:block;font-size:12px;margin:4px 0 6px}
+</style>
+</head>
+<body>
+<header class="header">
+<a class="logo" href="/">STACK<span>5</span></a>
+</header>
+<main class="container" style="max-width:460px">
+<div class="eyebrow">STEAM ACCOUNT VERIFIED ✅</div>
+<h1 style="font-size:40px">Welcome to STACK5.</h1>
+<p class="subtitle" id="intro">Pick your username to finish creating your account.</p>
+<div class="card" style="margin-top:25px">
+<form id="signupForm">
+<label class="small muted">Username</label>
+<input class="field" name="username" placeholder="3–24 letters, numbers or _" autocomplete="username" pattern="[A-Za-z0-9_]{3,24}" required>
+<label class="small muted">Email (optional): only for match notifications and important account news</label>
+<input class="field" name="email" type="email" placeholder="you@example.com" autocomplete="email">
+<label class="terms muted"><input type="checkbox" name="terms" required> <span>I'm at least 16, I accept the <a href="/terms" target="_blank" style="color:var(--green)">Terms of Service</a> and I've read the <a href="/privacy" target="_blank" style="color:var(--green)">Privacy Policy</a>. My STACK5 profile and Trust Score will be public.</span></label>
+<button class="btn btn-green" style="width:100%">Create my account</button>
+<div id="message" class="muted" style="margin-top:12px"></div>
+</form>
+</div>
+</main>
+<footer><div style="max-width:1180px;margin:auto">STACK5 · Build. Match. Play. · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></div></footer>
+<script>
+const form = document.getElementById('signupForm');
+const message = document.getElementById('message');
+const expired = text => { location.href = '/login?error=' + encodeURIComponent(text); };
+
+fetch('/api/auth/signup').then(async r => {
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401) return expired(j.error);
+  if (j.persona) document.getElementById('intro').textContent = `Signed in as ${j.persona} on Steam. Pick your STACK5 username to finish.`;
+  if (j.suggested_username) form.username.value = j.suggested_username;
+});
+
+form.onsubmit = async e => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(form));
+  const button = form.querySelector('button');
+  button.disabled = true;
+  message.style.color = '';
+  message.textContent = 'Creating your account...';
+  try {
+    const r = await fetch('/api/auth/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) return expired(j.error);
+    if (!r.ok) throw new Error(j.error || 'Something went wrong.');
+    location.href = '/play';
+  } catch (err) {
+    message.style.color = '#ff6b6b';
+    message.textContent = err.message;
+    button.disabled = false;
+  }
+};
+</script>
+</body>
+</html>

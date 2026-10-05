@@ -37,7 +37,7 @@
 <p style="margin-top:0"><strong>The short version</strong></p>
 <ul>
 <li>We collect what we need to run CS2 team matchmaking: your account details, your player profile, public data about your Steam account, and what you do on STACK5.</li>
-<li>Your player profile and STACK5 Trust Score are <strong>public</strong>. Your email address and password are never shown to anyone.</li>
+<li>Your player profile and STACK5 Trust Score are <strong>public</strong>. Your email address, if you give one, is never shown to anyone.</li>
 <li>We never ask for your Steam password, Steam Guard code, trade URL or inventory access.</li>
 <li>We don't sell your data, show ads or use tracking/analytics cookies.</li>
 <li>You can delete your account yourself at any time from your <a href="/account">account page</a>, or ask us to see, correct or delete your data: <a href="mailto:contact@stack5cs.com">contact@stack5cs.com</a>.</li>
@@ -54,8 +54,8 @@
 <h3>Information you give us</h3>
 <div class="table-wrap"><table>
 <tr><th>Data</th><th>Why</th></tr>
-<tr><td><strong>Account:</strong> username, email address, password</td><td>To create and secure your account, verify your email, and send password-reset links. Passwords are stored only as a salted scrypt hash; we can't see them.</td></tr>
-<tr><td><strong>Player profile:</strong> Steam profile URL, display name, optional avatar URL, country, matchmaking region, FACEIT level and Elo (as you enter them), main role, language</td><td>To show your profile to other players and to match teams by region and level.</td></tr>
+<tr><td><strong>Account:</strong> username, the SteamID64 you sign in with, and optionally an email address</td><td>To create your account and sign you in. STACK5 has no passwords: you sign in through Steam. The email is optional; if you add one, we verify it and use it only for match notifications and important account news.</td></tr>
+<tr><td><strong>Player profile:</strong> link to your Steam profile, display name, optional avatar URL, country, matchmaking region, FACEIT level and Elo (as you enter them), main role, language</td><td>To show your profile to other players and to match teams by region and level.</td></tr>
 <tr><td><strong>Terms acceptance:</strong> the date you accepted our terms</td><td>To record your agreement.</td></tr>
 </table></div>
 
@@ -69,10 +69,10 @@
 </table></div>
 
 <h3>Information we get from Steam</h3>
-<p><strong>Steam sign-in:</strong> to prove a Steam account is yours, you sign in on Steam's own website ("Sign in through Steam"). Steam then tells us only your SteamID64; we never see your Steam password. We store that SteamID64 with your account and mark your profile as Steam-verified.</p>
+<p><strong>Steam sign-in:</strong> the only way to sign in to STACK5 is "Sign in through Steam", on Steam's own website. Steam then tells us only your SteamID64; we never see your Steam password, and we have no access to your inventory or trades. We store that SteamID64 with your account and mark your profile as Steam-verified.</p>
 <p>When you create a profile, and roughly once a week after that, we use the official Steam Web API to look up public information about the Steam account you linked:</p>
 <ul>
-<li>your SteamID64 (from Steam sign-in, or resolved from the profile URL entered on older profiles);</li>
+<li>your SteamID64 (from Steam sign-in);</li>
 <li>whether your profile is public, and the account creation date if it is;</li>
 <li>your Steam level and your CS2 playtime (only if your game details are public);</li>
 <li>the number of VAC bans and game bans on the account, days since the last ban, and whether the account has a Steam community ban.</li>
@@ -100,7 +100,7 @@
 <li>your STACK5 Trust Score, reliability and teamplay scores, confidence level and score breakdown. The breakdown can include your Steam account age, CS2 hours, the number of ratings you've received and their average, and <strong>any VAC, game or community bans on your Steam account</strong>;</li>
 <li>teams you belong to (name, region, roster) and match pairings you take part in.</li>
 </ul>
-<p>Never public: your email address, password, individual ratings (who rated you and how), and server logs.</p>
+<p>Never public: your email address, individual ratings (who rated you and how), and server logs.</p>
 
 <h2>4. The STACK5 Trust Score</h2>
 <p>The Trust Score (0–100) is calculated automatically from four parts: <strong>identity</strong> (35%, from the public Steam data above), <strong>peer reputation</strong> (30%, ratings from players you actually played with, weighted by the rater's own trust and how recent the rating is), <strong>reliability</strong> (25%) and <strong>track record</strong> (10%, confirmed matches on STACK5). A recent VAC, game or cheating-related ban caps the score.</p>
@@ -119,7 +119,7 @@
 <p>We don't sell or rent personal data. We share it only with services that are needed to run STACK5:</p>
 <ul>
 <li><strong>Hostinger:</strong> hosts our server and database.</li>
-<li><strong>Our email provider:</strong> sends account verification and password-reset emails to your address.</li>
+<li><strong>Our email provider:</strong> sends email verification and notification emails, only if you added an email address.</li>
 <li><strong>Valve (Steam):</strong> handles Steam sign-in, and receives your SteamID or profile name when we look up your public Steam data.</li>
 <li><strong>Leetify:</strong> receives your SteamID when your profile page requests your stats.</li>
 <li><strong>FACEIT:</strong> receives your SteamID when your profile page requests your FACEIT information.</li>
@@ -139,7 +139,7 @@
 <li><strong>Account, profile, teams, matches, ratings, Trust Score:</strong> for as long as your account exists. When you delete your account (from your <a href="/account">account page</a>), we immediately delete your account, email, ratings, Steam data and reliability history, and replace your player profile with an anonymous "Deleted player" placeholder so past team and match records stay consistent. Copies in backups disappear when those backups are deleted (within 30 days).</li>
 <li><strong>Steam data:</strong> refreshed about weekly; deleted with your account.</li>
 <li><strong>Login sessions:</strong> up to 30 days, or until you log out.</li>
-<li><strong>Email verification links:</strong> 24 hours. <strong>Password-reset links:</strong> 1 hour, single use.</li>
+<li><strong>Email verification links:</strong> 24 hours. <strong>Unfinished first sign-ins</strong> (Steam sign-in done, username not picked yet): 30 minutes.</li>
 <li><strong>Server logs:</strong> for a limited period, normally no more than 30 days.</li>
 <li><strong>Backups:</strong> kept for up to 30 days, then deleted automatically.</li>
 </ul>
@@ -153,16 +153,16 @@
 <li>restrict or object to certain processing, including the Trust Score;</li>
 <li>have a person review your Trust Score.</li>
 </ul>
-<p>You can delete your account yourself on your <a href="/account">account page</a>. For anything else, email <a href="mailto:contact@stack5cs.com">contact@stack5cs.com</a> from the address on your account. We'll reply within 30 days. You can also complain to your data protection authority, for example the CNDP in Morocco or the authority in your EU country.</p>
+<p>You can delete your account yourself on your <a href="/account">account page</a>. For anything else, email <a href="mailto:contact@stack5cs.com">contact@stack5cs.com</a> and tell us your STACK5 username; we may ask you to confirm it's you by signing in. We'll reply within 30 days. You can also complain to your data protection authority, for example the CNDP in Morocco or the authority in your EU country.</p>
 
 <h2>10. Security</h2>
-<p>We hash passwords with scrypt, store only hashes of session and email tokens, use HttpOnly cookies, CSRF protection, HTTPS and rate limiting, and limit server access. No system is perfectly secure. If a breach affects your data, we'll notify you as required by law.</p>
+<p>We don't store passwords (sign-in goes through Steam), store only hashes of session and email tokens, use HttpOnly cookies, CSRF protection, HTTPS and rate limiting, and limit server access. No system is perfectly secure. If a breach affects your data, we'll notify you as required by law.</p>
 
 <h2>11. Age</h2>
 <p>You must be at least <strong>16 years old</strong> to use STACK5. If we learn that someone under 16 has created an account, we'll delete it.</p>
 
 <h2>12. Changes</h2>
-<p>We'll update this page when our practices change, and change the "Last updated" date above. For significant changes, we'll also tell registered users by email or on the site before they take effect.</p>
+<p>We'll update this page when our practices change, and change the "Last updated" date above. For significant changes, we'll also tell registered users on the site (and by email, if they added one) before they take effect.</p>
 
 <p style="margin-top:40px"><a href="/">← Back to STACK5</a></p>
 </main>

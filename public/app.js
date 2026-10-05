@@ -4,7 +4,7 @@ const Stack5 = (() => {
   const T = {
     en:{
       play:'Play', teams:'Find a Team', players:'Find Players', matches:'Matches',
-      rankings:'Rankings', login:'Login', register:'Create account',
+      rankings:'Rankings', login:'Sign in with Steam',
       profile:'My Profile', myTeam:'My Team', logout:'Logout',
       view:'View', join:'Request to Join', invite:'Invite', challenge:'Challenge',
       trust:'Trust', reliability:'Reliability', teamplay:'Teamplay',
@@ -12,7 +12,7 @@ const Stack5 = (() => {
     },
     fr:{
       play:'Jouer', teams:'Trouver une équipe', players:'Trouver des joueurs', matches:'Matchs',
-      rankings:'Classement', login:'Connexion', register:'Créer un compte',
+      rankings:'Classement', login:'Connexion avec Steam',
       profile:'Mon profil', myTeam:'Mon équipe', logout:'Déconnexion',
       view:'Voir', join:'Demander à rejoindre', invite:'Inviter', challenge:'Défier',
       trust:'Confiance', reliability:'Fiabilité', teamplay:"Esprit d'équipe",
@@ -49,8 +49,7 @@ const Stack5 = (() => {
 
         <div class="header-right" id="header-right">
           <button class="lang" onclick="Stack5.toggleLang()">${state.lang.toUpperCase()}</button>
-          <a class="btn btn-dark btn-small" href="/login">${tr('login')}</a>
-          <a class="btn btn-green btn-small" href="/register">${tr('register')}</a>
+          <a class="btn btn-green btn-small" href="/login">${tr('login')}</a>
         </div>
       </header>`;
   }
@@ -308,16 +307,16 @@ const Stack5 = (() => {
 
   async function home(){
     const features=[
-      ['🛡️','Trusted player identity','Create a STACK5 account, verify your email and build a player profile linked to your public Steam profile.'],
+      ['🛡️','Trusted player identity','Every account is a real Steam account, proven by signing in through Steam. No throwaway sign-ups.'],
       ['⭐','Reputation, not just Elo','Keep skill separate from reliability, teamplay, communication and conduct signals.'],
       ['🎯','Team-based matchmaking','Build your five, enter the queue and find another complete team at a comparable level.'],
-      ['🔎','Verification layers','Start with email and public Steam identity. Stronger verification can be added as STACK5 evolves.'],
+      ['🔎','Verification layers','Steam ownership, account age, CS2 hours and ban checks before anyone can queue.'],
       ['🌍','Regional matchmaking','A global regional structure designed to connect players and teams with competitive matches worldwide.'],
       ['🔐','Steam-safe by design','STACK5 never needs your Steam password, Steam Guard code, trade URL or inventory access.']
     ];
     const steps=[
-      ['Create account','STACK5 username, email and password.'],
-      ['Complete profile','Steam public URL, country, region, level, role and language.'],
+      ['Sign in with Steam','On Steam’s own website, then pick a username.'],
+      ['Complete profile','Country, region, level, role and language.'],
       ['Build your five','Invite friends or find missing players.'],
       ['Find your match','Enter the 5v5 queue and meet a comparable team.'],
       ['Ready & play','Both teams confirm before the match.']
@@ -328,7 +327,7 @@ const Stack5 = (() => {
         <h1>Tired of cheaters?<br><span>Find a trusted five.</span></h1>
         <p class="subtitle">STACK5 is built for CS2 players who want a more trusted 5v5 experience — with player identity, reputation and team-based matchmaking at the core.</p>
         <div class="actions">
-          <a class="btn btn-green" href="/register" data-guest-cta>Create your account</a>
+          <a class="btn btn-green" href="/login" data-guest-cta>Sign in with Steam</a>
           <a class="btn btn-dark" href="#how">How STACK5 works</a>
           <a class="btn btn-dark" href="/teams">${tr('teams')}</a>
         </div>
@@ -375,7 +374,7 @@ const Stack5 = (() => {
           <div class="cta">
             <h2>Your five is waiting.</h2>
             <p>Build your identity. Find your team. Find your match.</p>
-            <div class="actions"><a class="btn btn-green" href="/register" data-guest-cta>Create your STACK5 account</a></div>
+            <div class="actions"><a class="btn btn-green" href="/login" data-guest-cta>Sign in with Steam</a></div>
           </div>
         </div>
       </div>`);
@@ -461,9 +460,9 @@ const Stack5 = (() => {
     const r=await fetch('/api/my/dashboard',{credentials:'include'});
     if(r.status===401){
       box.innerHTML=`<div class="panel" style="max-width:560px">
-        <h2>Log in to play</h2>
-        <p class="muted">Create a STACK5 account, set up your player profile and build your five.</p>
-        <div class="actions" style="margin-top:16px"><a class="btn btn-green" href="/login">Log in</a><a class="btn btn-dark" href="/register">Create account</a></div>
+        <h2>Sign in to play</h2>
+        <p class="muted">Sign in through Steam, set up your player profile and build your five.</p>
+        <div class="actions" style="margin-top:16px"><a class="btn btn-green" href="/login">Sign in with Steam</a></div>
       </div>`;
       return;
     }
@@ -638,17 +637,9 @@ const Stack5 = (() => {
   }
 
   async function renderSetup(box,d){
-    if(!d.account.email_verified){
-      box.innerHTML=`<div class="panel" style="max-width:600px">
-        <h2>Verify your email</h2>
-        <p class="muted">We sent a verification link when you signed up. Click it, then come back here. Check your spam folder if you can't find it.</p>
-        <form data-form="resend" class="inline-form"><input class="input" name="email" type="email" placeholder="Your account email" required><button class="btn btn-dark btn-small">Resend link</button></form>
-      </div>`;
-      return;
-    }
-    if(d.steam_verification && !d.account.verified_steam_id){
+    // Only older accounts created before Steam sign-in can get here without a proven Steam account.
+    if(!d.account.verified_steam_id){
       box.innerHTML=`<div class="panel" style="max-width:640px">
-        <div class="eyebrow">STEP 1 OF 2</div>
         <h2 style="margin-top:8px">Link your Steam account</h2>
         <p class="muted">Sign in on Steam's own website to prove the account is yours. Steam only tells us your SteamID. We never see your password, and nobody can link your account but you.</p>
         <div class="actions" style="margin-top:16px">${steamButton('Sign in through Steam')}</div>
@@ -656,11 +647,9 @@ const Stack5 = (() => {
       return;
     }
     const cat=await catalog();
-    const steamField=d.steam_verification
-      ? `<div class="full"><label>Steam account</label><div class="input" style="display:flex;justify-content:space-between;align-items:center"><span>✅ Verified · ${esc(d.account.verified_steam_id)}</span><a href="https://steamcommunity.com/profiles/${esc(d.account.verified_steam_id)}" target="_blank" rel="noopener" style="color:var(--green)">View</a></div></div>`
-      : `<div class="full"><label>Steam profile URL</label><input class="input" name="steam_url" placeholder="https://steamcommunity.com/id/yourname" required></div>`;
+    const steamField=`<div class="full"><label>Steam account</label><div class="input" style="display:flex;justify-content:space-between;align-items:center"><span>✅ Verified · ${esc(d.account.verified_steam_id)}</span><a href="https://steamcommunity.com/profiles/${esc(d.account.verified_steam_id)}" target="_blank" rel="noopener" style="color:var(--green)">View</a></div></div>`;
     box.innerHTML=`<div class="panel" style="max-width:760px">
-      ${d.steam_verification?'<div class="eyebrow">STEP 2 OF 2</div>':''}
+      <div class="eyebrow">LAST STEP</div>
       <h2 style="margin-top:8px">Set up your player profile</h2>
       <p class="muted" style="margin-top:0">This is what teams see when they look for players. STACK5 never asks for your Steam password.</p>
       <form data-form="profile" class="form-grid" style="margin-top:18px">
@@ -733,10 +722,6 @@ const Stack5 = (() => {
         if(!data.avatar_url) delete data.avatar_url;
         await post('/api/profile',data); toast('Profile saved. Welcome to STACK5!');
       }
-      if(form.dataset.form==='resend'){
-        const r=await get('/api/auth/resend-verification',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-        toast(r.message); if(button) button.disabled=false; return;
-      }
       await renderPlay();
     }catch(err){ toast(err.message,true); if(button) button.disabled=false; }
   }
@@ -757,14 +742,17 @@ const Stack5 = (() => {
     layout('Account',`<div class="container" style="max-width:720px"><div class="eyebrow">ACCOUNT</div><h1>Your account</h1><div id="account"><div class="empty">Loading...</div></div></div>`);
     const box=document.getElementById('account');
     const r=await fetch('/api/me',{credentials:'include'});
-    if(!r.ok){ box.innerHTML=`<div class="panel"><p class="muted" style="margin:0">Please <a href="/login" style="color:var(--green)">log in</a> first.</p></div>`; return; }
+    if(!r.ok){ box.innerHTML=`<div class="panel"><p class="muted" style="margin:0">Please <a href="/login" style="color:var(--green)">sign in</a> first.</p></div>`; return; }
     const me=await r.json();
     state.csrf=me.csrf_token;
+    if(new URLSearchParams(location.search).get('email')==='verified') toast('Email verified.');
+    const emailStatus=!me.account.email?'<span class="muted">Not set</span>':`${esc(me.account.email)} <span class="muted small">${me.account.email_verified?'✅ verified':'· check your inbox to verify'}</span>`;
     box.innerHTML=`
       <div class="panel">
         <h2>Details</h2>
         <div class="row"><span class="muted">Username</span><strong>${esc(me.account.username)}</strong></div>
-        <div class="row"><span class="muted">Email</span><strong>${esc(me.account.email)}</strong></div>
+        <div class="row"><span class="muted">Email (optional)</span><span>${emailStatus}</span></div>
+        <form id="emailForm" class="inline-form" style="margin:6px 0 10px"><input class="input" name="email" type="email" placeholder="you@example.com" value="${esc(me.account.email||'')}"><button class="btn btn-dark btn-small">Save email</button></form>
         <div class="row"><span class="muted">Player profile</span>${me.player?`<a href="/player/${encodeURIComponent(me.player.display_name)}" style="color:var(--green)">${esc(me.player.display_name)}</a>`:'<span class="muted">Not set up</span>'}</div>
         <p class="muted small" style="margin-bottom:0">Want to change something or get a copy of your data? Email <a href="mailto:contact@stack5cs.com" style="color:var(--green)">contact@stack5cs.com</a>. See our <a href="/privacy" style="color:var(--green)">Privacy Policy</a> and <a href="/terms" style="color:var(--green)">Terms</a>.</p>
       </div>
@@ -772,11 +760,17 @@ const Stack5 = (() => {
         <h2 style="color:#ffb3b9">Delete account</h2>
         <p class="muted" style="margin-top:0">This permanently deletes your account, email, ratings, Steam data and reliability history. Your public profile is replaced by an anonymous "Deleted player" in past teams and matches. If you captain a team, it is disbanded. This can't be undone.</p>
         <form id="deleteForm" class="form-grid">
-          <div><label>Password</label><input class="input" name="password" type="password" autocomplete="current-password" required></div>
           <div><label>Type DELETE to confirm</label><input class="input" name="confirm" autocomplete="off" required pattern="DELETE"></div>
           <div class="full"><button class="btn btn-danger">Delete my account permanently</button></div>
         </form>
       </div>`;
+    const emailForm=document.getElementById('emailForm');
+    emailForm.onsubmit=async e=>{
+      e.preventDefault();
+      const b=emailForm.querySelector('button'); b.disabled=true;
+      try{ const r=await post('/api/account/email',{email:emailForm.email.value.trim()}); toast(r.message); await account(); }
+      catch(err){ toast(err.message,true); b.disabled=false; }
+    };
     const form=document.getElementById('deleteForm');
     form.onsubmit=async e=>{
       e.preventDefault();

@@ -7,11 +7,10 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import nodemailer from "nodemailer";
 import { db, getTeam, getTeamMembers } from "./db.js";
-import { normalizeSteamUrl } from "./csst.js";
-import { resolveSteamId64, refreshExternal, leetifyProfile, faceitProfile, faceitEnabled } from "./external.js";
+import { steamPersonaName, refreshExternal, leetifyProfile, faceitProfile, faceitEnabled } from "./external.js";
 import { computeTrust, recomputeAll, recordEvent } from "./trust.js";
 import { evaluateEligibility, isEligible, eligibilityEnabled, NOT_ELIGIBLE } from "./eligibility.js";
-import { steamLoginUrl, verifySteamAssertion, steamVerificationEnabled } from "./steam-auth.js";
+import { steamLoginUrl, verifySteamAssertion } from "./steam-auth.js";
 import { expireStale, touchTeam, teamExpiresAt, queueExpiresAt, matchExpiresAt, LIMITS } from "./timers.js";
 import { runMatchmaking } from "./matchmaking.js";
 import { REGION_CATALOG, COUNTRY_CATALOG } from "./regions.js";
@@ -46,6 +45,7 @@ setInterval(() => {
   for (const [key, hit] of attempts) if (hit.at < cutoff) attempts.delete(key);
 }, 5 * 60_000).unref();
 app.use("/api", rateLimit);
+app.use("/auth", rateLimit);
 
 function requireBody(req, res, fields) {
   for (const f of fields) {
@@ -59,11 +59,6 @@ function requireBody(req, res, fields) {
 
 function hash(value) { return crypto.createHash("sha256").update(value).digest("hex"); }
 function randomToken(bytes = 32) { return crypto.randomBytes(bytes).toString("hex"); }
-function scrypt(password, salt) { return new Promise((resolve, reject) => crypto.scrypt(password, salt, 64, (e, d) => e ? reject(e) : resolve(d.toString("hex")))); }
-async function verifyPassword(password, salt, expected) {
-  const actual = await scrypt(password, salt);
-  return crypto.timingSafeEqual(Buffer.from(actual, "hex"), Buffer.from(expected, "hex"));
-}
 function safeAvatarUrl(value) {
   if (!value) return null;
   try { const u = new URL(String(value)); return u.protocol === "https:" ? u.toString().slice(0, 500) : null; } catch { return null; }
@@ -92,7 +87,7 @@ async function createSession(accountId, res) {
   const raw = randomToken(32), csrf = randomToken(24);
   const expires = Date.now() + SESSION_DAYS * 86400000;
   db.prepare("INSERT INTO sessions(account_id,token_hash,csrf_token,expires_at) VALUES(?,?,?,?)").run(accountId, hash(raw), csrf, expires);
-  res.setHeader("Set-Cookie", `stack5_session=${encodeURIComponent(raw)}; ${cookieOptions(SESSION_DAYS * 86400)}`);
+  res.append("Set-Cookie", `stack5_session=${encodeURIComponent(raw)}; ${cookieOptions(SESSION_DAYS * 86400)}`);
   return csrf;
 }
 
@@ -154,7 +149,7 @@ app.get("/api/admin/stats", auth, adminRequired, (req, res) => {
   const count = (sql, ...args) => db.prepare(sql).get(...args).count;
   res.json({
     accounts: count("SELECT COUNT(*) AS count FROM accounts"),
-    verifiedAccounts: count("SELECT COUNT(*) AS count FROM accounts WHERE email_verified=1"),
+    verifiedAccounts: count("SELECT COUNT(*) AS count FROM accounts WHERE verified_steam_id IS NOT NULL"),
     admins: count("SELECT COUNT(*) AS count FROM accounts WHERE is_admin=1"),
     players: count("SELECT COUNT(*) AS count FROM players"),
     teams: count("SELECT COUNT(*) AS count FROM teams"),
@@ -205,328 +200,13 @@ app.post("/api/admin/run-matchmaking", auth, adminRequired, csrf, (req, res) => 
 app.get("/api/health", (_, res) => res.json({ ok: true, service: "stack5", version: "0.2.0" }));
 app.get("/api/regions", (_, res) => res.json({ regions: REGION_CATALOG, countries: COUNTRY_CATALOG.map(([code,name,region,flag]) => ({ code, name, region, flag })) }));
 
-app.post("/api/auth/register", async (req, res) => {
-  if (!requireBody(req, res, ["username","email","password","password_confirm","terms"])) return;
-  const username = String(req.body.username).trim();
-  const email = String(req.body.email).trim().toLowerCase();
-  const password = String(req.body.password);
-  if (!/^[A-Za-z0-9_]{3,24}$/.test(username)) return res.status(400).json({ error: "Username must be 3–24 characters using letters, numbers or underscore." });
-  if (!emailValid(email)) return res.status(400).json({ error: "Enter a valid email address." });
-  if (password.length < 10) return res.status(400).json({ error: "Password must be at least 10 characters." });
-  if (password !== req.body.password_confirm) return res.status(400).json({ error: "Passwords do not match." });
-  if (!(req.body.terms === true || req.body.terms === "true" || req.body.terms === "on")) return res.status(400).json({ error: "You must accept the STACK5 terms." });
-  if (db.prepare("SELECT id FROM accounts WHERE lower(email)=lower(?) OR lower(username)=lower(?)").get(email, username)) return res.status(409).json({ error: "An account with that email or username already exists." });
-  const salt = randomToken(16), passwordHash = await scrypt(password, salt), token = randomToken(32);
-  const tx = db.transaction(() => db.prepare(`INSERT INTO accounts(username,email,password_hash,password_salt,email_verified,verification_token_hash,verification_expires_at,terms_accepted_at) VALUES(?,?,?,?,0,?,?,CURRENT_TIMESTAMP)`).run(username,email,passwordHash,salt,hash(token),Date.now()+VERIFY_HOURS*3600000));
-  let account;
-  try { const r = tx(); account = db.prepare("SELECT id,username,email,email_verified,player_id FROM accounts WHERE id=?").get(r.lastInsertRowid); await sendVerificationEmail(account, token); }
-  catch (e) { return res.status(500).json({ error: e.message }); }
-  res.status(201).json({ ok: true, email_verified: false, message: "Account created. Verify your email before completing your player profile." });
-});
-
-app.post("/api/auth/resend-verification", async (req, res) => {
-  if (!requireBody(req, res, ["email"])) return;
-
-  const email = String(req.body.email).trim().toLowerCase();
-  if (!emailValid(email)) {
-    return res.status(400).json({ error: "Enter a valid email address." });
-  }
-
-  const account = db.prepare(
-    "SELECT id,username,email,email_verified FROM accounts WHERE lower(email)=lower(?)"
-  ).get(email);
-
-  // Don't reveal whether an email exists.
-  if (!account || account.email_verified) {
-    return res.json({
-      ok: true,
-      message: "If the account exists and still needs verification, a new verification email has been sent."
-    });
-  }
-
-  const token = randomToken(32);
-
-  db.prepare(`
-    UPDATE accounts
-    SET verification_token_hash=?,
-        verification_expires_at=?
-    WHERE id=?
-  `).run(
-    hash(token),
-    Date.now() + VERIFY_HOURS * 3600000,
-    account.id
-  );
-
-  try {
-    await sendVerificationEmail(account, token);
-  } catch (e) {
-    return res.status(500).json({ error: "Unable to send verification email right now." });
-  }
-
-  res.json({
-    ok: true,
-    message: "A new verification email has been sent."
-  });
-});
-
-app.post("/api/auth/forgot-password", async (req, res) => {
-  if (!requireBody(req, res, ["email"])) return;
-
-  const email = String(req.body.email).trim().toLowerCase();
-
-  if (!emailValid(email)) {
-    return res.status(400).json({ error: "Enter a valid email address." });
-  }
-
-  const account = db.prepare(
-    "SELECT id,username,email FROM accounts WHERE lower(email)=lower(?)"
-  ).get(email);
-
-  // Never reveal whether an account exists.
-  if (!account) {
-    return res.json({
-      ok: true,
-      message: "If an account exists for that email, a password reset link has been sent."
-    });
-  }
-
-  const token = randomToken(32);
-  const tokenHash = hash(token);
-  const expiresAt = Date.now() + 60 * 60 * 1000;
-
-  db.prepare(`
-    UPDATE accounts
-    SET reset_token_hash=?,
-        reset_expires_at=?
-    WHERE id=?
-  `).run(tokenHash, expiresAt, account.id);
-
-  const url = `${BASE_URL}/reset-password?token=${token}`;
-
-  try {
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT || 587),
-      secure: String(process.env.SMTP_SECURE) === "true",
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-      }
-    });
-
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to: account.email,
-      subject: "Reset your STACK5 password",
-      text:
-        `Reset your STACK5 password using this link:\n\n${url}\n\n` +
-        `This link expires in 1 hour and can only be used once.\n\n` +
-        `If you did not request a password reset, you can safely ignore this email.`
-    });
-  } catch (e) {
-    // Do not leave a usable reset token if email delivery failed.
-    db.prepare(`
-      UPDATE accounts
-      SET reset_token_hash=NULL,
-          reset_expires_at=NULL
-      WHERE id=?
-    `).run(account.id);
-
-    console.error("Password reset email failed:", e);
-  }
-
-  res.json({
-    ok: true,
-    message: "If an account exists for that email, a password reset link has been sent."
-  });
-});
-
-app.post("/api/auth/reset-password", async (req, res) => {
-  if (!requireBody(req, res, ["token", "password", "password_confirm"])) return;
-
-  const token = String(req.body.token || "");
-  const password = String(req.body.password || "");
-  const passwordConfirm = String(req.body.password_confirm || "");
-
-  if (!token) {
-    return res.status(400).json({ error: "Invalid or expired reset link." });
-  }
-
-  if (password.length < 10) {
-    return res.status(400).json({ error: "Password must be at least 10 characters." });
-  }
-
-  if (password !== passwordConfirm) {
-    return res.status(400).json({ error: "Passwords do not match." });
-  }
-
-  const account = db.prepare(`
-    SELECT id
-    FROM accounts
-    WHERE reset_token_hash=?
-      AND reset_expires_at>?
-  `).get(hash(token), Date.now());
-
-  if (!account) {
-    return res.status(400).json({ error: "This password reset link is invalid or expired." });
-  }
-
-  const salt = randomToken(16);
-  const passwordHash = await scrypt(password, salt);
-
-  db.prepare(`
-    UPDATE accounts
-    SET password_hash=?,
-        password_salt=?,
-        reset_token_hash=NULL,
-        reset_expires_at=NULL
-    WHERE id=?
-  `).run(passwordHash, salt, account.id);
-
-  // Invalidate existing sessions so the password change takes effect everywhere.
-  db.prepare("DELETE FROM sessions WHERE account_id=?").run(account.id);
-
-  res.json({
-    ok: true,
-    message: "Your password has been reset. You can now log in."
-  });
-});
-
-app.get("/reset-password", (req, res) => {
-  res.send(`<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Reset password — STACK5</title>
-<style>
-body{
-  margin:0;
-  min-height:100vh;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background:#080809;
-  color:#f4f4f5;
-  font-family:Inter,system-ui,-apple-system,sans-serif;
-}
-.card{
-  width:min(460px,calc(100% - 32px));
-  background:#111113;
-  border:1px solid #27272a;
-  border-radius:18px;
-  padding:30px;
-}
-h1{margin-top:0}
-p{color:#a1a1aa;line-height:1.5}
-label{
-  display:block;
-  font-size:12px;
-  color:#a1a1aa;
-  margin:15px 0 6px;
-}
-input{
-  width:100%;
-  box-sizing:border-box;
-  padding:13px;
-  border-radius:10px;
-  border:1px solid #3f3f46;
-  background:#18181b;
-  color:white;
-  font-size:15px;
-}
-button{
-  width:100%;
-  margin-top:18px;
-  padding:13px;
-  border:0;
-  border-radius:10px;
-  background:#a3e635;
-  color:#101010;
-  font-weight:900;
-  cursor:pointer;
-}
-.message{
-  margin-top:15px;
-  color:#d4d4d8;
-  font-size:13px;
-  white-space:pre-wrap;
-}
-a{color:#a3e635}
-</style>
-</head>
-<body>
-<div class="card">
-  <h1>Reset your STACK5 password</h1>
-  <p>Choose a new password for your STACK5 account.</p>
-
-  <form id="resetForm">
-    <label>New password</label>
-    <input type="password" name="password" minlength="10" required>
-
-    <label>Confirm new password</label>
-    <input type="password" name="password_confirm" minlength="10" required>
-
-    <button type="submit">Reset password</button>
-  </form>
-
-  <div id="msg" class="message"></div>
-</div>
-
-<script>
-const token = new URLSearchParams(location.search).get("token");
-const form = document.getElementById("resetForm");
-const msg = document.getElementById("msg");
-
-if (!token) {
-  form.style.display = "none";
-  msg.textContent = "This password reset link is invalid.";
-}
-
-form.onsubmit = async e => {
-  e.preventDefault();
-  msg.textContent = "Resetting password...";
-
-  const data = Object.fromEntries(new FormData(form));
-  data.token = token;
-
-  try {
-    const r = await fetch("/api/auth/reset-password", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(data)
-    });
-
-    const j = await r.json();
-
-    if (!r.ok) throw new Error(j.error || "Password reset failed.");
-
-    msg.innerHTML = j.message + ' <a href="/">Log in</a>';
-    form.style.display = "none";
-  } catch (err) {
-    msg.textContent = err.message;
-  }
-};
-</script>
-</body>
-</html>`);
-});
-
 app.get("/verify-email", (req, res) => {
   const token = String(req.query.token || "");
   if (!token) return res.status(400).send("Invalid verification link.");
   const account = db.prepare("SELECT id FROM accounts WHERE verification_token_hash=? AND verification_expires_at>? AND email_verified=0").get(hash(token), Date.now());
   if (!account) return res.status(400).send("This verification link is invalid or expired.");
   db.prepare("UPDATE accounts SET email_verified=1, verification_token_hash=NULL, verification_expires_at=NULL WHERE id=?").run(account.id);
-  res.redirect("/login?verified=1");
-});
-
-app.post("/api/auth/login", async (req, res) => {
-  if (!requireBody(req, res, ["email","password"])) return;
-  const account = db.prepare("SELECT * FROM accounts WHERE lower(email)=lower(?)").get(String(req.body.email).trim().toLowerCase());
-  if (!account || !(await verifyPassword(String(req.body.password), account.password_salt, account.password_hash))) return res.status(401).json({ error: "Invalid email or password." });
-  const csrfToken = await createSession(account.id, res);
-  res.json({ ok: true, csrf_token: csrfToken, email_verified: !!account.email_verified, profile_complete: !!account.player_id, username: account.username });
+  res.redirect("/account?email=verified");
 });
 
 app.post("/api/auth/logout", auth, csrf, (req, res) => {
@@ -542,32 +222,104 @@ app.get("/api/me", auth, (req, res) => {
     csrf_token: req.account.csrf_token, account: { id:req.account.account_id, username:req.account.username, email:req.account.email, email_verified:!!req.account.email_verified }, player });
 });
 
-// ---- Steam ownership verification ("Sign in through Steam").
+// ---- "Sign in through Steam": the only way in. A first sign-in creates the account (username picked
+// on /welcome); a returning player gets a session; a signed-in account without proven Steam links one.
 const STEAM_RETURN_PATH = "/auth/steam/return";
+const STEAM_STATE_MINUTES = 15, SIGNUP_MINUTES = 30;
+const usernameTaken = name => !!db.prepare("SELECT 1 FROM accounts WHERE lower(username)=lower(?)").get(name);
 
 app.get("/auth/steam/start", (req, res) => {
   const account = sessionAccount(req);
-  if (!account) return res.redirect("/login");
+  if (account?.verified_steam_id) return res.redirect("/play");
   const state = randomToken(16);
-  db.prepare("DELETE FROM steam_auth_states WHERE created_at < ?").run(Date.now() - 15 * 60_000);
-  db.prepare("INSERT INTO steam_auth_states(state,account_id,created_at) VALUES(?,?,?)").run(state, account.account_id, Date.now());
+  db.prepare("DELETE FROM steam_auth_states WHERE created_at < ?").run(Date.now() - STEAM_STATE_MINUTES * 60_000);
+  db.prepare("INSERT INTO steam_auth_states(state,account_id,created_at) VALUES(?,?,?)").run(state, account?.account_id ?? null, Date.now());
+  // Tie the attempt to this browser, so a sign-in link can't log someone else in.
+  res.append("Set-Cookie", `stack5_steam_state=${state}; ${cookieOptions(STEAM_STATE_MINUTES * 60)}`);
   res.redirect(steamLoginUrl(`${BASE_URL}${STEAM_RETURN_PATH}?state=${state}`, BASE_URL));
 });
 
 app.get(STEAM_RETURN_PATH, async (req, res) => {
-  const account = sessionAccount(req);
-  if (!account) return res.redirect("/login");
   const params = new URL(req.originalUrl, BASE_URL).searchParams;
   const state = params.get("state") || "";
   const row = db.prepare("SELECT * FROM steam_auth_states WHERE state=?").get(state);
   db.prepare("DELETE FROM steam_auth_states WHERE state=?").run(state);
-  const fail = msg => res.redirect(`/play?steam=error&reason=${encodeURIComponent(msg)}`);
-  if (!row || row.account_id !== account.account_id || Date.now() - row.created_at > 15 * 60_000) return fail("Steam sign-in expired. Please try again.");
+  res.append("Set-Cookie", `stack5_steam_state=; ${cookieOptions(0)}`);
+  const fail = msg => res.redirect(`/login?error=${encodeURIComponent(msg)}`);
+  if (!row || getCookie(req, "stack5_steam_state") !== state || Date.now() - row.created_at > STEAM_STATE_MINUTES * 60_000) return fail("Steam sign-in expired. Please try again.");
   try {
     const steamId = await verifySteamAssertion(params, `${BASE_URL}${STEAM_RETURN_PATH}?state=${state}`);
-    await linkVerifiedSteam(account, steamId);
-    res.redirect("/play?steam=linked");
+    const owner = db.prepare("SELECT id FROM accounts WHERE verified_steam_id=?").get(steamId);
+
+    if (row.account_id) {                       // linking from a signed-in (older) account
+      const account = sessionAccount(req);
+      if (account?.account_id !== row.account_id) return fail("Steam sign-in expired. Please try again.");
+      if (owner && owner.id !== account.account_id) return fail("This Steam account already has a STACK5 account. Log out and sign in with it instead.");
+      await linkVerifiedSteam(account, steamId);
+      return res.redirect("/play?steam=linked");
+    }
+
+    let accountId = owner?.id;
+    if (!accountId) {
+      // An older account that pasted this Steam profile: signing in proves it, so the account becomes theirs.
+      const legacy = db.prepare(`SELECT a.id, a.player_id FROM accounts a JOIN players p ON p.id=a.player_id
+        WHERE p.steam_id=? AND p.deleted_at IS NULL AND a.verified_steam_id IS NULL`).get(steamId);
+      if (legacy) {
+        db.prepare("DELETE FROM sessions WHERE account_id=?").run(legacy.id);   // sign out anyone who used it before
+        await linkVerifiedSteam({ account_id: legacy.id, player_id: legacy.player_id }, steamId);
+        accountId = legacy.id;
+      }
+    }
+    if (accountId) { await createSession(accountId, res); return res.redirect("/play"); }
+
+    const token = randomToken(32);
+    db.prepare("DELETE FROM steam_signups WHERE created_at < ?").run(Date.now() - SIGNUP_MINUTES * 60_000);
+    db.prepare("INSERT INTO steam_signups(token_hash,steam_id,created_at) VALUES(?,?,?)").run(hash(token), steamId, Date.now());
+    res.append("Set-Cookie", `stack5_signup=${token}; ${cookieOptions(SIGNUP_MINUTES * 60)}`);
+    res.redirect("/welcome");
   } catch (e) { fail(e.message); }
+});
+
+function pendingSignup(req) {
+  const token = getCookie(req, "stack5_signup");
+  const row = token && db.prepare("SELECT * FROM steam_signups WHERE token_hash=?").get(hash(token));
+  return row && Date.now() - row.created_at <= SIGNUP_MINUTES * 60_000 ? row : null;
+}
+const SIGNUP_EXPIRED = "Your Steam sign-in expired. Please sign in again.";
+
+app.get("/welcome", (req, res) => pendingSignup(req) ? res.sendFile(path.join(__dirname, "../public/pages/welcome.html")) : res.redirect("/login"));
+
+app.get("/api/auth/signup", async (req, res) => {
+  const s = pendingSignup(req);
+  if (!s) return res.status(401).json({ error: SIGNUP_EXPIRED });
+  const persona = await steamPersonaName(s.steam_id);
+  const suggestion = String(persona || "").replace(/[^A-Za-z0-9_]/g, "").slice(0, 24);
+  res.json({ steam_id: s.steam_id, persona, suggested_username: suggestion.length >= 3 && !usernameTaken(suggestion) ? suggestion : "" });
+});
+
+app.post("/api/auth/signup", async (req, res) => {
+  const s = pendingSignup(req);
+  if (!s) return res.status(401).json({ error: SIGNUP_EXPIRED });
+  if (!requireBody(req, res, ["username", "terms"])) return;
+  const username = String(req.body.username).trim();
+  const email = String(req.body.email || "").trim().toLowerCase() || null;
+  if (!/^[A-Za-z0-9_]{3,24}$/.test(username)) return res.status(400).json({ error: "Username must be 3–24 characters using letters, numbers or underscore." });
+  if (email && !emailValid(email)) return res.status(400).json({ error: "Enter a valid email address, or leave it empty." });
+  if (!(req.body.terms === true || req.body.terms === "true" || req.body.terms === "on")) return res.status(400).json({ error: "You must accept the STACK5 terms." });
+  if (usernameTaken(username)) return res.status(409).json({ error: "That username is taken." });
+  if (email && db.prepare("SELECT 1 FROM accounts WHERE lower(email)=?").get(email)) return res.status(409).json({ error: "That email is already used by another account." });
+  if (db.prepare("SELECT 1 FROM accounts WHERE verified_steam_id=?").get(s.steam_id) ||
+      db.prepare("SELECT 1 FROM players WHERE steam_id=? AND steam_verified=1 AND deleted_at IS NULL").get(s.steam_id))
+    return res.status(409).json({ error: "This Steam account already has a STACK5 account. Sign in again to use it." });
+  const token = email ? randomToken(32) : null;
+  const id = db.prepare(`INSERT INTO accounts(username,email,email_verified,verification_token_hash,verification_expires_at,terms_accepted_at)
+    VALUES(?,?,0,?,?,CURRENT_TIMESTAMP)`).run(username, email, token && hash(token), token && Date.now() + VERIFY_HOURS * 3600000).lastInsertRowid;
+  db.prepare("DELETE FROM steam_signups WHERE token_hash=?").run(s.token_hash);
+  await linkVerifiedSteam({ account_id: id, player_id: null }, s.steam_id);
+  res.append("Set-Cookie", `stack5_signup=; ${cookieOptions(0)}`);
+  const csrfToken = await createSession(id, res);
+  if (email) sendVerificationEmail({ email }, token).catch(e => console.error("[STACK5] verification email failed:", e.message));
+  res.status(201).json({ ok: true, csrf_token: csrfToken });
 });
 
 /**
@@ -578,13 +330,11 @@ async function linkVerifiedSteam(account, steamId) {
   const now = Date.now();
   const claimant = db.prepare("SELECT id, steam_verified FROM players WHERE steam_id=? AND deleted_at IS NULL AND id IS NOT ?").get(steamId, account.player_id ?? null);
   if (claimant?.steam_verified) throw new Error("This Steam account is already verified by another STACK5 player.");
-  const otherAccount = db.prepare("SELECT id FROM accounts WHERE verified_steam_id=? AND id<>?").get(steamId, account.account_id);
   db.transaction(() => {
     if (claimant) {
       db.prepare("UPDATE players SET steam_id=NULL, steam_url=?, steam_verified=0 WHERE id=?").run(`unlinked:${claimant.id}`, claimant.id);
       db.prepare("DELETE FROM player_external WHERE player_id=?").run(claimant.id);
     }
-    if (otherAccount) db.prepare("UPDATE accounts SET verified_steam_id=NULL WHERE id=?").run(otherAccount.id);
     db.prepare("UPDATE accounts SET verified_steam_id=? WHERE id=?").run(steamId, account.account_id);
     if (account.player_id) {
       db.prepare("UPDATE players SET steam_id=?, steam_url=?, steam_verified=1, steam_verified_at=? WHERE id=?")
@@ -599,32 +349,22 @@ async function linkVerifiedSteam(account, steamId) {
 }
 
 app.post("/api/profile", auth, csrf, async (req, res) => {
-  if (!req.account.email_verified) return res.status(403).json({ error: "Verify your email before creating your player profile." });
-  const verifySteam = steamVerificationEnabled();
-  if (!requireBody(req, res, [...(verifySteam ? [] : ["steam_url"]),"country","region","faceit_level","role","language"])) return;
-  if (verifySteam && !req.account.verified_steam_id) return res.status(403).json({ error: "Sign in through Steam first to prove the account is yours.", code: "STEAM_NOT_LINKED" });
+  if (!requireBody(req, res, ["country","region","faceit_level","role","language"])) return;
+  if (!req.account.verified_steam_id) return res.status(403).json({ error: "Sign in through Steam first to prove the account is yours.", code: "STEAM_NOT_LINKED" });
   const country = COUNTRY_CATALOG.find(x => x[0] === req.body.country);
   const region = REGION_CATALOG.find(x => x.id === req.body.region);
   if (!country || !region) return res.status(400).json({ error: "Invalid country or region." });
   if (country[2] !== region.id) return res.status(400).json({ error: "Country and matchmaking region do not match." });
   if (req.account.player_id) return res.status(409).json({ error: "Your player profile already exists." });
   try {
-    let steamUrl, steamId = null;
-    if (verifySteam) {
-      // Ownership already proven by Steam sign-in; the pasted URL (if any) is ignored.
-      steamId = req.account.verified_steam_id;
-      steamUrl = `https://steamcommunity.com/profiles/${steamId}`;
-    } else {
-      steamUrl = normalizeSteamUrl(req.body.steam_url);
-      // Resolve to SteamID64 so /id/name and /profiles/<id> links to the same account can't both be used.
-      try { steamId = await resolveSteamId64(steamUrl); } catch {}
-      if (process.env.STEAM_API_KEY && steamUrl.includes("/id/") && !steamId) throw new Error("We couldn't find that Steam profile. Check the URL.");
-    }
+    // Ownership already proven by Steam sign-in.
+    const steamId = req.account.verified_steam_id;
+    const steamUrl = `https://steamcommunity.com/profiles/${steamId}`;
     const name = String(req.body.display_name || req.account.username).slice(0,40);
     const result = db.transaction(() => {
       const existing = db.prepare("SELECT id FROM players WHERE steam_url=? OR (steam_id IS NOT NULL AND steam_id=?)").get(steamUrl, steamId);
       if (existing) throw new Error("This Steam profile is already linked to a STACK5 player.");
-      const r = db.prepare(`INSERT INTO players(steam_url,steam_id,steam_verified,steam_verified_at,display_name,avatar_url,faceit_level,faceit_elo,region,country,language,role) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`).run(steamUrl,steamId,verifySteam?1:0,verifySteam?Date.now():null,name,safeAvatarUrl(req.body.avatar_url),Number(req.body.faceit_level),Number(req.body.faceit_elo||0),region.id,country[0],String(req.body.language).slice(0,10),String(req.body.role).slice(0,20));
+      const r = db.prepare(`INSERT INTO players(steam_url,steam_id,steam_verified,steam_verified_at,display_name,avatar_url,faceit_level,faceit_elo,region,country,language,role) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`).run(steamUrl,steamId,1,Date.now(),name,safeAvatarUrl(req.body.avatar_url),Number(req.body.faceit_level),Number(req.body.faceit_elo||0),region.id,country[0],String(req.body.language).slice(0,10),String(req.body.role).slice(0,20));
       db.prepare("UPDATE accounts SET player_id=? WHERE id=?").run(r.lastInsertRowid, req.account.account_id);
       return r.lastInsertRowid;
     })();
@@ -909,7 +649,7 @@ app.get("/api/my/dashboard", auth, (req,res)=>{
   const pid=req.account.player_id;
   const player=pid ? db.prepare("SELECT * FROM players WHERE id=?").get(pid) : null;
   const out={ account:{ username:req.account.username, email_verified:!!req.account.email_verified, verified_steam_id:req.account.verified_steam_id||null },
-    steam_verification:steamVerificationEnabled(), player, team:null, invites:[], joinRequests:[], myRequests:[], match:null };
+    player, team:null, invites:[], joinRequests:[], myRequests:[], match:null };
   out.now=Date.now();
   if(!player) return res.json(out);
   out.eligibility = !eligibilityEnabled() ? { eligible:true, checks:[] }
@@ -961,11 +701,26 @@ app.post("/api/admin/players/:id/eligibility", auth, adminRequired, csrf, (req,r
   res.json(evaluateEligibility(Number(req.params.id)));
 });
 
+// ---- Optional email (notifications, contact). Empty removes it; a new one needs verifying.
+app.post("/api/account/email", auth, csrf, async (req,res)=>{
+  const email=String(req.body?.email||"").trim().toLowerCase()||null;
+  if(email && !emailValid(email)) return res.status(400).json({error:"Enter a valid email address."});
+  if(email && email===req.account.email) return res.json({ok:true, message:"That's already your email."});
+  if(email && db.prepare("SELECT 1 FROM accounts WHERE lower(email)=? AND id<>?").get(email, req.account.account_id)) return res.status(409).json({error:"That email is already used by another account."});
+  const token=email ? randomToken(32) : null;
+  db.prepare("UPDATE accounts SET email=?, email_verified=0, verification_token_hash=?, verification_expires_at=? WHERE id=?")
+    .run(email, token && hash(token), token && Date.now()+VERIFY_HOURS*3600000, req.account.account_id);
+  if(!email) return res.json({ok:true, message:"Email removed."});
+  try { await sendVerificationEmail({ email }, token); }
+  catch { return res.status(500).json({error:"Email saved, but we couldn't send the verification link right now. Try again later."}); }
+  res.json({ok:true, message:"Saved. Check your inbox for the verification link."});
+});
+
 // ---- Self-service account deletion (Privacy Policy section 8/9).
 app.post("/api/account/delete", auth, csrf, async (req,res)=>{
   if(req.body?.confirm!=="DELETE") return res.status(400).json({error:'Type DELETE to confirm.'});
   const account=db.prepare("SELECT * FROM accounts WHERE id=?").get(req.account.account_id);
-  if(!account || !(await verifyPassword(String(req.body.password||""), account.password_salt, account.password_hash))) return res.status(401).json({error:"Wrong password."});
+  if(!account) return res.status(404).json({error:"Account not found."});
   const pid=account.player_id;
   if(pid){
     const active=activeTeamForPlayer(pid);
@@ -1029,8 +784,7 @@ app.get("/login", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/log
 app.get("/terms", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/terms.html")));
 app.get("/account", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
 app.get("/privacy", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/privacy.html")));
-app.get("/forgot-password", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/forgot-password.html")));
-app.get("/register", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/register.html")));
+app.get(["/register","/forgot-password","/reset-password"], (_,res)=>res.redirect("/login"));
 app.get("/", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
 app.get("/play", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
 app.get("/teams", (_,res)=>res.sendFile(path.join(__dirname,"../public/pages/app.html")));
