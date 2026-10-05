@@ -44,7 +44,7 @@ Every setting is listed with a comment in `.env.example`. The server's real `.en
 
 ## Media files (not in git)
 
-`public/media/` on the server holds uploaded files that are not part of the code, served at `https://cleanlobby.com/media/...`. Deploys never touch them, and they are included in each deploy backup (`code.tar.gz`). Currently: `stack5-beta-invite.mp4` (beta invite video, source in `marketing/beta-video/`). To replace one, re-upload it with `scp` to the same path.
+`public/media/` on the server holds uploaded files that are not part of the code, served at `https://cleanlobby.com/media/...`. Deploys never touch them, and they are included in each deploy backup (`code.tar.gz`). Currently: `stack5-beta-invite.mp4` (old STACK5 beta invite video, source in `marketing/beta-video/`), `cleanlobby-oeufs-fr.mp4` and `cleanlobby-eggs-en.mp4` ("We don't want eggs" video, source in `marketing/eggs-video/`). To replace one, re-upload it with `scp` to the same path.
 
 ## Deploying
 

@@ -29,7 +29,7 @@ How every part of CleanLobby works: what players see, the rules behind it, and w
 
 - **Beta invite video:** https://cleanlobby.com/media/stack5-beta-invite.mp4 (old stack5cs.com links redirect there), source in `marketing/beta-video/` (31 s vertical MP4 made from the site's look and the guide screenshots; see its README to change the text and re-render). Not deployed. The hosted file still shows the STACK5 name; the source already says CleanLobby, so re-render and upload it as `cleanlobby-beta-invite.mp4` at the domain switch.
 - **Concept: "We don't want eggs. We want a cheater-free game."**: landing page with a new look (hazard yellow, cracked-egg art) in `marketing/concept-no-eggs/`. Not live; for deciding whether to adopt it.
-- **"We don't want eggs" video** (20 s, vertical, English + French, ends on cleanlobby.com): `marketing/eggs-video/`.
+- **"We don't want eggs" video** (20 s, vertical, ends on cleanlobby.com): https://cleanlobby.com/media/cleanlobby-oeufs-fr.mp4 (French) and https://cleanlobby.com/media/cleanlobby-eggs-en.mp4 (English), source in `marketing/eggs-video/`.
 
 ## Known gaps
 
