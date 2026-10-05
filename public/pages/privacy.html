@@ -69,9 +69,10 @@
 </table></div>
 
 <h3>Information we get from Steam</h3>
+<p><strong>Steam sign-in:</strong> to prove a Steam account is yours, you sign in on Steam's own website ("Sign in through Steam"). Steam then tells us only your SteamID64; we never see your Steam password. We store that SteamID64 with your account and mark your profile as Steam-verified.</p>
 <p>When you create a profile, and roughly once a week after that, we use the official Steam Web API to look up public information about the Steam account you linked:</p>
 <ul>
-<li>your SteamID64 (resolved from your profile URL);</li>
+<li>your SteamID64 (from Steam sign-in, or resolved from the profile URL entered on older profiles);</li>
 <li>whether your profile is public, and the account creation date if it is;</li>
 <li>your Steam level and your CS2 playtime (only if your game details are public);</li>
 <li>the number of VAC bans and game bans on the account, days since the last ban, and whether the account has a Steam community ban.</li>
@@ -80,6 +81,9 @@
 
 <h3>Information shown from Leetify</h3>
 <p>Your profile page shows CS2 statistics from Leetify's public API (for example Leetify Rating, Premier rating, aim and utility). These are requested live from Leetify when someone opens your profile, kept in server memory for at most 5 minutes, and <strong>not stored</strong> in our database. They are shown only if your Leetify privacy settings allow it, and they are <strong>not</strong> used in the STACK5 Trust Score.</p>
+
+<h3>Information shown from FACEIT</h3>
+<p>If a FACEIT account is linked to your Steam account, your profile page shows information from FACEIT's Data API: your FACEIT nickname, level, Elo, number of CS2 matches, the date you joined FACEIT, and any FACEIT bans. These are requested live from FACEIT when someone opens your profile, kept in server memory for at most 5 minutes, and <strong>not stored</strong> in our database. They are <strong>not</strong> used in the STACK5 Trust Score or in the requirements to play.</p>
 
 <h3>Technical information</h3>
 <ul>
@@ -91,7 +95,8 @@
 <p>STACK5 is built around players being able to see who they will play with. The following is visible to <strong>anyone</strong>, including people who are not logged in:</p>
 <ul>
 <li>your display name, avatar, country, region, role, language and FACEIT level/Elo;</li>
-<li>a link to your Steam profile;</li>
+<li>a link to your Steam profile, and whether your Steam account is verified;</li>
+<li>information from Leetify and FACEIT about your Steam account, if those services have it (see section 2), including <strong>any FACEIT bans</strong>;</li>
 <li>your STACK5 Trust Score, reliability and teamplay scores, confidence level and score breakdown. The breakdown can include your Steam account age, CS2 hours, the number of ratings you've received and their average, and <strong>any VAC, game or community bans on your Steam account</strong>;</li>
 <li>teams you belong to (name, region, roster) and match pairings you take part in.</li>
 </ul>
@@ -115,8 +120,9 @@
 <ul>
 <li><strong>Hostinger:</strong> hosts our server and database.</li>
 <li><strong>Our email provider:</strong> sends account verification and password-reset emails to your address.</li>
-<li><strong>Valve (Steam Web API):</strong> receives your SteamID or profile name when we look up your public Steam data.</li>
+<li><strong>Valve (Steam):</strong> handles Steam sign-in, and receives your SteamID or profile name when we look up your public Steam data.</li>
 <li><strong>Leetify:</strong> receives your SteamID when your profile page requests your stats.</li>
+<li><strong>FACEIT:</strong> receives your SteamID when your profile page requests your FACEIT information.</li>
 </ul>
 <p>We may also disclose data if required by law, or to protect STACK5 and its users from fraud or abuse.</p>
 <p>These providers may process data outside your country (for example in the EU or the United States). Where required, we rely on appropriate safeguards offered by those providers.</p>
