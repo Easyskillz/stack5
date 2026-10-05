@@ -3,3 +3,4 @@ data/
 .env
 *.log
 *.backup*
+.claude/settings.local.json
