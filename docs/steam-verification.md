@@ -1,6 +1,6 @@
 # Steam verification ("Sign in through Steam")
 
-**Status:** ready, not deployed yet (commit `043bea2`).
+**Status:** live since 2026-10-05 (commit `043bea2`).
 
 ## Why it exists
 

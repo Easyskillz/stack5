@@ -9,9 +9,9 @@ How every part of STACK5 works: what players see, the rules behind it, and where
 | Page | What it covers | Status |
 |---|---|---|
 | [Accounts & login](accounts-and-login.md) | Sign-up, email verification, login, password reset, sessions | Live |
-| [Steam verification](steam-verification.md) | "Sign in through Steam": proving a Steam account is yours | Ready, not deployed yet |
+| [Steam verification](steam-verification.md) | "Sign in through Steam": proving a Steam account is yours | Live |
 | [Player eligibility](eligibility.md) | Who is allowed to play (account age, hours, bans) | Live |
-| [Player profile](player-profile.md) | Profile setup, regions, public profile page, Leetify and FACEIT panels | Live (FACEIT panel not deployed yet) |
+| [Player profile](player-profile.md) | Profile setup, regions, public profile page, Leetify and FACEIT panels | Live (FACEIT panel needs `FACEIT_API_KEY` on the server) |
 | [Trust Score](trust-score.md) | The 0–100 reputation score and how it is calculated | Live |
 | [Teams](teams.md) | Creating teams, invites, join requests, captain actions | Live |
 | [Queue & matchmaking](queue-and-matchmaking.md) | Queueing a full team, how opponents are picked, accepting matches | Live |
@@ -30,6 +30,8 @@ How every part of STACK5 works: what players see, the rules behind it, and where
 
 ## Changelog
 
-- **2026-10-05:** "Sign in through Steam" (ownership proof) and the live FACEIT profile panel; FACEIT removed from the Trust Score per FACEIT's API terms (`043bea2`). Wiki created; Terms and Privacy updated for both features. Not deployed yet.
+- **2026-10-05:** Terms · Privacy footer added to the login, forgot-password and sign-up pages. Code backed up to a private GitHub repo; each deploy also copies the database backup to the operator's PC.
+
+- **2026-10-05:** "Sign in through Steam" (ownership proof) and the live FACEIT profile panel; FACEIT removed from the Trust Score per FACEIT's API terms (`043bea2`). Wiki created; Terms and Privacy updated for both features. Deployed 2026-10-05.
 - **2026-10-05:** Eligibility gate, timers, account deletion, Terms and Privacy pages (`534044c`).
 - **2026-10-04:** Play hub, join requests, automatic matchmaking (`975532d`); invite-only teams, transfer/disband, trust only after a confirmed match (`d92ef0a`).

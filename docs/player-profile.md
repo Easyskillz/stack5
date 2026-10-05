@@ -26,7 +26,7 @@ Europe, North America, South America, Latin America, Asia, Southeast Asia, Ocean
 - **STEAM VERIFIED** and **MEETS REQUIREMENTS** badges
 - The [Trust Score](trust-score.md) with its breakdown
 - **CS2 stats from Leetify** (live): Leetify rating, Premier, aim, positioning, utility, matches
-- **FACEIT panel** (live, not deployed yet): level, Elo, matches, member since, bans with an active-ban warning, link to the FACEIT profile. Shows "No FACEIT account linked" if there is none.
+- **FACEIT panel** (live; shown only when `FACEIT_API_KEY` is set on the server): level, Elo, matches, member since, bans with an active-ban warning, link to the FACEIT profile. Shows "No FACEIT account linked" if there is none.
 - A link to the Steam profile
 
 ## Technical notes

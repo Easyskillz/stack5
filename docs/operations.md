@@ -25,6 +25,18 @@ The process used so far:
 1. **Check for drift:** confirm the server's files still match the last deployed commit (sha256), so edits made directly on the server are never overwritten.
 2. **Back up** code and config, plus a consistent online snapshot of the SQLite database, to `/root/stack5-backup-<date-time>/`.
 3. Unpack the changed files, restart `stack5`, and check `/api/health`.
+4. **Copy the database backup off the server:** run `stack5-pull-backup.sh` on the operator's PC (it lives outside the repo). It downloads the new snapshot to `C:\Users\PC\stack5-db-backups\` and checks it with sha256.
+5. **Push to GitHub** (`git push`) as a code backup.
+
+## Backups
+
+| Where | What | Kept for |
+|---|---|---|
+| VPS `/root/stack5-backup-*` | code, `.env`, database | 30 days (a daily cron job, `stack5-backup-prune`, deletes older ones) |
+| Operator's PC `stack5-db-backups\` | database | 30 days (deleted by `stack5-pull-backup.sh`) |
+| GitHub `Easyskillz/stack5` (private) | code and wiki, full history | forever (never contains `.env` or the database) |
+
+The 30-day limit is what the Privacy Policy (section 8) promises, so don't keep database backups longer. GitHub is only a backup: deploys go straight from the PC to the server, and the server never pulls from GitHub.
 
 Database changes are applied automatically at startup (`src/db.js`), and they only add things, so older data keeps working.
 
