@@ -25,6 +25,10 @@ How every part of STACK5 works: what players see, the rules behind it, and where
 | [SEO & discoverability](seo.md) | Page titles and descriptions, sitemap, robots.txt, llms.txt, link previews | Live |
 | [Operations](operations.md) | Configuration, deploying, backups | — |
 
+## Marketing
+
+- **Beta invite video:** `marketing/beta-video/` (31 s vertical MP4 made from the site's look and the guide screenshots; see its README to change the text and re-render). Not deployed.
+
 ## Known gaps
 
 - The Rankings page is a placeholder.
@@ -32,6 +36,7 @@ How every part of STACK5 works: what players see, the rules behind it, and where
 
 ## Changelog
 
+- **2026-10-05:** Beta invite video (`marketing/beta-video/`).
 - **2026-10-05:** Player guide (`/guide`, "How it works" in the menu and footer) with 10 screenshots and an FAQ; screenshots regenerate with `scripts/guide-screenshots.mjs`. Optional team Discord voice link in the match room, visible only to that team. Website email now sent from the contact@ mailbox.
 - **2026-10-05:** Contact page (`/contact`) with the email address and a form that emails contact@stack5cs.com; Contact link in every footer; Privacy Policy covers the form.
 - **2026-10-05:** Match room: CS2 Private Matchmaking code shared with the 10 players, both captains report the score (disputes go to the admin, 6-hour timeout), ratings and "matches played" only count completed matches, players locked until the match ends. Matches page (live + recent results) and live counters (players online, teams looking for a match). Country and language flags (self-hosted SVGs) next to players and teams. French removed (English only). SEO: per-page titles and descriptions, Open Graph image, structured data, sitemap.xml, robots.txt, llms.txt, crawler-readable page text, real 404s. Mobile layout fixes.

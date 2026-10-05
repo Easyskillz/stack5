@@ -1,0 +1,130 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Inter;src:url('../../public/fonts/inter-latin.woff2') format('woff2');font-weight:400 800}
+:root{--bg:#080b0a;--green:#55e36b;--green2:#32bd4d;--text:#f2f5f3;--muted:#8e9b94;--line:#243129;--panel:#101512}
+*{box-sizing:border-box;margin:0}
+html,body{width:1080px;height:1920px;overflow:hidden;background:var(--bg);font-family:Inter,Arial,sans-serif;color:var(--text)}
+#stage{position:relative;width:1080px;height:1920px;overflow:hidden}
+.bg{position:absolute;inset:-200px;background:
+  radial-gradient(900px 700px at var(--gx,70%) var(--gy,20%),rgba(85,227,107,.20),transparent 60%),
+  radial-gradient(800px 800px at 10% 95%,rgba(85,227,107,.08),transparent 60%)}
+.grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:90px 90px;mask-image:linear-gradient(180deg,transparent,#000 30%,#000 70%,transparent)}
+.scene{position:absolute;inset:0;padding:240px 80px 150px;display:flex;flex-direction:column;justify-content:center;opacity:0}
+#s8{justify-content:flex-start}
+.logo{font-weight:800;letter-spacing:-.06em;font-size:64px}.logo span{color:var(--green)}
+.top{position:absolute;top:80px;left:80px;right:80px;display:flex;justify-content:space-between;align-items:center;z-index:5}
+.beta{font-size:26px;font-weight:800;letter-spacing:.14em;color:var(--green);border:2px solid var(--green2);border-radius:999px;padding:10px 22px}
+.big{font-size:150px;line-height:.98;font-weight:800;letter-spacing:-.05em}
+.big .g{color:var(--green)}
+.mid{font-size:92px;line-height:1.02;font-weight:800;letter-spacing:-.045em}
+.sub{font-size:42px;line-height:1.35;color:#cfd8d3;font-weight:500;margin-top:28px}
+.eyebrow{font-size:30px;font-weight:800;letter-spacing:.16em;color:var(--green)}
+.step{display:flex;align-items:baseline;gap:22px}
+.num{font-size:120px;font-weight:800;color:var(--green);letter-spacing:-.05em;line-height:1}
+.shot{margin-top:56px;border-radius:28px;overflow:hidden;border:2px solid var(--line);box-shadow:0 40px 120px rgba(0,0,0,.6),0 0 0 1px rgba(85,227,107,.12);background:var(--panel);transform-origin:50% 0}
+.shot img{display:block;width:100%}
+.pills{display:flex;flex-direction:column;gap:22px;margin-top:60px}
+.pill{font-size:40px;font-weight:600;padding:26px 34px;border:2px solid var(--line);border-radius:22px;background:rgba(16,21,18,.85);display:flex;gap:20px;align-items:center}
+.pill b{color:var(--green)}
+.url{margin-top:70px;font-size:104px;font-weight:800;letter-spacing:-.04em;color:var(--green)}
+.cta-box{margin-top:auto;padding:44px;border-radius:30px;background:var(--green);color:#06210c}
+.cta-box .t{font-size:56px;font-weight:800;letter-spacing:-.03em}
+.cta-box .s{font-size:36px;font-weight:600;margin-top:10px;opacity:.85}
+.bar{position:absolute;left:0;bottom:0;height:10px;background:var(--green);z-index:6}
+.strike{position:relative;display:inline-block}
+.strike::after{content:"";position:absolute;left:-6px;right:-6px;top:52%;height:14px;background:#ef5b67;transform:scaleX(var(--s,0));transform-origin:left;border-radius:7px}
+</style></head>
+<body><div id="stage">
+  <div class="bg" id="bg"></div><div class="grid"></div>
+  <div class="top"><div class="logo">STACK<span>5</span></div><div class="beta">CLOSED BETA</div></div>
+
+  <section class="scene" id="s1" style="justify-content:center">
+    <div class="big" id="s1a">Tired of</div>
+    <div class="big"><span class="strike" id="s1b">cheaters</span></div>
+    <div class="big" id="s1c">in <span class="g">CS2?</span></div>
+  </section>
+
+  <section class="scene" id="s2" style="justify-content:center">
+    <div class="eyebrow" id="s2a">CS2 TEAM MATCHMAKING</div>
+    <div class="big" id="s2b" style="margin-top:26px">Find a<br><span class="g">trusted five.</span></div>
+    <div class="sub" id="s2c">Complete 5-stacks only. Steam-verified players. A public Trust Score.</div>
+  </section>
+
+  <section class="scene" id="s3">
+    <div class="step"><div class="num">01</div><div class="mid">Sign in<br>with Steam</div></div>
+    <div class="sub">No STACK5 password. We never touch your inventory or skins.</div>
+    <div class="shot" id="s3i"><img src="../../public/img/guide/1-sign-in.webp"></div>
+  </section>
+
+  <section class="scene" id="s4">
+    <div class="step"><div class="num">02</div><div class="mid">Build your<br>5-stack</div></div>
+    <div class="sub">Invite your friends or find verified players.</div>
+    <div class="shot" id="s4i"><img src="../../public/img/guide/5-full-team-queue.webp"></div>
+  </section>
+
+  <section class="scene" id="s5">
+    <div class="step"><div class="num">03</div><div class="mid">Matched vs<br>a full team</div></div>
+    <div class="sub">Same region, similar level. Both captains accept.</div>
+    <div class="shot" id="s5i"><img src="../../public/img/guide/7-match-found.webp"></div>
+  </section>
+
+  <section class="scene" id="s6">
+    <div class="step"><div class="num">04</div><div class="mid">Play on<br>Valve servers</div></div>
+    <div class="sub">CS2 Private Matchmaking. One code, two parties, GO.</div>
+    <div class="shot" id="s6i"><img src="../../public/img/guide/8-match-room.webp"></div>
+  </section>
+
+  <section class="scene" id="s7">
+    <div class="step"><div class="num">05</div><div class="mid">Rate players.<br>Build trust.</div></div>
+    <div class="sub">Every match counts toward your Trust Score.</div>
+    <div class="shot" id="s7i"><img src="../../public/img/guide/9-result-and-ratings.webp"></div>
+    <div class="shot" id="s7j" style="margin-top:30px"><img src="../../public/img/guide/10-trust-score.webp"></div>
+  </section>
+
+  <section class="scene" id="s8">
+    <div class="eyebrow" id="s8a" style="margin-top:40px">BETA TEST · WE NEED YOU</div>
+    <div class="mid" id="s8b" style="margin-top:22px">Join the first<br><span style="color:var(--green)">20–30 players</span></div>
+    <div class="pills">
+      <div class="pill" id="p1"><b>✓</b> Steam account 2+ years old</div>
+      <div class="pill" id="p2"><b>✓</b> 500+ hours of CS2</div>
+      <div class="pill" id="p3"><b>✓</b> Public Steam profile &amp; game details</div>
+    </div>
+    <div class="url" id="s8c">stack5cs.com</div>
+    <div class="cta-box" id="s8d"><div class="t">Sign in with Steam →</div><div class="s">Free · Bring your five, or come solo and find one</div></div>
+  </section>
+  <div class="bar" id="bar"></div>
+</div>
+<script>
+const DUR=31;
+// [id, start, end] in seconds
+const SCENES=[["s1",0,3.4],["s2",3.4,6.6],["s3",6.6,10.6],["s4",10.6,14.4],["s5",14.4,18.2],["s6",18.2,22.6],["s7",22.6,26.4],["s8",26.4,31]];
+const clamp=x=>Math.max(0,Math.min(1,x));
+const ease=x=>1-Math.pow(1-clamp(x),3);
+const $=id=>document.getElementById(id);
+function inOut(t,s,e,fade=.35){ return Math.min(ease((t-s)/fade), e>=DUR?1:ease((e-t)/fade)); }
+function rise(el,t,start,dur=.6,dist=60){ const p=ease((t-start)/dur); el.style.opacity=p; el.style.transform=`translateY(${(1-p)*dist}px)`; }
+window.render=function(t){
+  $("bg").style.setProperty("--gx",(70-20*Math.sin(t/5))+"%"); $("bg").style.setProperty("--gy",(18+8*Math.cos(t/4))+"%");
+  for(const [id,s,e] of SCENES){ const el=$(id); const o=inOut(t,s,e); el.style.opacity=o; el.style.visibility=o>0?"visible":"hidden"; }
+  // 1: punchy hook
+  rise($("s1a"),t,0.1,.5,80); rise($("s1b").parentElement,t,0.45,.5,80); rise($("s1c"),t,0.8,.5,80);
+  $("s1b").style.setProperty("--s",ease((t-1.5)/.45));
+  // 2
+  rise($("s2a"),t,3.5,.5); rise($("s2b"),t,3.7,.6,80); rise($("s2c"),t,4.3,.6);
+  // 3-7: step title then screenshot with a slow push-in
+  for(const [id,s,e] of [["s3",6.6,10.6],["s4",10.6,14.4],["s5",14.4,18.2],["s6",18.2,22.6],["s7",22.6,26.4]]){
+    const sc=$(id); const title=sc.querySelector(".step"), sub=sc.querySelector(".sub"), shots=sc.querySelectorAll(".shot");
+    rise(title,t,s+.05,.5); rise(sub,t,s+.25,.5);
+    shots.forEach((im,i)=>{ const p=ease((t-s-.45-i*.5)/.7); const z=1+0.05*clamp((t-s)/(e-s)); im.style.opacity=p; im.style.transform=`translateY(${(1-p)*120}px) scale(${z})`; });
+  }
+  // 8: call to action
+  rise($("s8a"),t,26.5,.5); rise($("s8b"),t,26.7,.6,80);
+  rise($("p1"),t,27.3,.5); rise($("p2"),t,27.6,.5); rise($("p3"),t,27.9,.5);
+  rise($("s8c"),t,28.4,.6,80); rise($("s8d"),t,28.9,.6,80);
+  $("bar").style.width=(100*t/DUR)+"%";
+};
+window.ready=Promise.all([document.fonts.ready,...[...document.images].map(i=>i.decode().catch(()=>{}))]);
+render(0);
+</script>
+</body></html>
