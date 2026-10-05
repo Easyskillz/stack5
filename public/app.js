@@ -685,7 +685,6 @@ const Stack5 = (() => {
       <h2 id="observer" class="test-h">3. Ce qu’on observe pendant le test</h2>
       <div class="panel test-box"><ul class="test-list">
         <li>Est-ce que <strong>les deux parties de 5 restent bien ensemble</strong> avec un seul code ? Personne ne se retrouve dans la mauvaise équipe ?</li>
-        <li>À quoi ressemble <strong>le code de Private Matchmaking</strong> (long avec des tirets, ou 6 chiffres) ?</li>
         <li><strong>Combien de temps</strong> entre « Match trouvé » et le début de la partie ?</li>
         <li>Tout ce qui était <strong>confus, lent ou cassé</strong> : fais une capture d’écran sur le moment.</li>
       </ul></div>

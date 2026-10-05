@@ -140,7 +140,7 @@ try {
   await players[0].post(`/api/matches/${m.id}/accept`, { team_id: m.my_team_id });
   const mb = (await players[5].get("/api/my/dashboard")).match;
   await players[5].post(`/api/matches/${mb.id}/accept`, { team_id: mb.my_team_id });
-  await players[0].post(`/api/matches/${m.id}/code`, { code: "KQ7X-M2PL-9RTA-WB4E" });
+  await players[0].post(`/api/matches/${m.id}/code`, { code: "QX7K2-M2PL-R9TAW-4BWE" });
   await players[0].post(`/api/matches/${m.id}/voice`, { link: "https://discord.gg/atlasfive" });
   await shot("8-match-room", "/play", ".match-panel", players[0].jar);
 

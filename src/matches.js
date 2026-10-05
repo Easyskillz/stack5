@@ -29,7 +29,8 @@ export function parseScore(s) {
 
 /** A CS2 private matchmaking pool code: letters, digits and dashes. */
 export function cleanLobbyCode(v) {
-  const code = String(v || "").trim().replace(/\s+/g, "");
+  // CS2 shows codes like AYVM2-Q7SN-SXKET-24GN (groups of 5-4-5-4); keep them uppercase as in the game.
+  const code = String(v || "").trim().replace(/\s+/g, "").toUpperCase();
   return /^[A-Za-z0-9][A-Za-z0-9-]{3,79}$/.test(code) ? code : null;
 }
 

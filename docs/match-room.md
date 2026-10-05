@@ -27,6 +27,10 @@ Every player row shows two flags: **country** and **language**. Each team's flag
 
 Only **completed** matches count as played ([Trust Score](trust-score.md) "track record") and unlock votes.
 
+## Code format
+
+CS2 private matchmaking codes look like `AYVM2-Q7SN-SXKET-24GN` (letters and digits in groups of 5-4-5-4, confirmed 2026-10-05). The site accepts any letters, digits and dashes, removes spaces and stores the code in uppercase (`cleanLobbyCode()` in `src/matches.js`).
+
 ## Votes
 
 Once a match is completed, every player has **48 hours** to vote 👍 or 👎 on the others, aspect by aspect, from the match room on the Play page (it stays visible for the 48 hours):
