@@ -15,6 +15,8 @@ export function teamProfile(teamId) {
   return {
     teamId: team.id,
     region: team.region,
+    mode: team.mode,
+    size: team.size,
     count: team.members.length,
     home: homePoint(team.members.map(p => p.country)),
     // Players without a Premier rating yet (0/empty) don't count towards the team's average.
@@ -34,7 +36,7 @@ function teamDistanceKm(a, b) {
 export function compatibility(aId, bId) {
   const a = teamProfile(aId);
   const b = teamProfile(bId);
-  if (!a || !b || a.count !== 5 || b.count !== 5) return 0;
+  if (!a || !b || a.mode !== b.mode || a.count !== a.size || b.count !== b.size) return 0;
 
   // 5,000 Premier points apart (one colour tier) = no skill compatibility left. Unknown = neutral.
   const skillScore = a.avgRating && b.avgRating ? Math.max(0, 100 - Math.abs(a.avgRating - b.avgRating) / 50) : 50;
@@ -63,7 +65,7 @@ export function runMatchmaking() {
     const aId = queued[i].team_id;
     const a = getTeam(aId);
 
-    if (!a || a.count !== 5) continue;
+    if (!a || a.count !== a.size) continue;
 
     let best = null;
     let bestIndex = -1;
@@ -72,10 +74,10 @@ export function runMatchmaking() {
       const bId = queued[j].team_id;
       const b = getTeam(bId);
 
-      if (!b || b.count !== 5) continue;
+      if (!b || b.mode !== a.mode || b.count !== b.size) continue;
 
       const score = compatibility(aId, bId);
-      if (!score) continue;   // too far apart (or not two full teams)
+      if (!score) continue;   // too far apart (or not two full teams of the same mode)
 
       if (!best || score > best.score) {
         best = { bId, score };

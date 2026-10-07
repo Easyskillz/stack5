@@ -7,7 +7,7 @@ import fs from "node:fs";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import nodemailer from "nodemailer";
-import { db, getTeam, getTeamMembers } from "./db.js";
+import { db, getTeam, getTeamMembers, MODES } from "./db.js";
 import { steamPersonaName, refreshExternal, leetifyProfile, faceitProfile, faceitEnabled, syncPremierFromLeetify } from "./external.js";
 import { computeTrust, recomputeAll, recordEvent } from "./trust.js";
 import { evaluateEligibility, isEligible, eligibilityEnabled, NOT_ELIGIBLE } from "./eligibility.js";
@@ -447,7 +447,7 @@ app.get("/api/my/teams", auth, profileRequired, (req,res) => {
 });
 
 app.get("/api/team-invites", auth, profileRequired, (req,res) => {
-  res.json(db.prepare(`SELECT i.*,t.name AS team_name,t.region,p.display_name AS invited_by
+  res.json(db.prepare(`SELECT i.*,t.name AS team_name,t.region,COALESCE(t.mode,'5v5') AS mode,(SELECT COUNT(*) FROM team_members tm WHERE tm.team_id=t.id) AS count,p.display_name AS invited_by
     FROM team_invites i JOIN teams t ON t.id=i.team_id JOIN players p ON p.id=i.invited_by_player_id
     WHERE i.invited_player_id=? AND i.status='PENDING' ORDER BY i.id DESC`).all(req.account.player_id));
 });
@@ -462,7 +462,8 @@ app.post("/api/teams", auth, csrf, profileRequired, eligibleRequired, (req,res) 
   const max=Math.max(min,Math.min(40000,Math.round(Number(req.body.max_rating)||40000)));
   const name=String(req.body.name).trim().slice(0,40);
   if(name.length<2) return res.status(400).json({error:"Team name must be at least 2 characters."});
-  const result=db.prepare("INSERT INTO teams(name,captain_id,region,min_rating,max_rating,scheduled_at,last_activity_at) VALUES(?,?,?,?,?,?,?)").run(name,captain.id,region,min,max,req.body.scheduled_at||null,Date.now());
+  const mode=MODES.includes(req.body.mode)?req.body.mode:"5v5";   // "2v2" = Wingman duo
+  const result=db.prepare("INSERT INTO teams(name,captain_id,region,min_rating,max_rating,scheduled_at,last_activity_at,mode) VALUES(?,?,?,?,?,?,?,?)").run(name,captain.id,region,min,max,req.body.scheduled_at||null,Date.now(),mode);
   db.prepare("INSERT INTO team_members(team_id,player_id) VALUES(?,?)").run(result.lastInsertRowid,captain.id);
   res.status(201).json(getTeam(result.lastInsertRowid));
 });
@@ -474,7 +475,7 @@ app.post("/api/teams/:id/invite", auth, csrf, profileRequired, (req,res)=>{
   const team=getTeam(req.params.id);
   if(!team) return res.status(404).json({error:"Team not found"});
   if(team.captain_id!==req.account.player_id) return res.status(403).json({error:"Only the captain can invite players."});
-  if(team.count>=5) return res.status(409).json({error:"Team is already full."});
+  if(team.count>=team.size) return res.status(409).json({error:"Team is already full."});
   if(team.status!=="OPEN") return res.status(409).json({error:"Team is no longer open."});
   const target=req.body.player_id
     ? db.prepare("SELECT * FROM players WHERE id=?").get(Number(req.body.player_id))
@@ -496,7 +497,7 @@ app.post("/api/team-invites/:id/accept", auth, csrf, profileRequired, eligibleRe
   const invite=db.prepare("SELECT * FROM team_invites WHERE id=? AND invited_player_id=? AND status='PENDING'").get(req.params.id,req.account.player_id);
   if(!invite) return res.status(404).json({error:"Invitation not found or already handled."});
   const team=getTeam(invite.team_id);
-  if(!team || team.status!=="OPEN" || team.count>=5) return res.status(409).json({error:"This team is no longer accepting players."});
+  if(!team || team.status!=="OPEN" || team.count>=team.size) return res.status(409).json({error:"This team is no longer accepting players."});
   if(activeTeamForPlayer(req.account.player_id)) return res.status(409).json({error:"You are already in an active team."});
   const tx=db.transaction(()=>{
     db.prepare("INSERT INTO team_members(team_id,player_id) VALUES(?,?)").run(team.id,req.account.player_id);
@@ -576,9 +577,9 @@ app.post("/api/teams/:id/disband", auth, csrf, profileRequired, (req,res)=>{
   })();
   res.json({ok:true});
 });
-app.post("/api/teams/:id/ready", auth, csrf, profileRequired, (req,res)=>{const team=getTeam(req.params.id);if(!team)return res.status(404).json({error:"Team not found"});if(team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain can ready the team"});if(team.count!==5)return res.status(400).json({error:"Team must have 5 players"});db.prepare("UPDATE teams SET status='READY' WHERE id=?").run(team.id);res.json(getTeam(team.id));});
-app.post("/api/teams/:id/queue", auth, csrf, profileRequired, eligibleRequired, (req,res)=>{const team=getTeam(req.params.id);if(!team)return res.status(404).json({error:"Team not found"});if(team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain can queue the team"});if(team.count!==5)return res.status(400).json({error:"Team must have 5 players"});const blocked=team.members.filter(m=>!isEligible(m.id));if(blocked.length)return res.status(409).json({error:`${blocked.map(m=>m.display_name).join(", ")} no longer meet${blocked.length>1?"":"s"} the CleanLobby requirements. Remove them to queue.`});if(!["OPEN","READY"].includes(team.status))return res.status(409).json({error:"Team cannot be queued right now."});db.prepare("UPDATE teams SET status='READY' WHERE id=?").run(team.id);db.prepare("INSERT OR IGNORE INTO queue(team_id) VALUES(?)").run(team.id);res.json({queued:true,team:getTeam(team.id)});});
-app.get("/api/queue", (_,res)=>res.json(db.prepare(`SELECT t.id,t.name,t.region,t.min_rating,t.max_rating,COUNT(tm.player_id) count FROM queue q JOIN teams t ON t.id=q.team_id LEFT JOIN team_members tm ON tm.team_id=t.id GROUP BY t.id ORDER BY q.queued_at`).all()));
+app.post("/api/teams/:id/ready", auth, csrf, profileRequired, (req,res)=>{const team=getTeam(req.params.id);if(!team)return res.status(404).json({error:"Team not found"});if(team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain can ready the team"});if(team.count!==team.size)return res.status(400).json({error:`Team must have ${team.size} players`});db.prepare("UPDATE teams SET status='READY' WHERE id=?").run(team.id);res.json(getTeam(team.id));});
+app.post("/api/teams/:id/queue", auth, csrf, profileRequired, eligibleRequired, (req,res)=>{const team=getTeam(req.params.id);if(!team)return res.status(404).json({error:"Team not found"});if(team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain can queue the team"});if(team.count!==team.size)return res.status(400).json({error:`Team must have ${team.size} players`});const blocked=team.members.filter(m=>!isEligible(m.id));if(blocked.length)return res.status(409).json({error:`${blocked.map(m=>m.display_name).join(", ")} no longer meet${blocked.length>1?"":"s"} the CleanLobby requirements. Remove them to queue.`});if(!["OPEN","READY"].includes(team.status))return res.status(409).json({error:"Team cannot be queued right now."});db.prepare("UPDATE teams SET status='READY' WHERE id=?").run(team.id);db.prepare("INSERT OR IGNORE INTO queue(team_id) VALUES(?)").run(team.id);res.json({queued:true,team:getTeam(team.id)});});
+app.get("/api/queue", (_,res)=>res.json(db.prepare(`SELECT t.id,t.name,t.region,t.min_rating,t.max_rating,t.mode,COUNT(tm.player_id) count FROM queue q JOIN teams t ON t.id=q.team_id LEFT JOIN team_members tm ON tm.team_id=t.id GROUP BY t.id ORDER BY q.queued_at`).all()));
 app.post("/api/matchmaking/run", auth, adminRequired, csrf, (_,res)=>res.json({matches:runMatchmaking()}));
 app.get("/api/matches/:id", (req,res)=>{const m=db.prepare("SELECT * FROM matches WHERE id=?").get(req.params.id);if(!m)return res.status(404).json({error:"Match not found"});res.json({...publicMatch(m),team_a:getTeam(m.team_a_id),team_b:getTeam(m.team_b_id)});});
 app.post("/api/matches/:id/accept", auth, csrf, profileRequired, (req,res)=>{if(!requireBody(req,res,["team_id"]))return;const m=db.prepare("SELECT * FROM matches WHERE id=?").get(req.params.id);if(!m)return res.status(404).json({error:"Match not found"});if(m.status!=="PENDING")return res.status(409).json({error:"This match is no longer pending."});const teamId=Number(req.body.team_id);const team=getTeam(teamId);if(!team||team.captain_id!==req.account.player_id)return res.status(403).json({error:"Only the captain of the matched team can accept"});if(teamId===m.team_a_id)db.prepare("UPDATE matches SET accepted_a=1 WHERE id=?").run(m.id);else if(teamId===m.team_b_id)db.prepare("UPDATE matches SET accepted_b=1 WHERE id=?").run(m.id);else return res.status(403).json({error:"Team is not part of this match"});const updated=db.prepare("SELECT * FROM matches WHERE id=?").get(m.id);if(updated.accepted_a&&updated.accepted_b){db.prepare("UPDATE matches SET status='CONFIRMED', confirmed_at=? WHERE id=?").run(Date.now(),m.id);db.prepare("UPDATE teams SET status='MATCH_CONFIRMED' WHERE id IN (?,?)").run(m.team_a_id,m.team_b_id);for(const p of [...getTeamMembers(m.team_a_id),...getTeamMembers(m.team_b_id)])computeTrust(p.id);}res.json(db.prepare("SELECT * FROM matches WHERE id=?").get(m.id));});
@@ -641,7 +642,7 @@ app.post("/api/trust", auth, csrf, profileRequired, (req,res)=>res.status(410).j
 app.post("/api/teams/:id/request-join", auth, csrf, profileRequired, eligibleRequired, (req,res)=>{
   const team=getTeam(req.params.id);
   if(!team) return res.status(404).json({error:"Team not found"});
-  if(team.status!=="OPEN" || team.count>=5) return res.status(409).json({error:"This team is not accepting players."});
+  if(team.status!=="OPEN" || team.count>=team.size) return res.status(409).json({error:"This team is not accepting players."});
   if(team.members.some(m=>m.id===req.account.player_id)) return res.status(409).json({error:"You are already in this team."});
   if(activeTeamForPlayer(req.account.player_id)) return res.status(409).json({error:"Leave your current team before requesting to join another."});
   const existing=db.prepare("SELECT status FROM team_join_requests WHERE team_id=? AND player_id=?").get(team.id,req.account.player_id);
@@ -662,7 +663,7 @@ function joinRequestForCaptain(req,res){
 app.post("/api/join-requests/:id/accept", auth, csrf, profileRequired, (req,res)=>{
   const found=joinRequestForCaptain(req,res); if(!found) return;
   const {jr,team}=found;
-  if(team.status!=="OPEN" || team.count>=5) return res.status(409).json({error:"Your team is not accepting players."});
+  if(team.status!=="OPEN" || team.count>=team.size) return res.status(409).json({error:"Your team is not accepting players."});
   if(activeTeamForPlayer(jr.player_id)) {
     db.prepare("UPDATE team_join_requests SET status='EXPIRED',responded_at=CURRENT_TIMESTAMP WHERE id=?").run(jr.id);
     return res.status(409).json({error:"That player has already joined another team."});
@@ -777,7 +778,7 @@ function teamSummary(teamId){
   const t=getTeam(teamId);
   if(!t) return null;
   const most=k=>{ const c={}; for(const p of t.members) if(p[k]) c[p[k]]=(c[p[k]]||0)+1; return Object.entries(c).sort((a,b)=>b[1]-a[1])[0]?.[0]||null; };
-  return { id:t.id, name:t.name, region:t.region, country:most("country"), language:most("language") };
+  return { id:t.id, name:t.name, region:t.region, mode:t.mode, country:most("country"), language:most("language") };
 }
 app.get("/api/matches", (_,res)=>{
   const shape=m=>({ id:m.id, status:m.status, score_a:m.score_a, score_b:m.score_b, confirmed_at:m.confirmed_at, completed_at:m.completed_at,
@@ -815,7 +816,7 @@ app.get("/api/my/dashboard", auth, (req,res)=>{
     const q=db.prepare("SELECT queued_at FROM queue WHERE team_id=?").get(out.team.id);
     out.team.queue_expires_at=q && out.team.status==="READY" ? queueExpiresAt(q.queued_at) : null;
   }
-  out.invites=db.prepare(`SELECT i.id,i.team_id,t.name AS team_name,t.region,p.display_name AS invited_by,
+  out.invites=db.prepare(`SELECT i.id,i.team_id,t.name AS team_name,t.region,COALESCE(t.mode,'5v5') AS mode,p.display_name AS invited_by,
       (SELECT COUNT(*) FROM team_members tm WHERE tm.team_id=t.id) AS count
     FROM team_invites i JOIN teams t ON t.id=i.team_id JOIN players p ON p.id=i.invited_by_player_id
     WHERE i.invited_player_id=? AND i.status='PENDING' AND t.status='OPEN' ORDER BY i.id DESC`).all(pid);
@@ -964,12 +965,13 @@ app.get("/api/discover/teams", (_, res) => {
       t.min_rating,
       t.max_rating,
       t.status,
+      COALESCE(t.mode,'5v5') AS mode,
       COUNT(tm.player_id) AS count
     FROM teams t
     LEFT JOIN team_members tm ON tm.team_id=t.id
     WHERE t.status='OPEN'
     GROUP BY t.id
-    HAVING count < 5
+    HAVING count < (CASE WHEN mode='2v2' THEN 2 ELSE 5 END)
     ORDER BY t.created_at DESC
   `).all();
   // Languages every current member speaks, so players can pick a team they can talk to, and the team's main country.
@@ -995,7 +997,7 @@ app.get(["/register","/forgot-password","/reset-password"], (_,res)=>res.redirec
 
 // ---- App pages: one HTML shell, with per-page title/description/robots for search engines and link previews.
 const APP_SHELL=fs.readFileSync(path.join(__dirname,"../public/pages/app.html"),"utf8");
-const SITE_DESC="Tired of cheaters? Find a trusted five. CS2 5v5 for full teams: Steam-verified players, matched by Premier rating, public Trust Score. Free.";
+const SITE_DESC="Tired of cheaters? Find a trusted five. CS2 5v5 and Wingman 2v2 for full teams: Steam-verified players, matched by Premier rating, public Trust Score. Free.";
 const PAGES={
   "/":        { title:"CleanLobby · Trusted CS2 5v5 team matchmaking", heading:"Tired of cheaters? Find a trusted five.", description:SITE_DESC },
   "/teams":   { title:"Find a CS2 team · CleanLobby", heading:"Find a CS2 team", description:"Browse CS2 5-stacks that are recruiting on CleanLobby and ask to join. Every player is Steam-verified with a public trust score." },
@@ -1006,7 +1008,7 @@ const PAGES={
   "/contact": { title:"Contact · CleanLobby", heading:"Contact CleanLobby", description:"Contact the CleanLobby team: help with your account, report a player, a disputed match result, partnerships or privacy requests. Email contact@cleanlobby.com." }
 };
 // French site under /fr (same app; public/i18n/fr.js translates it in the browser).
-const SITE_DESC_FR="Marre des cheaters ? Trouve une équipe de confiance. CS2 5v5 entre équipes complètes : joueurs vérifiés via Steam, matchés par rating Premier, Trust Score public. Gratuit.";
+const SITE_DESC_FR="Marre des cheaters ? Trouve une équipe de confiance. CS2 5v5 et Wingman 2v2 : joueurs vérifiés via Steam, matchés par rating Premier, Trust Score public. Gratuit.";
 const PAGES_FR={
   "/":        { title:"CleanLobby · Matchmaking CS2 5v5 entre équipes de confiance", heading:"Marre des cheaters ? Trouve une équipe de confiance.", description:SITE_DESC_FR },
   "/teams":   { title:"Trouver une équipe CS2 · CleanLobby", heading:"Trouver une équipe CS2", description:"Parcours les 5-stacks CS2 qui recrutent sur CleanLobby et demande à les rejoindre. Chaque joueur est vérifié via Steam, avec un Trust Score public." },
@@ -1070,8 +1072,9 @@ app.get("/llms.txt",(_,res)=>res.type("text/plain").send(`# CleanLobby
 - Beta: open to players in Morocco, France, Belgium, Switzerland, Luxembourg, Monaco, Spain, Andorra, Portugal, the United Kingdom, Ireland and Malta. More countries later.
 - Players sign in through Steam (OpenID). CleanLobby only receives the public SteamID; it never sees Steam passwords and has no access to inventories, skins or trades.
 - To play, a Steam account must be at least 2 years old, have at least 500 hours of CS2 and no VAC or game ban in the last 2 years.
-- A captain creates a team and invites four players. Teammates pick each other by language (players list the languages they speak). Full teams queue and are matched with a team whose players' countries are close enough for good ping (up to about 2,500 km apart), at a similar CS2 Premier rating.
-- Matches are played on Valve servers through CS2 Private Matchmaking: one captain creates a private matchmaking pool and shares its code on CleanLobby, both 5-player parties join with that code.
+- Two modes: 5v5 (a team of five) and Wingman 2v2 (a duo). Teams are only matched against teams of the same mode.
+- A captain creates a team and invites four players (one for Wingman). Teammates pick each other by language (players list the languages they speak). Full teams queue and are matched with a team whose players' countries are close enough for good ping (up to about 2,500 km apart), at a similar CS2 Premier rating.
+- Matches are played on Valve servers through CS2 Private Matchmaking: one captain creates a private matchmaking pool and shares its code on CleanLobby, both parties (5 players each, or 2 for Wingman) join with that code.
 - After the game both captains report the score. Players then have 48 hours to vote thumbs up or down on each other: teammates on communication, teamplay and attitude, opponents on attitude and sportsmanship. Votes feed the Trust Score; skill is left to the CS2 Premier rating.
 - CleanLobby is a reputation layer, not an anti-cheat.
 

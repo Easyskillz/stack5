@@ -271,6 +271,8 @@ try { db.exec("ALTER TABLE accounts ADD COLUMN last_seen_at INTEGER"); } catch {
 try { db.exec("ALTER TABLE players ADD COLUMN premier_rating INTEGER"); } catch {}
 try { db.exec("ALTER TABLE teams ADD COLUMN min_rating INTEGER DEFAULT 0"); } catch {}
 try { db.exec("ALTER TABLE teams ADD COLUMN max_rating INTEGER DEFAULT 40000"); } catch {}
+// Game mode: "5v5" (Competitive/Premier, 5 players) or "2v2" (Wingman, 2 players).
+try { db.exec("ALTER TABLE teams ADD COLUMN mode TEXT DEFAULT '5v5'"); } catch {}
 // Players can speak several languages ("FR,AR,EN"); the first one is also kept in `language` (flags, older code).
 try { db.exec("ALTER TABLE players ADD COLUMN languages TEXT"); } catch {}
 // Where the Premier rating came from: 'leetify' (copied, kept in sync) or 'self' (typed by the player, always wins).
@@ -318,10 +320,15 @@ export function getTeamMembers(teamId) {
   `).all(teamId);
 }
 
+export const MODES = ["5v5", "2v2"];
+export const teamSize = mode => mode === "2v2" ? 2 : 5;
+
 export function getTeam(teamId) {
   const team = db.prepare(`SELECT * FROM teams WHERE id=?`).get(teamId);
   if (!team) return null;
   team.members = getTeamMembers(teamId);
   team.count = team.members.length;
+  team.mode = team.mode === "2v2" ? "2v2" : "5v5";
+  team.size = teamSize(team.mode);
   return team;
 }

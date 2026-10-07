@@ -2,11 +2,11 @@
 
 ## Queueing
 
-The captain of a full team (5 players) clicks **Queue**. All five members are re-checked for [eligibility](eligibility.md) first. The captain can leave the queue at any time.
+The captain of a full team (5 players, or 2 for a Wingman duo) clicks **Queue**. All members are re-checked for [eligibility](eligibility.md) first. The captain can leave the queue at any time.
 
 ## How opponents are picked
 
-Matchmaking runs automatically every 30 seconds. Queued teams are processed first-come, first-served. Each team is paired with the best-scoring team **close enough for good ping**, using a compatibility score (0–100). A team's home point is the average location of its players' countries (each country has one point, its main player hub, in `src/regions.js`). Teams more than **2,500 km** apart are never matched (`MATCH_MAX_KM` to change it): from Morocco that allows Algeria, Tunisia, Libya, Spain, Portugal, France, Italy, the UK, Belgium, the Netherlands and Germany, but not Egypt or the Gulf. Language plays no part here: it matters between teammates, not opponents.
+Matchmaking runs automatically every 30 seconds. Queued teams are processed first-come, first-served. Each team is paired with the best-scoring team **of the same mode** (5v5 with 5v5, Wingman with Wingman) and **close enough for good ping**, using a compatibility score (0–100). A team's home point is the average location of its players' countries (each country has one point, its main player hub, in `src/regions.js`). Teams more than **2,500 km** apart are never matched (`MATCH_MAX_KM` to change it): from Morocco that allows Algeria, Tunisia, Libya, Spain, Portugal, France, Italy, the UK, Belgium, the Netherlands and Germany, but not Egypt or the Gulf. Language plays no part here: it matters between teammates, not opponents.
 
 | Factor | Weight |
 |---|---|

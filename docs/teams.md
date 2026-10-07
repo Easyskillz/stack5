@@ -1,6 +1,15 @@
 # Teams
 
-CleanLobby is built around full 5-player teams ("5-stacks"). Everything happens on the Play page (`/play`).
+CleanLobby is built around full teams. Everything happens on the Play page (`/play`).
+
+## Modes: 5v5 and Wingman 2v2
+
+When creating a team the captain picks a mode, stored in `teams.mode`:
+
+- **5v5** (default, `"5v5"`): a full team is 5 players ("5-stack").
+- **Wingman 2v2** (`"2v2"`): a full team is 2 players (a duo).
+
+The mode sets the team size everywhere: invites and join requests stop at the size, a team needs exactly that many players to queue, Find a Team shows "1/2 players" or "3/5 players" with a mode badge and a mode filter, and teams are only matched against teams of the same mode. Everything else is the same process: eligibility, Premier rating range, captain accepts, Private Matchmaking code, both captains report the score, votes and Trust Score. Older teams without a mode are 5v5.
 
 ## Creating a team
 
@@ -8,7 +17,7 @@ An [eligible](eligibility.md) player with no active team can create one with a n
 
 The team panel shows the languages **every** member speaks. If there is none, the captain sees a warning (nothing is blocked). Join requests show whether the player speaks the team's language, and Find a Team lists the languages each team shares.
 
-A player can be in only one active team at a time.
+A player can be in only one active team at a time, whatever its mode (so either a 5v5 team or a Wingman duo).
 
 ## Getting players in
 

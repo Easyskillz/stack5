@@ -350,3 +350,16 @@ footer{border-top:1px solid #18211c;margin-top:70px;padding:30px 24px;color:#6b7
 
 /* Home sections */
 .section h2 em,.tourney h2 em{font-style:normal;color:var(--accent)}
+
+/* Game modes: 5v5 and Wingman 2v2 */
+.mode-badge{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:4px;border:1px solid var(--border);color:var(--muted);vertical-align:1px}
+.mode-badge.wingman{border-color:#2f6b3b;color:var(--accent);background:#10241a}
+.mode-pick{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.mode-pick label{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1px solid var(--border);border-radius:10px;cursor:pointer;margin:0}
+.mode-pick label:has(input:checked){border-color:var(--accent);background:#10241a}
+.mode-pick input{accent-color:var(--accent);margin-top:3px}
+.mode-pick span{display:grid;gap:2px}
+.wingman-new{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between;padding:16px 20px;border:1px solid #2f6b3b;border-radius:14px;background:linear-gradient(90deg,#10241a,var(--panel));margin-top:10px}
+.wingman-new>div{flex:1 1 320px;line-height:1.6}
+.form-grid .mode-pick label{display:flex;text-transform:none;letter-spacing:0;font-size:14px;color:var(--text);margin:0}
+.mode-pick small{font-size:12px}

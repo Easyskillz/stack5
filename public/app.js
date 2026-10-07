@@ -112,6 +112,9 @@ const Stack5 = (() => {
   const langsOf=p=>String(p?.languages||p?.language||'').split(',').map(x=>x.trim()).filter(Boolean);
   const languageFlags=codes=>(Array.isArray(codes)?codes:String(codes||'').split(',')).filter(Boolean).map(languageFlag).join('');
   const flags=(country,languages)=>{ const l=languageFlags(languages); return `<span class="flags">${countryFlag(country)}${l?`<span class="lang-chips" title="Languages spoken">🗣️${l}</span>`:''}</span>`; };
+  // Game modes: 5v5 (Competitive/Premier) and 2v2 (Wingman). Older rows have no mode = 5v5.
+  const teamSizeOf=t=>t?.mode==='2v2'?2:5;
+  const modeBadge=t=>t?.mode==='2v2'?'<span class="mode-badge wingman">Wingman 2v2</span>':'<span class="mode-badge">5v5</span>';
   // Languages every member of a team speaks (teammates need one; opponents don't).
   const sharedLangs=members=>{ const sets=(members||[]).map(langsOf).filter(l=>l.length); return sets.length?sets.reduce((a,b)=>a.filter(x=>b.includes(x))):[]; };
   const langNames=codes=>codes.map(c=>(LANGS.find(l=>l[0]===c)||[c,c])[1]).join(', ');
@@ -199,6 +202,7 @@ const Stack5 = (() => {
         <p class="subtitle">Browse teams looking for players and choose the one that fits you.</p>
         <div class="filters">
           <input id="q" placeholder="${tr('search')}">
+          <select id="mode"><option value="">All modes</option><option value="5v5">5v5</option><option value="2v2">Wingman 2v2</option></select>
           <select id="country">${countryOptions('Country')}</select>
           <select id="role"><option value="">Role</option><option>AWPer</option><option>Rifler</option><option>Entry</option><option>IGL</option><option>Support</option></select>
         </div>
@@ -209,8 +213,10 @@ const Stack5 = (() => {
       const data=await get('/api/discover/teams');
       const q=(document.getElementById('q').value||'').toLowerCase();
       const country=document.getElementById('country').value;
+      const mode=document.getElementById('mode').value;
       let rows=data.filter(t=>
         (!q || t.name.toLowerCase().includes(q)) &&
+        (!mode || (t.mode||'5v5')===mode) &&
         (!country || t.country===country)
       );
       document.getElementById('results').innerHTML=rows.length?rows.map(t=>`
@@ -218,7 +224,7 @@ const Stack5 = (() => {
           <div class="card-top">
             <div>
               <h3>${nm(t.name)}</h3>
-              <div class="muted small">${countryFlag(t.country)} ${esc(countryName(t.country))} · ${t.count}/5 players</div>
+              <div class="muted small">${modeBadge(t)} ${countryFlag(t.country)} ${esc(countryName(t.country))} · ${t.count}/${teamSizeOf(t)} players</div>
             </div>
             <span class="badge">OPEN</span>
           </div>
@@ -413,7 +419,7 @@ const Stack5 = (() => {
   async function home(){
     const features=[
       ['🛡️','Steam-verified players','Everyone signs in through Steam and must pass the bar: account at least 2 years old, 500+ hours of CS2, no recent VAC or game ban.'],
-      ['🎯','Full teams only','Complete 5-stacks against complete 5-stacks, close enough for good ping, with a similar Premier rating. Played on Valve servers through CS2 Private Matchmaking.'],
+      ['🎯','Full teams only','Complete 5-stacks against complete 5-stacks, or Wingman duos against duos, close enough for good ping, with a similar Premier rating. Played on Valve servers through CS2 Private Matchmaking.'],
       ['📈','Premier rating from Leetify','Ratings are read from Leetify, so nobody can fake their level.'],
       ['⭐','Public Trust Score','After each match, players vote 👍/👎 on comms, teamplay, attitude and sportsmanship. Votes, reliability and match record build a Trust Score (0–100).'],
       ['⚖️','Real admins','Both captains report the score. Disputes go to a real admin, not a bot.'],
@@ -428,9 +434,9 @@ const Stack5 = (() => {
     ];
     layout('Tired of cheaters? Find a trusted five.',`
       <section class="hero">
-        <div class="eyebrow">CS2 5v5 team matchmaking · Beta</div>
+        <div class="eyebrow">CS2 5v5 &amp; Wingman matchmaking · Beta</div>
         <h1>Tired of cheaters?<br><span>Find a trusted five.</span></h1>
-        <p class="subtitle">CleanLobby puts full 5-stacks of Steam-verified players against each other, matched by CS2 Premier rating. Every player carries a public Trust Score.</p>
+        <p class="subtitle">CleanLobby puts full teams of Steam-verified players against each other: 5v5 with your five, or Wingman 2v2 with your duo. Matched by CS2 Premier rating, and every player carries a public Trust Score.</p>
         <div class="actions">
           <a class="btn btn-green" href="/login" data-guest-cta>Sign in with Steam</a>
           <a class="btn btn-dark" href="/guide">How it works</a>
@@ -440,6 +446,10 @@ const Stack5 = (() => {
       </section>
 
       <div class="container" style="padding-top:10px">
+        <div class="wingman-new" id="wingman">
+          <div><span class="mode-badge wingman">New</span> <strong>Wingman 2v2 is open.</strong> <span class="muted">Same process, two players: create a Wingman team, invite your duo, and get matched against another verified duo.</span></div>
+          <a class="btn btn-green btn-small" href="/play">Play Wingman</a>
+        </div>
         <div class="section">
           <h2>The CleanLobby difference</h2>
           <div class="section-lead">Everything is built around one idea: you should know who you’re playing with and against.</div>
@@ -530,20 +540,21 @@ const Stack5 = (() => {
   const GUIDE_STEPS=[
     ['1-sign-in',496,434,'Sign in with Steam','Click <strong>Sign in with Steam</strong>. You log in on Steam’s own website: check the address bar says <code>steamcommunity.com</code>. CleanLobby only receives your public SteamID. It never sees your password and can’t touch your inventory or trades.'],
     ['2-pick-username',436,366,'Pick your username','First time only: choose a CleanLobby username. Email is optional (for match notifications). Confirm you’re 16 or older and accept the Terms.'],
-    ['3-profile-setup',784,646,'Set up your player profile','Country (the beta is open in 12 countries; it decides which teams you can play: only ones close enough for good ping), main role and the languages you speak (your teammates need one in common). Your CS2 Premier rating is read from Leetify automatically. Teams see this when they look for players.'],
-    ['4-build-team',1061,614,'Build your five','Create a team and invite players by their CleanLobby username, or find them on <a href="/players">Find Players</a>. Prefer joining a team? Browse <a href="/teams">Find a Team</a> and ask to join. An open team disbands after 6 hours without a new player.'],
-    ['5-full-team-queue',705,609,'Five players? Find a match','When your team has 5 players, the captain clicks <strong>Find match</strong>. Everyone must meet the CleanLobby requirements: Steam account at least 2 years old, 500+ hours of CS2, no recent VAC or game ban.'],
-    ['6-searching',705,667,'Searching for an opponent','CleanLobby looks for another full team close enough for good ping (their players’ countries within about 2,500 km of yours) with a similar Premier rating. This runs every 30 seconds. After 2 hours without a match, your team leaves the queue.'],
-    ['7-match-found',1061,592,'Match found: captains accept','Both captains have <strong>5 minutes</strong> to accept. Declining or letting the time run out counts against the captain’s reliability.'],
-    ['8-match-room',1061,1087,'Play through CS2 Private Matchmaking','Each captain invites their 4 teammates to a <strong>CS2 party</strong> (use the Steam buttons). One captain creates a <em>Private Matchmaking Pool</em> in CS2 and pastes the code here. The other captain enters it with <em>Manually Enter a Code</em>. Both parties press <strong>GO</strong>. Optional: a captain can share a Discord voice channel that only their own team sees.'],
-    ['9-result-and-ratings',1061,934,'Report the score, then vote','After the game, both captains report the score. When they match, the result is final and everyone has <strong>48 hours</strong> to vote 👍 or 👎 on the players they played with: teammates on comms, teamplay and attitude, opponents on attitude and sportsmanship. Skill isn’t voted on: that’s your Premier rating. Different scores go to an admin.'],
+    ['3-profile-setup',784,647,'Set up your player profile','Country (the beta is open in 12 countries; it decides which teams you can play: only ones close enough for good ping), main role and the languages you speak (your teammates need one in common). Your CS2 Premier rating is read from Leetify automatically. Teams see this when they look for players.'],
+    ['4-build-team',1061,616,'Build your five','Create a team and invite players by their CleanLobby username, or find them on <a href="/players">Find Players</a>. Prefer joining a team? Browse <a href="/teams">Find a Team</a> and ask to join. An open team disbands after 6 hours without a new player.'],
+    ['5-full-team-queue',705,619,'Five players? Find a match','When your team has 5 players, the captain clicks <strong>Find match</strong>. Everyone must meet the CleanLobby requirements: Steam account at least 2 years old, 500+ hours of CS2, no recent VAC or game ban.'],
+    ['6-searching',705,677,'Searching for an opponent','CleanLobby looks for another full team close enough for good ping (their players’ countries within about 2,500 km of yours) with a similar Premier rating. This runs every 30 seconds. After 2 hours without a match, your team leaves the queue.'],
+    ['7-match-found',1061,594,'Match found: captains accept','Both captains have <strong>5 minutes</strong> to accept. Declining or letting the time run out counts against the captain’s reliability.'],
+    ['8-match-room',1061,1088,'Play through CS2 Private Matchmaking','Each captain invites their 4 teammates to a <strong>CS2 party</strong> (use the Steam buttons). One captain creates a <em>Private Matchmaking Pool</em> in CS2 and pastes the code here. The other captain enters it with <em>Manually Enter a Code</em>. Both parties press <strong>GO</strong>. Optional: a captain can share a Discord voice channel that only their own team sees.'],
+    ['9-result-and-ratings',1061,936,'Report the score, then vote','After the game, both captains report the score. When they match, the result is final and everyone has <strong>48 hours</strong> to vote 👍 or 👎 on the players they played with: teammates on comms, teamplay and attitude, opponents on attitude and sportsmanship. Skill isn’t voted on: that’s your Premier rating. Different scores go to an admin.'],
     ['10-trust-score',1061,454,'Build your Trust Score','Your Trust Score (0–100) combines your Steam history, 👍/👎 votes from people you played with, reliability and matches played. Your profile also shows the % of 👍 for each aspect. It’s public on your profile and helps teams decide who to play with. <strong>60 and above is good.</strong> See <a href="#trust-score">how it works and how to raise it</a>.']
   ];
   // French screenshots (GUIDE_LANG=fr node scripts/guide-screenshots.mjs): id -> [width, height]
-  const GUIDE_SIZES_FR={'1-sign-in':[496,434],'2-pick-username':[436,366],'3-profile-setup':[784,676],'4-build-team':[1061,629],'5-full-team-queue':[705,609],'6-searching':[705,667],'7-match-found':[1061,612],'8-match-room':[1061,1109],'9-result-and-ratings':[1061,954],'10-trust-score':[1061,454]};
+  const GUIDE_SIZES_FR={'1-sign-in':[496,434],'2-pick-username':[436,366],'3-profile-setup':[784,677],'4-build-team':[1061,631],'5-full-team-queue':[705,619],'6-searching':[705,677],'7-match-found':[1061,614],'8-match-room':[1061,1111],'9-result-and-ratings':[1061,956],'10-trust-score':[1061,454]};
   const guideImg=id=>{ const g=GUIDE_STEPS.find(s=>s[0]===id), fr=(LANG==='fr'||appPath()==='/test')&&GUIDE_SIZES_FR[id];
     return { src:`/img/guide/${fr?'fr/':''}${id}.webp`, w:fr?fr[0]:g[1], h:fr?fr[1]:g[2] }; };
   const GUIDE_FAQ=[
+    ['Can I play Wingman (2v2)?','Yes. When you create a team, pick <strong>Wingman 2v2</strong> instead of 5v5, invite your duo partner, and click <strong>Find match</strong>. Same requirements, same Trust Score and votes; you’re only matched against other Wingman duos. In the match room, the host picks <strong>Wingman</strong> when creating the Private Matchmaking pool. You can be in one team at a time, either 5v5 or Wingman.'],
     ['Is signing in with Steam safe?','Yes. You sign in on steamcommunity.com, never on CleanLobby. We only receive your public SteamID. CleanLobby will never ask for your Steam Guard code, an API key or your trade link. If a page asks for those, it isn’t us.'],
     ['Why can’t I play yet?','Your Steam profile and game details must be public so we can check the requirements (2+ year old account, 500+ hours of CS2, no VAC or game ban in the last 2 years). The Play page shows which check is missing. After changing your Steam privacy, wait a few minutes and click Check again.'],
     ['Does it cost anything?','No. CleanLobby is free and stays free. Premium officiated matches, when they launch, will be an optional extra.'],
@@ -692,7 +703,7 @@ const Stack5 = (() => {
     const d=await get('/api/matches').catch(()=>({live:[],recent:[]}));
     const side=(t,right)=>t?`<a class="match-team${right?' right':''}" href="/team/${t.id}">${right?`<strong>${nm(t.name)}</strong> ${flags(t.country,t.language)}`:`${flags(t.country,t.language)} <strong>${nm(t.name)}</strong>`}</a>`:'<span class="muted">—</span>';
     const ago=ts=>{ if(!ts) return ''; const m=Math.round((Date.now()-ts)/60000); return m<60?`${m} min ago`:m<1440?`${Math.round(m/60)} h ago`:`${Math.round(m/1440)} d ago`; };
-    const row=(m,live)=>`<div class="match-row">${side(m.team_a)}<div class="match-mid">${live?'<span class="status green">LIVE</span>':`<span class="score">${m.score_a} – ${m.score_b}</span>`}<div class="muted small">${live?'Started '+ago(m.confirmed_at):ago(m.completed_at)}</div></div>${side(m.team_b,true)}</div>`;
+    const row=(m,live)=>`<div class="match-row">${side(m.team_a)}<div class="match-mid">${m.team_a?.mode==='2v2'?modeBadge(m.team_a)+' ':''}${live?'<span class="status green">LIVE</span>':`<span class="score">${m.score_a} – ${m.score_b}</span>`}<div class="muted small">${live?'Started '+ago(m.confirmed_at):ago(m.completed_at)}</div></div>${side(m.team_b,true)}</div>`;
     box.innerHTML=`<div class="panel"><h2>Live now</h2>${d.live.length?d.live.map(m=>row(m,true)).join(''):'<p class="muted">No match is being played right now.</p>'}</div>
       <div class="panel"><h2>Recent results</h2>${d.recent.length?d.recent.map(m=>row(m,false)).join(''):'<p class="muted">No finished matches yet.</p>'}</div>`;
   }
@@ -877,19 +888,25 @@ const Stack5 = (() => {
 
     let head, body='';
     if(m.status==='PENDING'){
-      head=`<div class="eyebrow">MATCH FOUND · ${m.compatibility}% COMPATIBLE</div><h2 style="margin-top:8px">${nm(mine?.name)} vs ${esc(other?.name)}</h2>`;
+      head=`<div class="eyebrow">${mine?.mode==='2v2'?'WINGMAN · ':''}MATCH FOUND · ${m.compatibility}% COMPATIBLE</div><h2 style="margin-top:8px">${nm(mine?.name)} vs ${esc(other?.name)}</h2>`;
       body=m.expires_at?`<p class="muted" style="margin-top:14px">Both captains must accept within ${countdown(m.expires_at)}. If time runs out, a team that didn't accept goes back to recruiting.</p>`:'';
       if(isCaptain && !myAccepted) body+=`<div class="actions" style="margin-top:12px">${btn('Accept match','accept-match','btn-green',{id:m.id,arg:m.my_team_id})}${btn('Decline','decline-match','btn-danger',{id:m.id,confirm:'Decline this match? Your team will leave the queue.'})}</div>`;
       else if(myAccepted) body+=`<p class="muted" style="margin-top:14px">Your team accepted. Waiting for the other captain…</p>`;
       else body+=`<p class="muted" style="margin-top:14px">Waiting for your captain to accept…</p>`;
     } else if(m.status==='CONFIRMED'){
-      head=`<div class="eyebrow">MATCH LIVE</div><h2 style="margin-top:8px">${nm(mine?.name)} vs ${esc(other?.name)}</h2>
+      const wing=(mine?.mode||other?.mode)==='2v2';
+      head=`<div class="eyebrow">${wing?'WINGMAN · ':''}MATCH LIVE</div><h2 style="margin-top:8px">${nm(mine?.name)} vs ${esc(other?.name)}</h2>
         <p class="muted" style="margin-top:0">You play through CS2's own <strong>Private Matchmaking</strong>. Follow these steps:</p>
         <ol class="match-steps">
-          <li><strong>Each captain:</strong> invite your 4 teammates to your CS2 party (Steam buttons below). Each team must be <strong>one 5-player party</strong>, or CS2 may mix players between teams.</li>
+          ${wing
+            ?`<li><strong>Each captain:</strong> invite your duo partner to your CS2 party (Steam buttons below). Each team must be <strong>one 2-player party</strong>, or CS2 may mix players between teams.</li>
+          <li><strong>One captain hosts:</strong> in CS2, open <em>Play → Matchmaking → Private Matchmaking → Create a Private Matchmaking Pool</em>, choose <strong>Wingman</strong> as the game mode, copy the full code and paste it below.</li>
+          <li><strong>The other captain:</strong> <em>Private Matchmaking → Manually Enter a Code</em>, paste the code, and check that Wingman is selected.</li>
+          <li><strong>Both parties press GO.</strong> The match starts when all 4 players are searching. It's unrated in CS2; CleanLobby records the result.</li>`
+            :`<li><strong>Each captain:</strong> invite your 4 teammates to your CS2 party (Steam buttons below). Each team must be <strong>one 5-player party</strong>, or CS2 may mix players between teams.</li>
           <li><strong>One captain hosts:</strong> in CS2, open <em>Play → Matchmaking → Private Matchmaking → Create a Private Matchmaking Pool</em>, copy the full code and paste it below.</li>
           <li><strong>The other captain:</strong> <em>Private Matchmaking → Manually Enter a Code</em>, paste the code.</li>
-          <li><strong>Both parties press GO.</strong> The match starts when all 10 players are searching. It's unrated in CS2; CleanLobby records the result.</li>
+          <li><strong>Both parties press GO.</strong> The match starts when all 10 players are searching. It's unrated in CS2; CleanLobby records the result.</li>`}
         </ol>
         <p class="muted small" style="margin-top:0">Optional: each captain can share a Discord voice channel for their team below. Only your own team sees it.</p>`;
       const code=m.lobby_code
@@ -939,8 +956,12 @@ const Stack5 = (() => {
     const t=d.team, me=d.player.id;
     if(!t){
       return `<div class="panel">
-        <h2>Create your five</h2>
+        <h2>Create your team</h2>
         <form data-form="create-team" class="form-grid">
+          <div class="full"><label>Mode</label><div class="mode-pick">
+            <label><input type="radio" name="mode" value="5v5" checked> <span><strong>5v5</strong><small class="muted">Competitive · 5 players</small></span></label>
+            <label><input type="radio" name="mode" value="2v2"> <span><strong>Wingman 2v2</strong><small class="muted">2 players · you + your duo</small></span></label>
+          </div></div>
           <div class="full"><label>Team name</label><input class="input" name="name" maxlength="40" minlength="2" placeholder="e.g. Casablanca Kings" required></div>
           <div><label>Premier rating range</label><div style="display:flex;gap:8px">
             <input class="input" name="min_rating" type="number" min="0" max="40000" step="500" value="0" aria-label="Lowest Premier rating">
@@ -961,16 +982,17 @@ const Stack5 = (() => {
           ${btn('Remove','remove','btn-danger',{id:t.id,arg:p.id,confirm:`Remove ${p.display_name} from the team?`})}
         </div>`:''}
       </div>`).join('');
-    const empty=Array.from({length:5-t.count},()=>`<div class="row"><span class="muted">Open slot</span></div>`).join('');
+    const size=teamSizeOf(t);
+    const empty=Array.from({length:Math.max(0,size-t.count)},()=>`<div class="row"><span class="muted">Open slot</span></div>`).join('');
 
     let controls='';
     if(t.status==='OPEN' && t.expires_at){
-      controls+=`<p class="muted small" style="margin-top:12px">⏳ ${t.count<5?'Disbands in':'Queue within'} ${countdown(t.expires_at)} ${t.count<5?'unless a new player joins':'or the team is disbanded'}.</p>`;
+      controls+=`<p class="muted small" style="margin-top:12px">⏳ ${t.count<size?'Disbands in':'Queue within'} ${countdown(t.expires_at)} ${t.count<size?'unless a new player joins':'or the team is disbanded'}.</p>`;
     }
     if(captain && t.status==='OPEN'){
-      controls+= t.count<5
+      controls+= t.count<size
         ? `<form data-form="invite" data-id="${t.id}" class="inline-form"><input class="input" name="username" placeholder="Invite by CleanLobby username" required><button class="btn btn-green btn-small">Invite</button></form>
-           <p class="muted small" style="margin-top:8px">Or find players on <a href="/players" style="color:var(--accent)">Find Players</a>. You need 5 players to queue.</p>`
+           <p class="muted small" style="margin-top:8px">Or find players on <a href="/players" style="color:var(--accent)">Find Players</a>. You need ${size} players to queue.</p>`
         : `<div class="actions" style="margin-top:16px">${btn('Find match','queue','btn-green',{id:t.id})}</div>`;
     }
     if(t.status==='READY'){
@@ -984,10 +1006,10 @@ const Stack5 = (() => {
         : btn('Leave team','leave','btn-danger',{id:t.id,confirm:'Leave this team?'})}</div>`;
     }
     return `<div class="panel">
-      <div class="card-top"><div><h2 style="margin:0">${nm(t.name)}</h2><div class="muted small">${t.count}/5 players · ${premierRange(t.min_rating,t.max_rating)}</div></div>${statusBadge(t.status)}</div>
+      <div class="card-top"><div><h2 style="margin:0">${nm(t.name)}</h2><div class="muted small">${modeBadge(t)} ${t.count}/${size} players · ${premierRange(t.min_rating,t.max_rating)}</div></div>${statusBadge(t.status)}</div>
       ${(()=>{ const sh=sharedLangs(t.members); return t.count<2?'':sh.length
         ?`<p class="small" style="margin:12px 0 0">🗣️ Everyone speaks ${languageFlags(sh)} <span class="muted">${esc(langNames(sh))}</span></p>`
-        :'<p class="small" style="margin:12px 0 0;color:#f2c94c">⚠️ Your players don\'t share a language. Comms will be hard: check the flags before inviting more.</p>'; })()}
+        :'<p class="small" style="margin:12px 0 0;color:#f2c94c">⚠️ Your players don\'t share a language. Comms will be hard: check their languages before inviting more.</p>'; })()}
       <div style="margin-top:14px">${members}${empty}</div>
       ${controls}
     </div>`;
@@ -995,7 +1017,7 @@ const Stack5 = (() => {
 
   function sidePanel(d){
     const invites=d.invites.length?d.invites.map(i=>`
-      <div class="row"><div><strong>${nm(i.team_name)}</strong><div class="muted small">${i.count}/5 · from ${esc(i.invited_by)}</div></div>
+      <div class="row"><div><strong>${nm(i.team_name)}</strong><div class="muted small">${modeBadge(i)} ${i.count}/${teamSizeOf(i)} · from ${esc(i.invited_by)}</div></div>
         <div class="row-actions">${btn('Accept','accept-invite','btn-green',{id:i.id})}${btn('Decline','decline-invite','btn-dark',{id:i.id})}</div></div>`).join('')
       :'<p class="muted small">No pending invitations.</p>';
     let html=`<div class="panel"><h2>Invitations</h2>${invites}</div>`;
@@ -1212,7 +1234,7 @@ const Stack5 = (() => {
       <div class="container">
         <div class="eyebrow">CleanLobby TEAM</div>
         <h1 class="name-title" style="font-size:40px">${nm(t.name)}</h1>
-        <p class="subtitle">${t.count}/5 players · ${premierRange(t.min_rating,t.max_rating)}</p>
+        <p class="subtitle">${modeBadge(t)} ${t.count}/${teamSizeOf(t)} players · ${premierRange(t.min_rating,t.max_rating)}</p>
         <div class="section">
           <h2>Roster</h2>
           <div class="grid">${(t.members||[]).map(p=>`
