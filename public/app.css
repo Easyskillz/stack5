@@ -171,7 +171,8 @@ html{scroll-behavior:smooth}
 /* Flags (self-hosted SVGs) */
 .flag{width:20px;height:15px;border-radius:2px;object-fit:cover;vertical-align:-2px;box-shadow:0 0 0 1px rgba(0,0,0,.45)}
 .flags{display:inline-flex;gap:4px;align-items:center;vertical-align:middle}
-.lang-chip{display:inline-block;font-size:10px;font-weight:800;line-height:13px;padding:1px 4px;border:1px solid #3c3c44;border-radius:3px;color:#d3dbd6}
+.lang-chip{display:inline-block;font-size:10px;font-weight:800;line-height:13px;padding:1px 4px;border:1px solid #33433a;border-radius:3px;color:#d3dbd6;background:#121a15;letter-spacing:.03em}
+.lang-chips{display:inline-flex;gap:3px;align-items:center;margin-left:4px;font-size:12px}
 
 /* Live counters */
 .live-stats{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;margin:18px 0;padding:12px 16px;border:1px solid var(--border);border-radius:10px;background:var(--panel);font-size:14px;color:var(--muted)}

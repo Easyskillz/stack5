@@ -85,14 +85,12 @@ const Stack5 = (() => {
     const c=String(code||'').toLowerCase();
     return FLAG_CODES.has(c)?`<img class="flag" src="/flags/${c}.svg" alt="${esc(c.toUpperCase())}" title="${esc(c.toUpperCase())}">`:'';
   }
-  const LANG_FLAG={EN:'gb',FR:'fr',ES:'es',DE:'de',PT:'pt',IT:'it',NL:'nl',TR:'tr',RU:'ru'};
+  // Languages are text chips (EN, FR…), never flags: a flag always means the player's country.
   function languageFlag(code){
     const c=String(code||'').toUpperCase();
     if(!c) return '';
     const name=(LANGS.find(l=>l[0]===c)||[c,c])[1];
-    return LANG_FLAG[c]
-      ?`<img class="flag flag-lang" src="/flags/${LANG_FLAG[c]}.svg" alt="${esc(c)}" title="Speaks ${esc(name)}">`
-      :`<span class="lang-chip" title="Speaks ${esc(name)}">${esc(c)}</span>`;   // e.g. Arabic: no single country flag
+    return `<span class="lang-chip" title="Speaks ${esc(name)}">${esc(c)}</span>`;
   }
   // CS2 Premier rating badge in the game's tier colours (self-reported by the player).
   const PREMIER_TIERS=[[30000,'gold','Gold'],[25000,'red','Red'],[20000,'pink','Pink'],[15000,'purple','Purple'],[10000,'blue','Blue'],[5000,'cyan','Light blue'],[1,'grey','Grey']];
@@ -113,7 +111,7 @@ const Stack5 = (() => {
   // A player can speak several languages ("FR,AR,EN"); older rows only have `language`.
   const langsOf=p=>String(p?.languages||p?.language||'').split(',').map(x=>x.trim()).filter(Boolean);
   const languageFlags=codes=>(Array.isArray(codes)?codes:String(codes||'').split(',')).filter(Boolean).map(languageFlag).join('');
-  const flags=(country,languages)=>`<span class="flags">${countryFlag(country)}${languageFlags(languages)}</span>`;
+  const flags=(country,languages)=>{ const l=languageFlags(languages); return `<span class="flags">${countryFlag(country)}${l?`<span class="lang-chips" title="Languages spoken">🗣️${l}</span>`:''}</span>`; };
   // Languages every member of a team speaks (teammates need one; opponents don't).
   const sharedLangs=members=>{ const sets=(members||[]).map(langsOf).filter(l=>l.length); return sets.length?sets.reduce((a,b)=>a.filter(x=>b.includes(x))):[]; };
   const langNames=codes=>codes.map(c=>(LANGS.find(l=>l[0]===c)||[c,c])[1]).join(', ');
@@ -275,7 +273,7 @@ const Stack5 = (() => {
             <img class="avatar" src="${esc(p.avatar_url||'')}" onerror="this.style.display='none'">
             <div>
               <h3>${nm(p.display_name||'Player')}</h3>
-              <div class="muted small">${flags(p.country,langsOf(p))} ${esc(countryName(p.country))}</div>
+              <div class="muted small">${countryFlag(p.country)} ${esc(countryName(p.country))}${langsOf(p).length?` · <span class="lang-chips" title="Languages spoken">🗣️${languageFlags(langsOf(p))}</span>`:''}</div>
             </div>
           </div>
           <div class="meta">
@@ -284,7 +282,7 @@ const Stack5 = (() => {
           </div>
           <div class="meta">
             <span>${tr('trust')} <strong>${p.trust_score??'—'}</strong>${p.trust_confidence==='NEW'?' <span class="muted">(new)</span>':''}</span>
-            <span>${tr('reliability')} ${p.reliability_score??'—'}</span>
+            <span>${tr('reliability')} <strong>${p.reliability_score??'—'}</strong></span>
                         ${p.eligible?'<span class="status green">VERIFIED</span>':'<span class="status">Not verified</span>'}
           </div>
           <div class="card-actions">

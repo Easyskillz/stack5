@@ -39,6 +39,7 @@ How every part of CleanLobby works: what players see, the rules behind it, and w
 
 ## Changelog
 
+- **2026-10-07:** Flags mean country only: languages spoken show as text chips (🗣️ FR ES) instead of flags everywhere (Find Players, teams, match pages, profiles). Find Players cards read "🇫🇷 France · 🗣️ FR ES". "Reliability" now translated on the French player cards.
 - **2026-10-07:** Back to the basic look: the "We don't want eggs" home page is gone. Dark green palette and Inter titles again (no Anton, no Premier-colour stripe under the header; Premier tier colours stay on rating badges). Home: "Tired of cheaters? Find a trusted five.", six feature cards, the five steps, beta countries, tournaments, Premium, final call to action (English and French). New link-preview image and icons, guide screenshots regenerated (EN + FR), SEO title/description without the egg slogan.
 - **2026-10-05:** Private matchmaking codes stored in uppercase (real format `AYVM2-Q7SN-SXKET-24GN`); example code in the screenshots uses that format; the tester guide no longer asks what the code looks like.
 - **2026-10-05:** French tester guide at `/fr/test` (not indexed, shared with live-test players). French screenshots for the French guide (`public/img/guide/fr`). Country names translated on the French site. Fix: test players kept their Premier ratings (source `test`, skipped by the Leetify refresh), so the guide screenshots show ratings again.

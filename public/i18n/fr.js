@@ -128,6 +128,7 @@ window.CL_FR = {
   "OPEN": "OUVERTE",
   "No shared language yet": "Pas encore de langue commune",
   "Speaks {x}": "Parle {x}",
+  "Languages spoken": "Langues parlées",
   "{x} · {x}/5 players": "{x} · {x}/5 joueurs",
   "{x}/5 players": "{x}/5 joueurs",
   "(new)": "(nouveau)",
