@@ -413,12 +413,13 @@ const Stack5 = (() => {
   }
 
   async function home(){
-    const tape=['NO EGGS','NO SPINBOTS','NO WALLHACKS','NO RAGE QUITS','VERIFIED 5-STACKS ONLY','JUST CS2'];
-    const track=`<div class="ne-track">${tape.map(t=>`<span>${t}</span>`).join('')}</div>`;
-    const swap=[
-      ['Drop eggs','Drop the cheaters','var(--tier-red)','Every player signs in through Steam and must pass the bar: account at least 2 years old, 500+ hours of CS2, no recent VAC or game ban.'],
-      ['Hatch them','Match them','var(--tier-blue)','Only complete 5-stacks, only against other complete 5-stacks close enough for good ping, with a similar Premier rating. Open in 12 countries during the beta. Played on Valve servers through CS2 Private Matchmaking.'],
-      ['Feed them','Rate them','var(--tier-purple)','After the match, players vote 👍/👎 on each other’s comms, teamplay, attitude and sportsmanship. Votes, reliability and match record build a public Trust Score that follows you.']
+    const features=[
+      ['🛡️','Steam-verified players','Everyone signs in through Steam and must pass the bar: account at least 2 years old, 500+ hours of CS2, no recent VAC or game ban.'],
+      ['🎯','Full teams only','Complete 5-stacks against complete 5-stacks, close enough for good ping, with a similar Premier rating. Played on Valve servers through CS2 Private Matchmaking.'],
+      ['📈','Premier rating from Leetify','Ratings are read from Leetify, so nobody can fake their level.'],
+      ['⭐','Public Trust Score','After each match, players vote 👍/👎 on comms, teamplay, attitude and sportsmanship. Votes, reliability and match record build a Trust Score (0–100).'],
+      ['⚖️','Real admins','Both captains report the score. Disputes go to a real admin, not a bot.'],
+      ['🔐','Steam-safe by design','We never see your password, your inventory or your trades.']
     ];
     const steps=[
       ['Sign in with Steam','On Steam’s own website, then pick a username.'],
@@ -427,149 +428,84 @@ const Stack5 = (() => {
       ['Find your match','Queue as a full team and meet a comparable five.'],
       ['Play & report','Private Matchmaking code, then both captains report the score.']
     ];
-    const shard=(style,d)=>`<svg class="ne-shard" style="${style}" viewBox="0 0 30 30"><path d="${d}" fill="#f4ecdc"/></svg>`;
-    layout('We don’t want eggs. We want a cheater-free game.',`
-      <div class="ne-tape" aria-hidden="true"><div class="ne-tape-inner">${track}${track}</div></div>
-      <section class="ne-hero">
-        <div class="ne-grid">
-          <div>
-            <div class="eyebrow">// The update we actually asked for · CS2 5v5 beta</div>
-            <h1><span class="ne-no">We don’t want <span class="ne-eggs">eggs.</span></span><span class="ne-want">We want a <em>cheater-free</em> game.</span></h1>
-            <p class="ne-lede">The new update lets you drop eggs, hatch them and feed them. Meanwhile there’s still a spinbot on the other team. <strong>CleanLobby</strong> puts full 5-stacks of Steam-verified players against each other, matched by Premier rating, and every player carries a public Trust Score.</p>
-            <div class="actions">
-              <a class="btn btn-green" href="/login" data-guest-cta>Find a trusted five</a>
-              <a class="btn btn-dark" href="/guide">How it works</a>
-              <a class="btn btn-dark" href="/teams">${tr('teams')}</a>
-            </div>
-            ${liveStatsBox()}
-          </div>
-          <div class="ne-art" aria-hidden="true">
-            <svg viewBox="0 0 400 400">
-              <defs>
-                <radialGradient id="ne-shell" cx="38%" cy="32%" r="75%"><stop offset="0" stop-color="#fffaf0"/><stop offset=".55" stop-color="#f4ecdc"/><stop offset="1" stop-color="#cdbb98"/></radialGradient>
-                <clipPath id="ne-clip"><path d="M200 82c62 0 104 106 104 170 0 62-46 104-104 104S96 314 96 252C96 188 138 82 200 82z"/></clipPath>
-              </defs>
-              <g class="ne-ring"><circle cx="200" cy="200" r="186" fill="none" stroke="#a070ff" stroke-opacity=".5" stroke-width="2" stroke-dasharray="2 10"/></g>
-              <g class="ne-ring ne-ring2"><circle cx="200" cy="200" r="158" fill="none" stroke="#6b8bff" stroke-opacity=".35" stroke-width="1.5" stroke-dasharray="40 14"/></g>
-              <ellipse cx="200" cy="362" rx="92" ry="12" fill="#000" opacity=".5"/>
-              <g class="ne-egg">
-                <path d="M200 82c62 0 104 106 104 170 0 62-46 104-104 104S96 314 96 252C96 188 138 82 200 82z" fill="url(#ne-shell)"/>
-                <g clip-path="url(#ne-clip)">
-                  <path d="M86 214l30 14 18-24 22 30 20-28 24 26 22-30 22 28 20-22 26 18 18-10" fill="none" stroke="#2b2620" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
-                  <path d="M190 222l-6 22 10 16" fill="none" stroke="#2b2620" stroke-width="3" stroke-linecap="round"/>
-                  <ellipse cx="166" cy="150" rx="18" ry="30" fill="#fff" opacity=".35" transform="rotate(-20 166 150)"/>
-                </g>
-              </g>
-              <g stroke="#ffc53d" stroke-width="3" stroke-linecap="round">
-                <line x1="200" y1="0" x2="200" y2="60"/><line x1="200" y1="340" x2="200" y2="400"/>
-                <line x1="0" y1="200" x2="60" y2="200"/><line x1="340" y1="200" x2="400" y2="200"/>
-              </g>
-              <g stroke="#ff4b3e" stroke-width="2.5"><line x1="192" y1="200" x2="208" y2="200"/><line x1="200" y1="192" x2="200" y2="208"/></g>
-            </svg>
-            <div class="ne-stamp">NOT IN MY LOBBY</div>
-            ${shard('left:4%;top:18%;width:26px','M3 22L10 4l7 10 10-6-4 18z')}
-            ${shard('right:10%;top:6%;width:20px;animation-delay:-3s','M5 25L9 6l9 8 8-9 1 20z')}
-            ${shard('left:12%;bottom:6%;width:18px;animation-delay:-6s','M2 20L14 3l12 12-6 12z')}
-          </div>
+    layout('Tired of cheaters? Find a trusted five.',`
+      <section class="hero">
+        <div class="eyebrow">CS2 5v5 team matchmaking · Beta</div>
+        <h1>Tired of cheaters?<br><span>Find a trusted five.</span></h1>
+        <p class="subtitle">CleanLobby puts full 5-stacks of Steam-verified players against each other, matched by CS2 Premier rating. Every player carries a public Trust Score.</p>
+        <div class="actions">
+          <a class="btn btn-green" href="/login" data-guest-cta>Sign in with Steam</a>
+          <a class="btn btn-dark" href="/guide">How it works</a>
+          <a class="btn btn-dark" href="/teams">${tr('teams')}</a>
         </div>
+        ${liveStatsBox()}
       </section>
 
-      <section class="ne-sec"><div class="container" style="padding-top:0;padding-bottom:0">
-        <div class="eyebrow">// Drop. Hatch. Feed.</div>
-        <h2>Their update, <em>our update</em></h2>
-        <p class="section-lead" style="margin-top:14px">Same three steps, different idea. Ours ends with a match you actually want to play.</p>
-        <div class="ne-swap">${swap.map(([theirs,ours,c,text])=>`
-          <div class="ne-row" style="--c:${c}">
-            <div class="ne-theirs"><div><small>THEIRS</small><b>${theirs}</b></div></div>
-            <div class="ne-arrow"><span>→</span></div>
-            <div class="ne-ours"><b>${ours}</b><p>${text}</p></div>
-          </div>`).join('')}
-        </div>
-      </div></section>
-
-      <section class="ne-sec"><div class="container" style="padding-top:0;padding-bottom:0">
-        <div class="eyebrow">// Patch notes</div>
-        <h2>CleanLobby <em>beta update</em></h2>
-        <p class="section-lead" style="margin-top:14px">No cosmetics, no pets. Just the stuff that makes a lobby worth joining.</p>
-        <div class="ne-split">
-          <div class="ne-notes">
-            <div class="ne-notes-top"><span class="ne-dot" style="background:var(--danger)"></span><span class="ne-dot" style="background:var(--accent)"></span><span class="ne-dot" style="background:var(--ok)"></span>&nbsp; PATCH_NOTES.TXT</div>
-            <ul>
-              <li><span class="ne-t ne-rm">−</span><span>Removed eggs. <span class="muted">(We never had any.)</span></span></li>
-              <li><span class="ne-t ne-add">+</span><span>Teams matched by CS2 Premier rating (read from Leetify, so nobody can fake it), from grey to gold.</span></li>
-              <li><span class="ne-t ne-add">+</span><span>Sign in through Steam only. We never see your password, your inventory or your trades.</span></li>
-              <li><span class="ne-t ne-add">+</span><span>Trust Score (0–100) on every public profile.</span></li>
-              <li><span class="ne-t ne-add">+</span><span>Both captains report the score. Disputes go to a real admin, not a bot.</span></li>
-              <li><span class="ne-t ne-fix">~</span><span>Fixed: random teammate who "just got really good" at 3 AM.</span></li>
-            </ul>
+      <div class="container" style="padding-top:10px">
+        <div class="section">
+          <h2>The CleanLobby difference</h2>
+          <div class="section-lead">Everything is built around one idea: you should know who you’re playing with and against.</div>
+          <div class="grid">${features.map(([icon,title,text])=>`
+            <div class="card"><div class="feature-icon">${icon}</div><h3>${title}</h3><p>${text}</p></div>`).join('')}
           </div>
-          <div class="ne-card">
-            <div class="ne-who"><div class="ne-av">K9</div><div><h3>k9_nafr</h3><small class="muted">Rifler · Morocco · NAFR</small></div><div class="ne-ok">✓ Steam verified</div></div>
-            <div class="ne-score"><b>87</b><span class="muted">Trust Score</span><span style="margin-left:auto">${premier(18240)}</span></div>
-            <div class="ne-bars">${[['Steam history',92],['Peer ratings',84],['Reliability',90],['Match record',78]].map(([k,v])=>`
-              <div class="ne-bar">${k}<i style="--v:${v}%"></i><em>${v}</em></div>`).join('')}
+        </div>
+
+        <div class="section" id="how">
+          <h2>From account to match</h2>
+          <div class="steps" style="margin-top:20px">${steps.map(([title,text],i)=>`
+            <div class="step"><div class="step-num">0${i+1}</div><h3>${title}</h3><p>${text}</p></div>`).join('')}
+          </div>
+        </div>
+
+        <div class="section" id="beta-countries">
+          <h2>Open in <em>12 countries</em>, more soon</h2>
+          <p class="section-lead">The beta starts small on purpose: Morocco and the English, French, Spanish and Portuguese-speaking countries of Europe, close enough for good ping and a shared language on comms. We’ll open more countries step by step. Not on the list? <a href="/contact" style="color:var(--accent)">Tell us where you play</a>.</p>
+          <div class="beta-grid">${BETA.map(([c])=>`<div class="beta-country">${countryFlag(c)}<span>${countryName(c)}</span></div>`).join('')}</div>
+        </div>
+
+        <div class="section" id="tournaments">
+          <div class="tourney">
+            <div class="premium-badge">COMING UP</div>
+            <h2 style="margin-top:14px">5v5 <em>tournaments</em></h2>
+            <p class="section-lead" style="margin-top:14px">Cups for complete teams from the beta countries: brackets, scheduled matches, results on CleanLobby. Build your five now: teams with a track record and a good Trust Score will be first in line when sign-ups open.</p>
+            <div class="actions"><a class="btn btn-green" href="/login" data-guest-cta>Build your five</a><a class="btn btn-dark" href="/contact">Get notified</a></div>
+          </div>
+        </div>
+
+        <div class="section" id="premium">
+          <div class="premium">
+            <div>
+              <div class="eyebrow">Premium · coming soon</div>
+              <h2>Officiated matches on <em>private servers</em></h2>
+              <p class="section-lead" style="margin-top:14px">For teams that want certainty. Your match runs on a private CS2 server, with a real admin watching it live:</p>
+              <ul class="premium-list">
+                <li>🛡️ <strong>Only the 10 players on the roster can connect.</strong> No swaps, no ringers.</li>
+                <li>👁️ <strong>A real admin watches the match</strong> and reviews the demo when something looks off.</li>
+                <li>📺 <strong>The admin can ask any player to stream their screen</strong> during the match, at any time, to make sure nothing fishy is going on.</li>
+                <li>🚫 <strong>The admin can kick anyone.</strong> If a player is caught cheating, they’re out, and the admin finds a replacement on the spot so the match can go on.</li>
+                <li>⏸️ <strong>Clear rules</strong> for pauses, substitutes and disconnects, decided on the spot.</li>
+                <li>🏆 <strong>Results that can’t be disputed</strong>, for cups and serious teams.</li>
+              </ul>
             </div>
-            <p class="ne-note">Example player. Real profiles show live Steam, Leetify and FACEIT panels too.</p>
+            <div class="premium-card">
+              <div class="premium-badge">COMING SOON</div>
+              <h3>Want to be a match admin?</h3>
+              <p>We’re looking for experienced, fair CS2 players to officiate Premium matches. Tell us about yourself: your CS2 experience, languages, country and when you’re available.</p>
+              <div class="actions"><a class="btn btn-green" href="/contact?topic=admin">Apply to be an admin</a><a class="btn btn-dark" href="mailto:contact@cleanlobby.com?subject=Premium%20match%20admin">Email us</a></div>
+              <p class="muted small" style="margin:12px 0 0">Interested in Premium for your team? Same address: contact@cleanlobby.com</p>
+            </div>
           </div>
         </div>
-      </div></section>
 
-      <section class="ne-sec" id="how"><div class="container" style="padding-top:0;padding-bottom:0">
-        <div class="eyebrow">// From account to match</div>
-        <h2>Five steps, <em>no eggs</em></h2>
-        <div class="steps" style="margin-top:28px">${steps.map(([title,text],i)=>`
-          <div class="step"><div class="step-num">0${i+1}</div><h3>${title}</h3><p>${text}</p></div>`).join('')}
-        </div>
-      </div></section>
-
-      <section class="ne-sec" id="beta-countries"><div class="container" style="padding-top:0;padding-bottom:0">
-        <div class="eyebrow">// Beta countries</div>
-        <h2>Open in <em>12 countries</em>, more soon</h2>
-        <p class="section-lead" style="margin-top:14px">The beta starts small on purpose: Morocco and the English, French, Spanish and Portuguese-speaking countries of Europe, close enough for good ping and a shared language on comms. We’ll open more countries step by step. Not on the list? <a href="/contact" style="color:var(--accent)">Tell us where you play</a>.</p>
-        <div class="beta-grid">${BETA.map(([c])=>`<div class="beta-country">${countryFlag(c)}<span>${countryName(c)}</span></div>`).join('')}</div>
-      </div></section>
-
-      <section class="ne-sec" id="tournaments"><div class="container" style="padding-top:0;padding-bottom:0">
-        <div class="tourney">
-          <div class="premium-badge">COMING UP</div>
-          <h2 style="margin-top:14px">5v5 <em>tournaments</em></h2>
-          <p class="section-lead" style="margin-top:14px">Cups for complete teams from the beta countries: brackets, scheduled matches, results on CleanLobby. Build your five now: teams with a track record and a good Trust Score will be first in line when sign-ups open.</p>
-          <div class="actions"><a class="btn btn-green" href="/login" data-guest-cta>Build your five</a><a class="btn btn-dark" href="/contact">Get notified</a></div>
-        </div>
-      </div></section>
-
-      <section class="ne-sec" id="premium"><div class="container" style="padding-top:0;padding-bottom:0">
-        <div class="premium">
-          <div>
-            <div class="eyebrow">// Premium · coming soon</div>
-            <h2>Officiated matches on <em>private servers</em></h2>
-            <p class="section-lead" style="margin-top:14px">For teams that want certainty. Your match runs on a private CS2 server, with a real admin watching it live:</p>
-            <ul class="premium-list">
-              <li>🛡️ <strong>Only the 10 players on the roster can connect.</strong> No swaps, no ringers.</li>
-              <li>👁️ <strong>A real admin watches the match</strong> and reviews the demo when something looks off.</li>
-              <li>📺 <strong>The admin can ask any player to stream their screen</strong> during the match, at any time, to make sure nothing fishy is going on.</li>
-              <li>🚫 <strong>The admin can kick anyone.</strong> If a player is caught cheating, they’re out, and the admin finds a replacement on the spot so the match can go on.</li>
-              <li>⏸️ <strong>Clear rules</strong> for pauses, substitutes and disconnects, decided on the spot.</li>
-              <li>🏆 <strong>Results that can’t be disputed</strong>, for cups and serious teams.</li>
-            </ul>
+        <div class="section">
+          <div class="cta">
+            <h2>Your five is waiting.</h2>
+            <p>Build your 5-stack, queue, and play a team that got here the same way you did.</p>
+            <div class="actions"><a class="btn btn-green" href="/login" data-guest-cta>Find a trusted five</a><a class="btn btn-dark" href="/teams">Browse teams</a></div>
           </div>
-          <div class="premium-card">
-            <div class="premium-badge">COMING SOON</div>
-            <h3>Want to be a match admin?</h3>
-            <p>We’re looking for experienced, fair CS2 players to officiate Premium matches. Tell us about yourself: your CS2 experience, languages, country and when you’re available.</p>
-            <div class="actions"><a class="btn btn-green" href="/contact?topic=admin">Apply to be an admin</a><a class="btn btn-dark" href="mailto:contact@cleanlobby.com?subject=Premium%20match%20admin">Email us</a></div>
-            <p class="muted small" style="margin:12px 0 0">Interested in Premium for your team? Same address: contact@cleanlobby.com</p>
-          </div>
+          <p class="small muted" style="margin-top:22px;text-align:center">⚠️ Beta: features and matchmaking rules may change during testing. CleanLobby is a reputation layer, not an anti-cheat, and can't guarantee a player is cheat-free. Cheaters get reported, rated down and removed.</p>
         </div>
-      </div></section>
-
-      <section class="ne-final">
-        <div class="ne-tiers" aria-hidden="true">${[3200,7400,12800,17500,22100,27300,31600].map(premier).join('')}</div>
-        <h2>Leave the eggs.<br><em>Bring four friends.</em></h2>
-        <p>Build your 5-stack, queue, and play a team that got here the same way you did.</p>
-        <div class="actions"><a class="btn btn-green" href="/login" data-guest-cta>Find a trusted five</a><a class="btn btn-dark" href="/teams">Browse teams</a></div>
-        <p class="small muted" style="margin-top:22px">⚠️ Beta: features and matchmaking rules may change during testing. CleanLobby is a reputation layer, not an anti-cheat, and can't guarantee a player is cheat-free. Cheaters get reported, rated down and removed.</p>
-      </section>`);
+      </div>`);
 
     fillLiveStats();
 

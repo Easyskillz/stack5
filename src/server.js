@@ -995,9 +995,9 @@ app.get(["/register","/forgot-password","/reset-password"], (_,res)=>res.redirec
 
 // ---- App pages: one HTML shell, with per-page title/description/robots for search engines and link previews.
 const APP_SHELL=fs.readFileSync(path.join(__dirname,"../public/pages/app.html"),"utf8");
-const SITE_DESC="We don’t want eggs, we want a cheater-free game. CS2 5v5 for full teams: Steam-verified players, matched by Premier rating, public Trust Score. Free.";
+const SITE_DESC="Tired of cheaters? Find a trusted five. CS2 5v5 for full teams: Steam-verified players, matched by Premier rating, public Trust Score. Free.";
 const PAGES={
-  "/":        { title:"CleanLobby · Trusted CS2 5v5 team matchmaking", heading:"We don’t want eggs. We want a cheater-free game.", description:SITE_DESC },
+  "/":        { title:"CleanLobby · Trusted CS2 5v5 team matchmaking", heading:"Tired of cheaters? Find a trusted five.", description:SITE_DESC },
   "/teams":   { title:"Find a CS2 team · CleanLobby", heading:"Find a CS2 team", description:"Browse CS2 5-stacks that are recruiting on CleanLobby and ask to join. Every player is Steam-verified with a public trust score." },
   "/players": { title:"Find CS2 players · CleanLobby", heading:"Find CS2 players", description:"Find Steam-verified CS2 players for your 5-stack by country, Premier rating, role and language, with a trust score built from real matches." },
   "/matches": { title:"CS2 5v5 matches and results · CleanLobby", heading:"CS2 5v5 matches", description:"Live CleanLobby matches and recent results between complete CS2 teams, played through CS2 Private Matchmaking." },
@@ -1006,9 +1006,9 @@ const PAGES={
   "/contact": { title:"Contact · CleanLobby", heading:"Contact CleanLobby", description:"Contact the CleanLobby team: help with your account, report a player, a disputed match result, partnerships or privacy requests. Email contact@cleanlobby.com." }
 };
 // French site under /fr (same app; public/i18n/fr.js translates it in the browser).
-const SITE_DESC_FR="On veut pas d’œufs, on veut des games sans cheaters. CS2 5v5 entre équipes complètes : joueurs vérifiés via Steam, matchés par rating Premier, Trust Score public. Gratuit.";
+const SITE_DESC_FR="Marre des cheaters ? Trouve une équipe de confiance. CS2 5v5 entre équipes complètes : joueurs vérifiés via Steam, matchés par rating Premier, Trust Score public. Gratuit.";
 const PAGES_FR={
-  "/":        { title:"CleanLobby · Matchmaking CS2 5v5 entre équipes de confiance", heading:"On veut pas d’œufs. On veut des games sans cheaters.", description:SITE_DESC_FR },
+  "/":        { title:"CleanLobby · Matchmaking CS2 5v5 entre équipes de confiance", heading:"Marre des cheaters ? Trouve une équipe de confiance.", description:SITE_DESC_FR },
   "/teams":   { title:"Trouver une équipe CS2 · CleanLobby", heading:"Trouver une équipe CS2", description:"Parcours les 5-stacks CS2 qui recrutent sur CleanLobby et demande à les rejoindre. Chaque joueur est vérifié via Steam, avec un Trust Score public." },
   "/players": { title:"Trouver des joueurs CS2 · CleanLobby", heading:"Trouver des joueurs CS2", description:"Trouve des joueurs CS2 vérifiés via Steam pour ton 5-stack, par pays, rating Premier, rôle et langue, avec un Trust Score construit sur de vrais matchs." },
   "/matches": { title:"Matchs et résultats CS2 5v5 · CleanLobby", heading:"Matchs CS2 5v5", description:"Les matchs CleanLobby en direct et les derniers résultats entre équipes CS2 complètes, joués via le Private Matchmaking de CS2." },

@@ -29,7 +29,7 @@ How every part of CleanLobby works: what players see, the rules behind it, and w
 ## Marketing
 
 - **Beta invite video:** https://cleanlobby.com/media/stack5-beta-invite.mp4 (old stack5cs.com links redirect there), source in `marketing/beta-video/` (31 s vertical MP4 made from the site's look and the guide screenshots; see its README to change the text and re-render). Not deployed. The hosted file still shows the STACK5 name; the source already says CleanLobby, so re-render and upload it as `cleanlobby-beta-invite.mp4` at the domain switch.
-- **Concept: "We don't want eggs. We want a cheater-free game."**: landing page with a new look (hazard yellow, cracked-egg art) in `marketing/concept-no-eggs/`. Not live; for deciding whether to adopt it.
+- **Concept: "We don't want eggs. We want a cheater-free game."**: was live from 2026-10-05 to 2026-10-07, then dropped for the basic look. Source kept in `marketing/concept-no-eggs/`.
 - **"We don't want eggs" video** (20 s, vertical, ends on cleanlobby.com): https://cleanlobby.com/media/cleanlobby-oeufs-fr.mp4 (French) and https://cleanlobby.com/media/cleanlobby-eggs-en.mp4 (English), source in `marketing/eggs-video/`.
 
 ## Known gaps
@@ -39,6 +39,7 @@ How every part of CleanLobby works: what players see, the rules behind it, and w
 
 ## Changelog
 
+- **2026-10-07:** Back to the basic look: the "We don't want eggs" home page is gone. Dark green palette and Inter titles again (no Anton, no Premier-colour stripe under the header; Premier tier colours stay on rating badges). Home: "Tired of cheaters? Find a trusted five.", six feature cards, the five steps, beta countries, tournaments, Premium, final call to action (English and French). New link-preview image and icons, guide screenshots regenerated (EN + FR), SEO title/description without the egg slogan.
 - **2026-10-05:** Private matchmaking codes stored in uppercase (real format `AYVM2-Q7SN-SXKET-24GN`); example code in the screenshots uses that format; the tester guide no longer asks what the code looks like.
 - **2026-10-05:** French tester guide at `/fr/test` (not indexed, shared with live-test players). French screenshots for the French guide (`public/img/guide/fr`). Country names translated on the French site. Fix: test players kept their Premier ratings (source `test`, skipped by the Leetify refresh), so the guide screenshots show ratings again.
 - **2026-10-05:** French version of the whole site under `/fr` (including sign-in, welcome, Terms and Privacy), 🇺🇸/🇫🇷 switch in every header, `cl_lang` cookie to come back to the chosen language after Steam sign-in, French titles/descriptions/crawler text, hreflang and sitemap. "Closed beta" and "free during the beta" wording removed (CleanLobby stays free; Premium will be an optional extra). Terms and Privacy corrected (votes instead of ratings, no regions, Trust Score weight 20%). Eggs videos re-rendered without "free beta".
